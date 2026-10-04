@@ -1,38 +1,24 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f2e9">
-  <title>ZipperCrew · The corner café</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" type="module"></script>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#d5ded6"><title>ZipperCrew</title>
+  <link rel="stylesheet" href="/style.css"><script src="/app.js" type="module"></script>
 </head>
 <body>
   <header class="app-header">
-    <a class="brand" href="/" aria-label="ZipperCrew home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M9 11h12l-10 10h12M13 8v5m6 6v5" fill="none" stroke="#f5f2e9" stroke-width="2.4" stroke-linecap="round"/></svg>ZipperCrew</a>
-    <span class="header-divider"></span>
-    <button id="process-control" class="process-control">Pair Programming <span class="tiny-arrow">⌄</span></button>
-    <nav aria-label="Room controls">
-      <span id="connection" class="connection">Local workspace</span>
-      <button id="rooms-control" class="text-button">Rooms</button>
-      <button id="settings-control" class="text-button">Settings</button>
-      <button id="new-room" class="outline-button">＋ New room</button>
-    </nav>
+    <a class="brand" href="/" aria-label="ZipperCrew home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M9 11h12l-10 10h12M13 8v5m6 6v5" fill="none" stroke="#fff8e8" stroke-width="2.4" stroke-linecap="round"/></svg>ZipperCrew</a>
+    <button id="process-control" class="process-control">Pair Programming <span aria-hidden="true">⌄</span></button>
+    <button id="workspace-control" class="workspace-control"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h6l2 2h8v10H2Z"/></svg><span id="workspace-label">Choose repository</span></button>
+    <nav aria-label="Room controls"><span id="connection" class="connection">Local workspace</span><button id="rooms-control" class="text-button">Rooms</button><button id="settings-control" class="text-button">Settings</button><button id="new-room" class="outline-button">＋ New room</button></nav>
   </header>
   <main>
-    <div id="demo-banner" class="banner" hidden>Demo crew · Scripted agents, real process. Workspace files stay untouched.</div>
-    <div id="error" class="error" role="alert" hidden></div>
-    <div class="room-toolbar">
-      <div class="room-name"><span class="small-caps">ENVIRONMENT 01</span><h1>The corner café<span class="room-name-dot">.</span></h1></div>
-      <button id="workspace-control" class="workspace-control"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h6l2 2h8v10H2Z"/></svg><span id="workspace-label">Choose a workspace</span><span>↗</span></button>
-      <span id="room-status" class="status-pill" role="status">Setting up</span>
-    </div>
+    <div class="notices"><div id="demo-banner" class="banner" hidden>Demo · scripted agents, real process</div><div id="error" class="error" role="alert" hidden></div></div>
     <div id="room-layout" class="room-layout">
       <section class="room-stage" aria-label="Crew room">
+        <div class="room-toolbar"><span id="room-status" class="status-pill" role="status">Setting up</span><span class="environment-name">Corner Café</span></div>
         <div id="scene" class="scene"></div>
-        <div class="scene-caption"><span id="scene-hint">Two open seats. One shared task. Click a station to build your crew.</span><span class="local-mark"><i></i> ON YOUR MACHINE</span></div>
-        <div id="process-strip" class="process-strip" aria-label="Communication process"></div>
+        <div class="scene-caption"><span id="scene-hint">Select a station to choose an agent.</span></div>
       </section>
       <aside id="inspector" class="inspector" aria-label="Room inspector" hidden>
         <header class="inspector-header"><div><p id="inspector-eyebrow" class="small-caps">AT THE TABLE</p><h2 id="inspector-title">Implementer</h2></div><button id="close-inspector" class="icon-button" aria-label="Close inspector">×</button></header>
@@ -77,18 +63,20 @@
             <div id="cli-checks"></div>
           </section>
           <section id="history-panel" hidden><p class="hint">Return to a live conversation or revisit its work.</p><div id="history"></div></section>
-          <section id="process-panel" hidden><span class="permission">Selected process</span><h3>Pair Programming</h3><p>Human shares the task with both roles. Implementer works in the repository and passes a proposal to Reviewer. Reviewer inspects the files and returns APPROVE or REVISE with findings.</p><p>Your involvement mode determines who decides whether to ship or request another round. The full review goes back to the same Implementer conversation.</p><p class="hint">Pair Programming is the available process in this version. Executed by ZipperGen.</p></section>
+          <section id="process-panel" hidden><div id="process-strip" class="process-strip" aria-label="Communication process"></div><span class="permission">Selected process</span><h3>Pair Programming</h3><p>Human shares the task with both roles. Implementer works in the repository and passes a proposal to Reviewer. Reviewer inspects the files and returns APPROVE or REVISE with findings.</p><p>Your involvement mode determines who decides whether to ship or request another round. The full review goes back to the same Implementer conversation.</p><p class="hint">Pair Programming is the available process in this version. Executed by ZipperGen.</p></section>
+          <section id="outcome-panel" class="outcome-panel" hidden><h2 id="outcome-title"></h2><pre id="outcome"></pre></section>
+          <section id="activity-panel" hidden><p id="review-verdict"></p><div id="activity"></div></section>
         </div>
         <footer id="inspector-footer" hidden><a id="trace-link" download="zippercrew-trace.jsonl">↓ Download full trace</a><span class="hint">Every protocol event and completed turn.</span></footer>
       </aside>
     </div>
-    <section id="outcome-panel" class="outcome-panel" hidden><div><p class="small-caps">THE FINAL WORD</p><h2 id="outcome-title"></h2></div><pre id="outcome"></pre></section>
-    <section class="task-dock" aria-label="Room task and execution">
-      <button id="task-control" class="task-control"><span class="task-symbol" aria-hidden="true">↗</span><span><span class="small-caps">SHARED BRIEF</span><span id="task-preview">What are we working on?</span></span><span class="edit-label">Edit brief</span></button>
-      <div class="run-controls"><span id="readiness" class="readiness">Choose two agents, a workspace, and a task.</span><span id="round-label" hidden></span><button id="start" class="primary" disabled>Start working <span>→</span></button><button id="human-return" class="primary" hidden>Your decision →</button><button id="stop-room" class="danger" hidden>Stop room</button></div>
-    </section>
-    <div class="room-footer"><span id="handoff-label">Pair Programming · three participants, one conversation at a time.</span><button id="activity-control" class="text-button">View handoffs ↗</button></div>
-    <section id="activity-panel" hidden><h2>Across the table</h2><p id="review-verdict"></p><div id="activity"></div></section>
   </main>
+  <footer class="control-dock">
+    <section class="task-dock" aria-label="Room task and execution">
+      <button id="task-control" class="task-control"><span class="task-symbol" aria-hidden="true">▤</span><span><span class="small-caps">Shared brief</span><span id="task-preview">What are we working on?</span></span><span class="edit-label">Edit ↗</span></button>
+      <div class="run-controls"><span id="readiness" class="readiness">Choose your crew and task</span><span id="round-label" hidden></span><button id="start" class="primary" disabled>Start working →</button><button id="human-return" class="primary" hidden>Your decision →</button><button id="result-control" class="secondary" hidden>Result ↗</button><button id="stop-room" class="danger" hidden>Stop room</button></div>
+    </section>
+    <div class="room-footer"><span id="handoff-label">Human → Implementer → Reviewer → Human</span><button id="activity-control" class="text-button">Handoffs ↗</button></div>
+  </footer>
 </body>
 </html>

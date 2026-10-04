@@ -1,7 +1,7 @@
 # ZipperCrew
 
 Assemble two CLI coding agents, give them a task, and watch their communication
-process in a small café room. The Implementer edits your repository; an
+process in a small 2.5D café workspace. The Implementer edits your repository; an
 independent, read-only Reviewer examines the actual files. You decide when to
 ship, ask for another round with optional guidance, or let review drive the loop.
 
@@ -26,9 +26,11 @@ Open http://127.0.0.1:8765. You are already in the room:
 2. Click the shared board to enter your repository path and task.
 3. Click **Human** to choose your involvement and maximum rounds.
 4. Press **Start working**. The same room becomes live; select any participant
-   to inspect their conversation. Human decisions appear beside the room.
+   to inspect their conversation. Human decisions appear beside the room. Waiting agents step away with coffee;
+   proposals travel between workstations as the process advances.
 
 **Settings** contains profile management; **Rooms** reopens previous executions.
+**Result** reopens the final outcome. Escape closes an inspector.
 Profiles are saved by default
 in `~/.config/zippercrew/zippergen.toml`, outside your source repositories. If
 `XDG_CONFIG_HOME` is set, they live in `$XDG_CONFIG_HOME/zippercrew/zippergen.toml`.

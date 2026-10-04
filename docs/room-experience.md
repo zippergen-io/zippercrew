@@ -1,51 +1,89 @@
-# The room is the application
+# A process-driven world
 
-The first frame is a café: two open workstations facing a shared brief, with the
-Human at a round table in front. A window, plants, espresso counter, wood desks,
-and a woven rug give the room a consistent, quiet visual identity. All graphics
-are inline SVG and CSS; there are no downloaded assets or animation libraries.
+ZipperCrew opens directly into a cutaway café. The viewport looks slightly down
+onto a wood floor, two walls, a window, a coffee counter, two workstations and a
+smaller round Human table. Application chrome is limited to a compact top bar
+and task/control dock. Inspectors float beside the scene; results, history,
+settings and handoffs use that same inspector instead of replacing the room.
+There is no frontend framework, canvas engine, WebGL, asset download or build step.
 
-Implementer uses terracotta (`#b86d50`), Reviewer sage (`#537d6c`), and Human
-violet (`#82729d`). Names, access labels, and written states supplement color.
-The same identities appear on clothing, role labels, process steps, message
-paths, and transcript entries. Empty agent stations show an invitation to bind
-a profile; binding reveals the participant without changing the scene.
+## Scene boundary
 
-Clicking a participant opens a side inspector. Before starting it configures
-profiles, role instructions, or Human involvement. During execution it shows
-state, round, saved assistant settings, workspace, and completed turns. The
-shared board opens a normal path input and substantial task textarea. The
-workspace toolbar and task dock offer equivalent, accessible controls. Settings
-and room history are secondary inspectors. On narrow screens inspectors sit
-below the scene. SVG controls support Enter/Space and visible keyboard focus.
+* `world.js` owns the café assets and a common projection from floor coordinates
+  `(x, y)` and height `z` into SVG. Furniture has top, front and side faces;
+  floor lines, window light and contact shadows share the same geometry.
+* `scene.js` owns a small entity registry, participant assets, visual state
+  mapping and message effects. Entities have an ID, kind, position, SVG node
+  and optional selection target. Participant entities additionally retain role,
+  semantic state, pose and profile. Chairs, desks and people are separate nodes.
+* `PROCESS` supplies the Pair Programming roles, station/seat/rest positions,
+  label anchors, role colors and communication links. Depth sorting uses floor
+  position. Another layout can supply different positions without changing
+  execution logic. This is not a generic workflow editor or simulation engine.
+* `app.js` retains the existing draft, API/SSE consumption and inspector logic.
+  Before execution a binding makes a seat configured. After execution starts,
+  server snapshots exclusively determine semantic participant state. The SVG
+  and participant nodes stay mounted across rounds and outcomes.
 
-Start working uses the existing room API. The same SVG nodes remain mounted
-through both rounds and terminal outcomes. A fresh Human request opens the
-Human inspector automatically; inspecting another agent never loses it. The
-Your decision button returns to that pending request. Another round and optional
-guidance remain separate upstream requests. Full trace downloads remain in
-the inspector footer.
+Implementer uses terracotta, Reviewer teal and Human muted plum. Those identities
+carry through clothing, desk mats, selection indicators, message documents and
+inspectors. Names and written states remain available alongside visual cues.
 
-| State | Authoritative source | Visual response |
+## State and animation contract
+
+| State | Authoritative source | Position and pose |
 | --- | --- | --- |
-| Setting up / ready | Local draft: bound profiles, workspace, task, round limit | Empty seats become occupied; Start becomes available |
-| Working | Runtime assistant `act_start` for Implementer | Typing, screen activity, work label |
-| Reviewing | Runtime assistant `act_start` for Reviewer | Reading movement, annotation pencil, review label |
-| Waiting | Completed action / runtime lifecycle | Participant leans back with coffee |
-| Needs human | Pending upstream Human request | Human sits forward; a gentle YOUR TURN indicator and decision inspector appear |
-| Completed | Upstream process returned | Relaxed participants, completed labels, actual final outcome |
-| Failed / stopped | Runtime failure / service stop event | Muted participant, explicit label and error/outcome |
-| Message | Numbered runtime `send` event | Sender-colored route and traveling envelope between role positions |
+| Unconfigured | No saved profile bound in the local draft | Empty chair, inactive screen, choose-agent marker |
+| Ready | Binding selected; room has not started | Participant seated at the station |
+| Working | ZipperGen assistant `act_start` for Implementer | Focused posture, typing hands and active screen |
+| Reviewing | ZipperGen assistant `act_start` for Reviewer | Reading position beside the screen, raised document and annotation pencil |
+| Waiting | Runtime lifecycle / completed action | Agent steps beside its desk with coffee; Human observes at the table |
+| Needs human | Pending upstream Human request | Human sits forward, attention marker appears, decision inspector opens |
+| Completed | Upstream process returned | Relaxed coffee pose, completed label and small check mark |
+| Failed / stopped | Runtime exception / service stop event | Subdued participant and explicit state; result inspector explains the outcome |
 
-Animation durations only control visual interpolation; they never determine
-participant state. Message IDs prevent duplicate animations. Opening history or
-reloading a pending room renders existing messages without replaying transfers.
-Reduced-motion preference disables movement and places a static envelope at its
-destination. The full trace remains authoritative even when rapid messages are
-coalesced into the latest snapshot and only the latest transfer is animated.
+CSS interpolates a participant's position when semantic state changes. A motion
+duration never causes a state transition. Depth ordering follows the entity's
+new position. The Reviewer has a separate reading pose rather than a recolored
+typing animation. There are no output-silence heuristics or independent simulation
+clock. Reduced motion disables interpolation and loops, preserving the poses.
 
-`PROCESS` in `scene.js` describes the current process's roles, positions, access
-labels, communication links, and compact sequence. The illustration generates
-stations from those roles; `paintScene` consumes bindings and runtime states.
-This is a small presentation boundary for future layouts, not a workflow engine
-or a generic editor. All communication decisions remain in ZipperGen.
+Each newly observed, numbered runtime `send` produces a document traveling along
+an elevated route between the actual sender and recipient stations. Multiple
+near-simultaneous sends coexist so that a proposal to Reviewer cannot be erased
+by the following send to Human. Finished old tokens are removed; only the latest
+arrival remains. Effects are bounded to six concurrent tokens. IDs deduplicate
+repeated snapshots. History and page reloads consume existing IDs without
+replaying their messages. Reduced motion places a static document at its
+recipient. The full trace remains authoritative if SSE coalescing omits events
+from the bounded snapshot activity window. Selecting the process also reveals
+its routes on the floor.
+
+## Interaction
+
+Desks, characters and their anchored labels select the same participant.
+The shared wall board opens normal controls for a full repository path and a
+substantial task. The top project chip shows only the repository's short name;
+its title and the inspector retain the complete path. Profile management and
+model/effort pins remain in Settings and participant configuration.
+
+A new pending Human request opens the Human inspector without interrupting the
+scene. It renders the upstream task specification: Ship it, Another round and
+Abandon, followed by a separate optional-guidance request when the process asks
+for one. Inspecting the Reviewer does not lose the pending interaction; Your
+decision returns to it. Result reopens the final outcome after closing its panel.
+Every running or historical inspector includes the full trace download.
+
+SVG controls support keyboard focus, Enter and Space; Escape closes the
+inspector. Labels, poses and state text supplement color and animation. At
+narrow widths the inspector moves below the room, with normal document scrolling
+and no fixed control overlay covering its contents.
+
+## Visual verification
+
+Browser tests capture setup, ready, implementing, reviewing, Human attention,
+completed and narrow-screen frames when `ZIPPERCREW_SCREENSHOTS` is set. Inspect
+those frames whenever geometry changes: character feet should meet the floor,
+reading documents should clear desk occlusion, and labels must not cover people.
+The automated flow also checks actual pose/position changes, message identities,
+scene continuity across rounds, keyboard profile configuration and stopping.

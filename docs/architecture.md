@@ -43,8 +43,10 @@ per-Room additions. Profiles can change without altering an existing execution.
 The frontend creates one SVG scene before loading configuration. Setup edits a
 local draft; starting replaces that draft's presentation with server snapshots
 without replacing the scene. Participant and shared-brief inspectors serve both
-configuration and live inspection. `scene.js` describes roles, spatial positions,
-colors, and message links separately from the café illustration. See
+configuration and live inspection. `scene.js` maintains separate participant and
+object entities, projects semantic states into poses/positions, and depth-sorts
+their SVG nodes. `world.js` supplies the shared 2.5D projection and café assets.
+The only backend change for this scene is serving the additional static module. See
 [room experience](room-experience.md) for the visual contract.
 
 ## Events and human endpoint

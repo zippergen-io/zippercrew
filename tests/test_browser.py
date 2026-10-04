@@ -20,9 +20,9 @@ def screenshot(page, name):
 
 def configure(page, project, mode="brief"):
     for role in ("Implementer", "Reviewer"):
-        page.locator(f"#actor-{role}").click()
+        page.locator(f"#desk-{role}").click()
         page.get_by_label("Assistant profile", exact=True).select_option("Scripted demo")
-    page.locator("#actor-Human").click()
+    page.locator("#actor-Human .head").click()
     page.get_by_label("Your involvement").select_option(mode)
     page.get_by_label("Maximum rounds").fill("3")
     page.get_by_role("button", name="Close inspector").click()
@@ -52,12 +52,19 @@ def test_continuous_room_through_two_rounds_and_history(service):
         screenshot(page, "first-frame")
         configure(page, project)
         screenshot(page, "ready")
+        reviewer_seat = page.locator("#actor-Reviewer").get_attribute("data-x")
         scene = page.locator("#room-art").element_handle()
         page.get_by_role("button", name="Start working").click()
         expect(page.locator("#actor-Implementer")).to_have_class(re.compile("working"))
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("waiting"))
+        expect(page.locator("#actor-Implementer")).to_have_attribute("data-pose", "typing")
+        expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "coffee")
+        assert page.locator("#actor-Reviewer").get_attribute("data-x") != reviewer_seat
+        screenshot(page, "implementing")
         assert scene.evaluate("node => node === document.getElementById('room-art')")
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("reviewing"))
+        expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "reading")
+        expect(page.locator("#actor-Reviewer .reading-arms")).to_be_visible()
         screenshot(page, "reviewing")
         expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible(
             timeout=15000
@@ -74,7 +81,7 @@ def test_continuous_room_through_two_rounds_and_history(service):
         page.get_by_role("button", name="Continue the conversation").click()
         expect(page.locator("#round-label")).to_have_text("ROUND 2 / 3", timeout=15000)
         expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=15000)
-        page.locator("#actor-Implementer").click()
+        page.locator("#actor-Implementer .head").click()
         expect(page.locator("#transcript")).to_contain_text("Check zero as well.")
         expect(page.locator("#role-access")).to_have_text("Write access")
         screenshot(page, "inspector")
@@ -91,7 +98,7 @@ def test_continuous_room_through_two_rounds_and_history(service):
         expect(page.locator("#room-status")).to_have_text("Completed")
         expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)")
         page.set_viewport_size({"width": 390, "height": 844})
-        page.locator("#actor-Reviewer").click()
+        page.locator("#label-Reviewer").click()
         expect(page.locator("#role-access")).to_have_text("Read-only access")
         screenshot(page, "mobile")
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
@@ -120,7 +127,7 @@ def test_profile_creation_with_model_pins_from_empty_station(service):
         expect(page.locator("#profile-summary")).to_contain_text(
             "model-for-implementation · high effort"
         )
-        page.locator("#actor-Reviewer").click()
+        page.locator("#label-Reviewer").click()
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("empty"))
         page.get_by_label("Assistant profile", exact=True).select_option("precise-implementer")
         expect(page.locator("#role-access")).to_have_text("Read-only access")
@@ -141,11 +148,44 @@ def test_autonomous_review_same_room_and_motion_preference(service, motion):
         page = browser.new_page(viewport={"width": 1180, "height": 820}, reduced_motion=motion)
         page.goto(base)
         configure(page, project, "auto")
+        page.evaluate("""() => {
+            window.transfers = [];
+            new MutationObserver(records => records.forEach(record =>
+                record.addedNodes.forEach(node => {
+                    if (node.dataset?.messageId) window.transfers.push({ ...node.dataset });
+                })
+            )).observe(document.querySelector('#message-paths'), { childList: true });
+        }""")
         scene = page.locator("#room-art").element_handle()
         page.get_by_role("button", name="Start working").click()
         expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)", timeout=15000)
         expect(page.locator("#human-panel")).to_be_hidden()
+        transfers = page.evaluate("window.transfers")
+        assert any(t["from"] == "Implementer" and t["to"] == "Reviewer" for t in transfers)
+        assert len({t["messageId"] for t in transfers}) == len(transfers)
         assert scene.evaluate("node => node === document.getElementById('room-art')")
-        assert page.locator("animateMotion").count() == (0 if motion == "reduce" else 1)
+        expect(page.locator("animateMotion")).to_have_count(0 if motion == "reduce" else 1)
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        browser.close()
+
+
+def test_stop_keeps_scene_and_result_accessible(service):
+    _, base, project = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page(viewport={"width": 1366, "height": 768}, reduced_motion="reduce")
+        page.goto(base)
+        configure(page, project)
+        scene = page.locator("#room-art").element_handle()
+        page.get_by_role("button", name="Start working").click()
+        expect(page.locator("#actor-Implementer")).to_have_attribute("data-state", "working")
+        page.get_by_role("button", name="Stop room", exact=True).click()
+        expect(page.locator("#room-status")).to_have_text("Stopped")
+        expect(page.locator("#actor-Implementer")).to_have_attribute("data-pose", "stopped")
+        assert scene.evaluate("node => node === document.getElementById('room-art')")
+        page.keyboard.press("Escape")
+        expect(page.locator("#inspector")).to_be_hidden()
+        page.get_by_role("button", name="Result", exact=False).click()
+        expect(page.locator("#outcome-title")).to_have_text("Stopped")
+        assert page.evaluate("document.documentElement.scrollHeight <= window.innerHeight")
         browser.close()

@@ -3,7 +3,7 @@ import { PROCESS, createScene, paintScene, showMessage, resetMessages } from "/s
 
 const $ = (id) => document.getElementById(id);
 const terminal = new Set(["completed", "failed", "stopped"]);
-const panelIds = ["role-panel", "human-settings", "brief-panel", "settings-panel", "history-panel", "process-panel"];
+const panelIds = ["role-panel", "human-settings", "brief-panel", "settings-panel", "history-panel", "process-panel", "outcome-panel", "activity-panel"];
 const modes = {
   full: "See the full proposal and review. You decide whether to ship, continue, or abandon.",
   brief: "Get a concise briefing each round, then choose what happens next.",
@@ -56,7 +56,7 @@ function renderRoom() {
   paintScene({ states, bindings: config.agents, task: config.task, workspace: config.workspace, selected });
   $("room-status").textContent = status;
   $("room-status").dataset.status = status;
-  $("workspace-label").textContent = config.workspace || "Choose a workspace";
+  $("workspace-label").textContent = config.workspace.split("/").filter(Boolean).at(-1) || "Choose repository";
   $("workspace-control").title = config.workspace;
   $("task-preview").textContent = config.task || "What are we working on?";
   $("task-control").title = config.task;
@@ -65,13 +65,14 @@ function renderRoom() {
   $("start").disabled = starting || !ready();
   $("start").textContent = starting ? "Starting…" : "Start working →";
   $("readiness").hidden = !!current;
-  $("readiness").textContent = ready() ? "Your crew is ready." : "Choose two agents, a workspace, and a task.";
+  $("readiness").textContent = ready() ? "Your crew is ready." : "Choose your crew and task";
   $("round-label").hidden = !current;
   $("round-label").textContent = current ? `ROUND ${current.round} / ${config.max_rounds}` : "";
   $("stop-room").hidden = !current || terminal.has(current.status);
+  $("result-control").hidden = !current || !terminal.has(current.status);
   $("human-return").hidden = !current?.pending;
   $("human-preferences").hidden = !!current?.pending;
-  $("scene-hint").textContent = current ? (current.pending ? "Your crew is waiting for you. Select Human to respond." : terminal.has(current.status) ? "The work stays here. Select anyone to revisit the conversation." : "Click a participant to follow their conversation.") : ready() ? "Everyone is at the table. Start when you’re ready." : "Two open seats. One shared task. Click a station to build your crew.";
+  $("scene-hint").textContent = current ? (current.pending ? "Your turn · select Human to respond." : terminal.has(current.status) ? "Select a participant to inspect the conversation." : "Click a participant to follow their conversation.") : ready() ? "Crew ready · start when you are." : "Select a station to choose an agent.";
   for (const button of $("process-strip").querySelectorAll("button")) {
     button.classList.toggle("active", ["working", "reviewing", "needs human"].includes(states[button.dataset.role]));
   }
@@ -123,9 +124,10 @@ function showInspector(which) {
   transcriptKey = null;
   panelIds.forEach(id => { $(id).hidden = true; });
   const role = PROCESS.roles.find(role => role.name === which);
-  const names = { brief: "The shared brief", settings: "Assistant profiles", history: "Recent rooms", process: PROCESS.name };
+  const names = { brief: "The shared brief", settings: "Assistant profiles", history: "Recent rooms", process: PROCESS.name, outcome: "Room result", activity: "Handoffs" };
   $("inspector-title").textContent = role?.name || names[which];
-  $("inspector-eyebrow").textContent = role ? "AT THE TABLE" : "IN THIS ROOM";
+  $("inspector-eyebrow").textContent = role ? "Participant" : "Room";
+  $("inspector").dataset.role = role?.name || "";
   $("inspector").hidden = false;
   $("room-layout").classList.add("with-inspector");
   if (role?.kind === "agent") { $("role-panel").hidden = false; renderRole(); }
@@ -145,7 +147,7 @@ function showInspector(which) {
     $("workspace").readOnly = !!current;
     $("task").readOnly = !!current;
   } else {
-    $({ settings: "settings-panel", history: "history-panel", process: "process-panel" }[which]).hidden = false;
+    $({ settings: "settings-panel", history: "history-panel", process: "process-panel", outcome: "outcome-panel", activity: "activity-panel" }[which]).hidden = false;
     if (which === "history") loadHistory().catch(showError);
   }
   renderRoom();
@@ -153,8 +155,12 @@ function showInspector(which) {
 function closeInspector() {
   $("inspector").hidden = true;
   $("room-layout").classList.remove("with-inspector");
+  const previous = selected;
   selected = null;
   renderRoom();
+  const control = { brief: "project-board", settings: "settings-control", history: "rooms-control",
+    process: "process-control", outcome: "result-control", activity: "activity-control" }[previous];
+  if (previous) document.getElementById(control || `label-${previous}`)?.focus({ preventScroll: true });
 }
 function renderRole() {
   const role = PROCESS.roles.find(role => role.name === selected);
@@ -220,7 +226,7 @@ function humanPanel() {
   if (!request) return;
   const { kind, rendered } = request.spec;
   const brief = element("div"), actions = element("div", undefined, "human-actions");
-  brief.append(element("p", "HUMAN / YOUR TURN AT THE TABLE", "small-caps"), element("h2", kind === "select" ? "How does this round look?" : "Anything to add?"));
+  brief.append(element("p", "Your decision", "small-caps"), element("h2", kind === "select" ? "How does this round look?" : "Anything to add?"));
   if (rendered.context) brief.append(element("pre", presentation(rendered.context)));
   if (kind === "select") {
     brief.append(element("p", `Round ${current.round} of ${current.config.max_rounds}. ${current.round >= current.config.max_rounds ? "The round limit is reached; Another round stops unresolved." : "Another round sends the full review back, then asks for optional guidance."} Ship it ends the process. Abandon leaves edits in the working tree.`, "hint"));
@@ -244,6 +250,7 @@ function humanPanel() {
   panel.append(brief, actions);
 }
 function render(state, { replay = false } = {}) {
+  const newlyEnded = terminal.has(state.status) && (current?.id !== state.id || current?.status !== state.status);
   const newHumanRequest = state.pending && state.pending.id !== current?.pending?.id;
   current = state;
   renderRoom(); humanPanel();
@@ -251,8 +258,8 @@ function render(state, { replay = false } = {}) {
   if (PROCESS.roles.some(role => role.name === selected && role.kind === "agent")) renderRole();
   if (selected === "Human") renderTranscript("Human", $("human-transcript"));
   const ended = terminal.has(state.status);
-  $("outcome-panel").hidden = !ended;
-  $("outcome-title").textContent = state.status === "completed" ? "The conversation is complete." : state.status === "failed" ? "The crew hit a snag." : "The room has stopped.";
+  if (newlyEnded) showInspector("outcome");
+  $("outcome-title").textContent = state.status === "completed" ? "Completed" : state.status === "failed" ? "Execution failed" : "Stopped";
   $("outcome").textContent = presentation(state.outcome || state.error || "");
   $("review-verdict").textContent = state.review ? `${state.review.verdict} · ${state.review.findings} finding(s). ${state.review.headline}` : "Every handoff below is a real process message.";
   $("activity").replaceChildren();
@@ -262,8 +269,8 @@ function render(state, { replay = false } = {}) {
     row.append(element("strong", `${item.from} → ${item.to}`), element("span", item.fields.join(", "))); $("activity").append(row);
   }
   const message = messages.at(-1);
+  for (const item of messages) showMessage(item, { replay });
   if (message) {
-    showMessage(message, { replay });
     $("handoff-label").textContent = `${message.from} → ${message.to} · ${message.fields.join(", ")}`;
   }
   if (ended) { stream?.close(); $("connection").textContent = "History saved locally"; }
@@ -273,7 +280,7 @@ function connectRoom(state, { replay = false } = {}) {
   window.history.replaceState(null, "", `/#room=${state.id}`);
   render(state, { replay });
   if (selected && !["settings", "history", "process"].includes(selected)) showInspector(selected);
-  if (terminal.has(state.status)) return;
+  if (terminal.has(state.status)) { showInspector("outcome"); return; }
   const id = state.id, source = new EventSource(`/api/rooms/${id}/events`);
   stream = source;
   source.onopen = () => { if (stream === source) $("connection").textContent = "Live · connected"; };
@@ -310,7 +317,8 @@ $("process-control").onclick = () => showInspector("process");
 $("rooms-control").onclick = () => showInspector("history");
 $("settings-control").onclick = () => showInspector("settings");
 $("human-return").onclick = () => showInspector("Human");
-$("activity-control").onclick = () => { $("activity-panel").hidden = !$("activity-panel").hidden; };
+$("result-control").onclick = () => showInspector("outcome");
+$("activity-control").onclick = () => showInspector("activity");
 $("project").oninput = profileLocation;
 $("load-profiles").onclick = () => loadProfiles().catch(showError);
 $("create-profile").onclick = () => { profileReturnRole = selected; showInspector("settings"); $("add-profile").open = true; $("profile-name").focus(); };
@@ -340,9 +348,13 @@ $("new-room").onclick = () => {
   resetMessages(); closeInspector(); humanPanel(); $("outcome-panel").hidden = true; $("activity-panel").hidden = true;
   $("activity").replaceChildren(); $("review-verdict").textContent = ""; $("error").hidden = true;
   $("connection").textContent = "Local workspace";
-  $("handoff-label").textContent = "Pair Programming · three participants, one conversation at a time.";
+  $("handoff-label").textContent = "Human → Implementer → Reviewer → Human";
   window.history.replaceState(null, "", "/");
 };
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && selected) closeInspector();
+});
 
 async function init() {
   createScene($("scene"), showInspector);

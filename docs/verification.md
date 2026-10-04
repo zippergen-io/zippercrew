@@ -3,7 +3,7 @@
 Verified locally on 2026-10-04 with Python 3.12 and the editable sibling ZipperGen
 checkout, including its model and reasoning-effort profile support.
 
-* 32 tests pass, including four Chromium browser cases. Coverage includes
+* 33 tests pass, including five Chromium browser cases. Coverage includes
   full/brief/automatic modes, ship/abandon, round limits, invalid review headers,
   optional guidance with the complete review, SSE reconnect, stale/concurrent
   responses, workspace exclusion, CLI failure, service-pipe closure, and history.
@@ -18,7 +18,10 @@ checkout, including its model and reasoning-effort profile support.
   survives execution, observe working/reviewing/human states, request another
   round with guidance, inspect transcripts, reload a pending decision, ship, and
   reopen history. Separate cases exercise upstream profile creation with pins
-  and autonomous completion with normal and reduced motion.
+  autonomous completion with normal and reduced motion, and stopping at a laptop
+  viewport. Scene assertions verify separate typing/reading/coffee poses,
+  waiting-position changes, deduplicated proposal transfers and continued access
+  to results. Setup, working, review and Human-attention screenshots were inspected.
 * Upstream `zg validate`, the communication view, full process view, and all three
   participant projections were inspected. The upstream shell warnings explain
   why this adapter disables Bash for a Claude Reviewer.
