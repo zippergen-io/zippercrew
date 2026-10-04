@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import os
 import signal
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -21,6 +22,11 @@ from zippercrew.rooms import Conflict, Rooms, directory, text_field, validate_co
 from zippercrew.state import TERMINAL
 
 STATIC = Path(__file__).parent / "static"
+
+
+def default_profile_directory() -> Path:
+    config_root = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return (config_root / "zippercrew").expanduser().resolve()
 
 
 class Application(ThreadingHTTPServer):
@@ -229,12 +235,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="ZipperCrew — make the process visible")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--data-dir", type=Path, default=Path(".zippercrew"))
-    parser.add_argument("--project", type=Path, default=Path.cwd())
+    parser.add_argument(
+        "--project",
+        type=Path,
+        help="Existing ZipperGen profile directory (default: ~/.config/zippercrew; "
+        "respects XDG_CONFIG_HOME)",
+    )
     parser.add_argument("--demo", action="store_true", help="Scripted agents; no files changed")
     args = parser.parse_args()
     try:
         source_root()
-        app = Application(args.port, args.data_dir.resolve(), args.project, args.demo)
+        if args.project is None:
+            project = default_profile_directory()
+            project.mkdir(parents=True, exist_ok=True, mode=0o700)
+        else:
+            project = directory(str(args.project))
+        app = Application(args.port, args.data_dir.resolve(), project, args.demo)
     except (ValueError, OSError) as exc:
         parser.exit(1, f"zippercrew: {exc}\n")
 

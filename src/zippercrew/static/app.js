@@ -42,6 +42,7 @@ function profiles(data) {
 }
 
 async function loadProfiles() {
+  profileLocation();
   try {
     const data = await api(`/api/profiles?project=${encodeURIComponent($("project").value)}`);
     profiles(data);
@@ -249,6 +250,13 @@ $("profile-form").onsubmit = async (event) => {
   } catch (error) { showError(error); }
 };
 $("load-profiles").onclick = loadProfiles;
+function profileLocation() {
+  const directory = $("project").value.trim().replace(/\/+$/, "");
+  $("profile-location").textContent = directory
+    ? `New profiles are saved to ${directory}/zippergen.toml`
+    : "Choose a directory to load or save profiles.";
+}
+$("project").oninput = profileLocation;
 $("create-profile").onclick = () => {
   $("add-profile").open = true;
   $("add-profile").scrollIntoView({ block: "center" });

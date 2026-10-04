@@ -198,6 +198,10 @@ main {
   margin-left: auto;
 }
 
+#profile-location {
+  overflow-wrap: anywhere;
+}
+
 .step {
   font:10px ui-monospace,monospace;
   width:25px;

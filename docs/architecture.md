@@ -26,8 +26,13 @@ uses restricted shell (no Bash) because its plan permission mode alone is not
 an OS filesystem sandbox. Codex retains sandboxed shell for verification.
 
 Named profiles are read and saved through `zippergen.workspace.Workspace` in a
-selected configuration project's `zippergen.toml`. This project may be different
-from the repository being edited. No credentials are read or stored by the UI.
+selected profile directory's `zippergen.toml`. The default is
+`~/.config/zippercrew` (or `$XDG_CONFIG_HOME/zippercrew`), independent of the launch
+directory and working repository. This is a user-owned ZipperGen configuration
+project, using the same profile API and file format. An explicit `--project`
+or browser directory selection can reuse a repository's existing configuration.
+Existing project profiles are never moved automatically. No credentials are
+read or stored by the UI.
 Crew bindings are execution data, not a second assistant profile registry.
 
 ## Events and human endpoint

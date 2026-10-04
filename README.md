@@ -19,10 +19,14 @@ uv sync
 uv run zippercrew
 ```
 
-Open http://127.0.0.1:8765. Choose a configuration project, load its ZipperGen
-assistant profiles (or create named profiles in the page), select the repository
-to edit, bind each role, and start Pair Programming. Profiles are ordinary
-`zippergen.toml` configurations, also editable with `zg assistant configure`.
+Open http://127.0.0.1:8765. Create an assistant profile, select the repository to
+edit, bind each role, and start Pair Programming. Profiles are saved by default
+in `~/.config/zippercrew/zippergen.toml`, outside your source repositories. If
+`XDG_CONFIG_HOME` is set, they live in `$XDG_CONFIG_HOME/zippercrew/zippergen.toml`.
+They remain ordinary ZipperGen configurations, also editable with
+`zg assistant configure` from that directory. To reuse an existing project's
+profiles, choose its **Profile directory** in the page or pass `--project PATH`.
+The page shows the exact file where new profiles will be saved.
 The two roles can use the same profile and still have separate conversations.
 
 Human decides every round corresponds to `full`; Brief me every round to
