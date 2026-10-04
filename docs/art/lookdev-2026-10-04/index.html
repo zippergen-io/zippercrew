@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZipperCrew · Room look development</title>
+  <style>
+    :root { font: 15px/1.5 system-ui, sans-serif; color: #eeeef2; background: #16171c; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 28px; }
+    header { max-width: 1000px; margin-bottom: 24px; }
+    h1 { font-size: 25px; margin: 0 0 8px; }
+    p { color: #b6b7c1; margin: 8px 0; }
+    a { color: #c4c7ff; text-underline-offset: 3px; }
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    figure { margin: 0; min-width: 0; }
+    label { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    select { font: inherit; color: inherit; padding: 8px 12px; background: #252730; border: 1px solid #565a6a; border-radius: 5px; min-width: 240px; }
+    .image { display: grid; place-items: center; aspect-ratio: 16/10; background: #101116; }
+    img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    figcaption { margin: 12px 0 28px; color: #b6b7c1; min-height: 3em; }
+    footer { border-top: 1px solid #373941; padding-top: 18px; }
+    footer a { display: inline-block; margin: 0 22px 12px 0; }
+    :focus-visible { outline: 2px solid #cdcfff; outline-offset: 4px; }
+    @media(max-width: 800px) { body { padding: 18px; } .comparison { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ZipperCrew · Corner Café look development</h1>
+    <p>Three static art directions, one crew. Production assets and runtime remain unchanged.</p>
+    <p>Choose any two studies to compare. Click an image to inspect its original resolution.</p>
+  </header>
+  <main class="comparison">
+    <figure>
+      <label for="left">Left <select id="left" aria-label="Left comparison image"></select></label>
+      <a class="image" id="left-link"><img id="left-image" alt=""></a>
+      <figcaption id="left-caption"></figcaption>
+    </figure>
+    <figure>
+      <label for="right">Right <select id="right" aria-label="Right comparison image"></select></label>
+      <a class="image" id="right-link"><img id="right-image" alt=""></a>
+      <figcaption id="right-caption"></figcaption>
+    </figure>
+  </main>
+  <footer>
+    <a href="direction-a-modern-3d.png">A · Modern stylized 3D</a>
+    <a href="direction-b-graphic-cel.png">B · Graphic / cel-shaded</a>
+    <a href="direction-c-urban.png">C · Sleek urban café</a>
+    <a href="prompts.md">Generation prompts</a>
+    <p>Concept renders generated with the built-in image tool. These are visual studies, not implemented game scenes.</p>
+  </footer>
+  <script>
+    const studies = {
+      a: { name: 'A · Modern stylized 3D', file: 'direction-a-modern-3d.png', caption: 'Clean sculpted volumes, smooth materials, directional daylight and deep shadows. The strongest balance of contemporary game character and a warm everyday workspace.' },
+      b: { name: 'B · Graphic / cel-shaded', file: 'direction-b-graphic-cel.png', caption: 'Hard shadow bands, flatter surfaces, angular furniture and emphatic silhouettes. The most graphic and playful option; some faceting remains in the character forms.' },
+      c: { name: 'C · Sleek urban café', file: 'direction-c-urban.png', caption: 'Walnut, dark steel, glazing and focused amber light against a cooler city. The most cinematic option; dark clothing needs care at smaller gameplay sizes.' },
+      current: { name: 'Current production room', file: 'current-production-reference.png', caption: 'Reference screenshot from the existing Phaser room, including application chrome. Softer painterly shading, decorative detail and uniformly warm environmental tones.' },
+    };
+    for (const [side, initial] of [['left', 'a'], ['right', 'current']]) {
+      const select = document.getElementById(side);
+      for (const [id, study] of Object.entries(studies)) select.add(new Option(study.name, id));
+      const render = () => {
+        const study = studies[select.value];
+        document.getElementById(`${side}-image`).src = study.file;
+        document.getElementById(`${side}-image`).alt = study.name;
+        document.getElementById(`${side}-link`).href = study.file;
+        document.getElementById(`${side}-caption`).textContent = study.caption;
+      };
+      select.value = initial;
+      select.addEventListener('change', render);
+      render();
+    }
+  </script>
+</body>
+</html>
