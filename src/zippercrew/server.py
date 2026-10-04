@@ -108,10 +108,11 @@ class Handler(BaseHTTPRequestHandler):
         try:
             url = urlsplit(self.path)
             path = url.path
-            if path in {"/", "/app.js", "/style.css"}:
+            if path in {"/", "/app.js", "/scene.js", "/style.css"}:
                 name, mime = {
                     "/": ("index.html", "text/html; charset=utf-8"),
                     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+                    "/scene.js": ("scene.js", "text/javascript; charset=utf-8"),
                     "/style.css": ("style.css", "text/css; charset=utf-8"),
                 }[path]
                 self.reply(200, (STATIC / name).read_bytes(), mime)
@@ -199,7 +200,12 @@ class Handler(BaseHTTPRequestHandler):
                 workspace = Workspace(project)
                 if name in workspace.assistant_configurations():
                     raise Conflict("That profile already exists. Choose a new name.")
-                workspace.save_assistant_configuration(name, backend)
+                workspace.save_assistant_configuration(
+                    name,
+                    backend,
+                    model=text_field(data.get("model", ""), "Model") or None,
+                    reasoning_effort=text_field(data.get("reasoning_effort", ""), "Effort") or None,
+                )
                 self.reply(201, {"profiles": workspace.assistant_configurations()})
             elif path == "/api/rooms":
                 config = validate_config(data, demo=self.server.demo)

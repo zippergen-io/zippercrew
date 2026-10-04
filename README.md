@@ -19,17 +19,26 @@ uv sync
 uv run zippercrew
 ```
 
-Open http://127.0.0.1:8765. Create an assistant profile, select the repository to
-edit, bind each role, and start Pair Programming. Profiles are saved by default
+Open http://127.0.0.1:8765. You are already in the room:
+
+1. Click the **Implementer** and **Reviewer** stations to choose saved assistant
+   profiles, or **Create a profile**. Each seat has its own persistent conversation.
+2. Click the shared board to enter your repository path and task.
+3. Click **Human** to choose your involvement and maximum rounds.
+4. Press **Start working**. The same room becomes live; select any participant
+   to inspect their conversation. Human decisions appear beside the room.
+
+**Settings** contains profile management; **Rooms** reopens previous executions.
+Profiles are saved by default
 in `~/.config/zippercrew/zippergen.toml`, outside your source repositories. If
 `XDG_CONFIG_HOME` is set, they live in `$XDG_CONFIG_HOME/zippercrew/zippergen.toml`.
 They remain ordinary ZipperGen configurations, also editable with
 `zg assistant configure` from that directory. To reuse an existing project's
-profiles, choose its **Profile directory** in the page or pass `--project PATH`.
-The page shows the exact file where new profiles will be saved.
+profiles, choose its **Profile directory** in Settings or pass `--project PATH`.
+Settings shows the exact file where new profiles will be saved.
 The two roles can use the same profile and still have separate conversations.
 
-Human decides every round corresponds to `full`; Brief me every round to
+Decide every round corresponds to `full`; Brief me every round to
 `brief`; Autonomous review to `auto`. Ship it completes the process without
 committing or pushing. Another round sends the entire review back, then asks
 for optional guidance. Abandon and Stop leave existing edits in the workspace.
@@ -39,8 +48,10 @@ outputs. Download the full JSONL trace from the Room. The café animates only
 when ZipperGen reports actual work or a pending human interaction.
 
 CLI/model failures appear in the Room with their error. Compatibility checks
-verify safety flags, not authentication. The current ZipperGen profile API
-selects Codex or Claude; model/effort selection awaits upstream support.
+verify safety flags, not authentication. Profiles select Codex or Claude and
+optionally pin an exact model ID and reasoning effort. Create separate profiles
+to use different pins for each role. ZipperGen applies them on every turn,
+including resumed sessions; empty fields use the CLI defaults.
 Claude Reviewers have no Bash tool to preserve the read-only boundary. Codex
 Reviewers can run verification commands within the CLI's read-only sandbox.
 
@@ -75,6 +86,7 @@ The local service binds to `127.0.0.1` only. Do not expose it through a public
 proxy. No remote, account system, database, or cloud service is configured.
 
 See [architecture](docs/architecture.md) for the runtime boundary and upstream
-gaps, and [process specification](docs/specification.md) for the protocol.
+gaps, [room experience](docs/room-experience.md) for the scene/state mapping, and
+[process specification](docs/specification.md) for the protocol.
 The existing ZipperGen Telegram deployment path remains available in ZipperGen;
 this browser version does not mirror local tasks into Telegram yet.

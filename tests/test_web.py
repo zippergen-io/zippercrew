@@ -150,6 +150,31 @@ def test_profiles_use_upstream_configuration_and_validate_before_execution(servi
         assert request(base, "/api/rooms", {**config, **invalid})[0] == 400
 
 
+def test_profile_model_and_effort_are_snapshotted_into_each_role(service, config):
+    _, base, project = service
+    for role, backend, effort in [("Implementer", "codex", "high"), ("Reviewer", "claude", "low")]:
+        code, _ = request(
+            base,
+            "/api/profiles",
+            {
+                "project": str(project),
+                "name": role,
+                "backend": backend,
+                "model": f"{role}-model",
+                "reasoning_effort": effort,
+            },
+        )
+        assert code == 201
+        config["agents"][role] = {"profile": role, "model": "ignored-client-override"}
+    config["project"] = str(project)
+    resolved = validate_config(config)
+    assert resolved["agents"]["Implementer"]["model"] == "Implementer-model"
+    assert resolved["agents"]["Implementer"]["reasoning_effort"] == "high"
+    assert resolved["agents"]["Reviewer"]["model"] == "Reviewer-model"
+    assert resolved["agents"]["Reviewer"]["reasoning_effort"] == "low"
+    assert resolved["agents"]["Reviewer"]["access"] == "read-only"
+
+
 def test_local_origin_protection(service, config):
     _, base, _ = service
     assert request(base, "/api/bootstrap", Origin="https://hostile.example")[0] == 403

@@ -100,8 +100,13 @@ def test_native_cli_sessions_remain_separate_and_resume_with_permissions(
     backend,
     tmp_path: Path,
 ):
-    for binding in config["agents"].values():
-        binding.update(backend=backend, instructions="Pay attention to zero.")
+    for role, binding in config["agents"].items():
+        binding.update(
+            backend=backend,
+            instructions="Pay attention to zero.",
+            model=f"{role.lower()}-model",
+            reasoning_effort="high" if role == "Implementer" else "low",
+        )
     calls = []
     monkeypatch.setattr("zippergen.assistant_backends.shutil.which", lambda name: f"/tools/{name}")
 
@@ -150,6 +155,14 @@ def test_native_cli_sessions_remain_separate_and_resume_with_permissions(
     assert all("Pay attention to zero." in call[1]["input"] for call in calls)
     assert "Test zero too." in calls[2][1]["input"]
     assert "Missing the regression test." in calls[2][1]["input"]
+    for i, (command, _, _) in enumerate(calls):
+        role = "implementer" if i % 2 == 0 else "reviewer"
+        effort = "high" if i % 2 == 0 else "low"
+        assert command[command.index("--model") + 1] == f"{role}-model"
+        if backend == "codex":
+            assert f'model_reasoning_effort="{effort}"' in command
+        else:
+            assert command[command.index("--effort") + 1] == effort
     if backend == "codex":
         assert all("workspace-write" in calls[i][0] for i in (0, 2))
         assert all("read-only" in calls[i][0] for i in (1, 3))

@@ -38,7 +38,14 @@ def assistant_backend(config: dict[str, Any]) -> Callable[..., dict[str, object]
     # One native backend per role, constructed once per Room. The runtime's role
     # thread names supply participant identity to these upstream callables.
     backends = {
-        role: make_cli_assistant_backend(binding["backend"], project_root=config["workspace"])
+        role: make_cli_assistant_backend(
+            {
+                key: binding[key]
+                for key in ("backend", "model", "reasoning_effort")
+                if binding.get(key)
+            },
+            project_root=config["workspace"],
+        )
         for role, binding in config["agents"].items()
     }
 

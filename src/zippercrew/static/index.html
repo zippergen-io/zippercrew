@@ -3,66 +3,92 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f6f4ed">
-  <title>ZipperCrew · A little room for good work</title>
+  <meta name="theme-color" content="#f5f2e9">
+  <title>ZipperCrew · The corner café</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" type="module"></script>
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="/" aria-label="ZipperCrew home"><span class="brand-mark">z<span>c</span></span>ZipperCrew<span class="version">LOCAL / 0.1</span></a>
-    <div class="header-right"><span id="connection" class="connection">Your machine. Your crew.</span><button id="new-crew" class="quiet" hidden>＋ New crew</button></div>
+  <header class="app-header">
+    <a class="brand" href="/" aria-label="ZipperCrew home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M9 11h12l-10 10h12M13 8v5m6 6v5" fill="none" stroke="#f5f2e9" stroke-width="2.4" stroke-linecap="round"/></svg>ZipperCrew</a>
+    <span class="header-divider"></span>
+    <button id="process-control" class="process-control">Pair Programming <span class="tiny-arrow">⌄</span></button>
+    <nav aria-label="Room controls">
+      <span id="connection" class="connection">Local workspace</span>
+      <button id="rooms-control" class="text-button">Rooms</button>
+      <button id="settings-control" class="text-button">Settings</button>
+      <button id="new-room" class="outline-button">＋ New room</button>
+    </nav>
   </header>
   <main>
-    <div id="demo-banner" class="banner" hidden>DEMO ROOM · Scripted assistants, real communication process. No files are changed.</div>
+    <div id="demo-banner" class="banner" hidden>Demo crew · Scripted agents, real process. Workspace files stay untouched.</div>
     <div id="error" class="error" role="alert" hidden></div>
-    <section id="setup">
-      <div class="intro"><p class="eyebrow">GOOD WORK IS A CONVERSATION</p><h1>Two minds.<br>One working rhythm.</h1><p>Give your coding agents a process, a place to work,<br class="desktop"> and a little room to disagree.</p></div>
-      <div class="setup-grid">
-        <form id="crew-form" class="configuration">
-          <div class="section-title"><span class="step">01</span><h2>Set the table</h2><span class="muted">Pair Programming</span></div>
-          <label for="workspace">Working repository</label><input id="workspace" name="workspace" placeholder="/absolute/path/to/your/repository" required autocomplete="off"><p class="hint">The Implementer edits these files. The Reviewer reads the same files.</p>
-          <label for="task">What are we working on?</label><textarea id="task" name="task" rows="4" maxlength="30000" placeholder="Describe the change, what good looks like, and anything your crew should know…" required></textarea>
-          <div class="section-title"><span class="step">02</span><h2>Meet your crew</h2><button id="create-profile" class="secondary" type="button">Create profile</button></div>
-          <div class="role-configs">
-            <fieldset class="role-card implementer"><legend>Implementer</legend><span class="permission write">↗ Write access</span><label for="implementer-profile">Assistant profile</label><select id="implementer-profile" required></select><p class="hint">Makes the change. Responds to the review.</p><details><summary>Role instructions <span class="muted">optional</span></summary><textarea id="implementer-instructions" rows="3" maxlength="30000" aria-label="Implementer role instructions" placeholder="Additional context for this role…"></textarea></details></fieldset>
-            <fieldset class="role-card reviewer"><legend>Reviewer</legend><span class="permission read">◉ Read-only access</span><label for="reviewer-profile">Assistant profile</label><select id="reviewer-profile" required></select><p class="hint">Checks the actual code. Challenges the proposal.</p><details><summary>Role instructions <span class="muted">optional</span></summary><textarea id="reviewer-instructions" rows="3" maxlength="30000" aria-label="Reviewer role instructions" placeholder="Focus areas for the review…"></textarea></details></fieldset>
-          </div>
-          <p class="hint">Separate persistent conversations, even with the same assistant profile.</p>
-          <div class="section-title"><span class="step">03</span><h2>Find your rhythm</h2></div>
-          <div class="rhythm"><div><label for="human-mode">Your involvement</label><select id="human-mode"><option value="full">Human decides every round</option><option value="brief" selected>Brief me every round</option><option value="auto">Autonomous review</option></select></div><div><label for="max-rounds">Maximum rounds</label><input id="max-rounds" type="number" min="1" max="100" value="4" required></div></div>
-          <p id="mode-help" class="hint">A concise briefing, then you choose: ship, another round, or abandon.</p>
-          <button id="start" class="primary start" type="submit">Open the room <span>↗</span></button>
-          <p class="hint centered">Runs locally, powered by ZipperGen.</p>
-        </form>
-        <aside class="setup-aside">
-          <section class="process-card"><p class="eyebrow">THE PROCESS IS THE PRODUCT</p><h2>Pair Programming</h2><p>A maker. A second opinion.<br>You, with the final word.</p><ol class="process-steps"><li><span class="node human-dot">H</span><div><strong>You set the task</strong><small>Both agents get the same brief.</small></div></li><li><span class="node impl-dot">I</span><div><strong>Implementer makes a proposal</strong><small>Working directly in your repository.</small></div></li><li><span class="node rev-dot">R</span><div><strong>Reviewer takes a closer look</strong><small>Approve, or findings to address.</small></div></li><li><span class="node human-dot">↻</span><div><strong>Ship it, or another round</strong><small>The full review travels back.</small></div></li></ol><div class="process-note">Same two conversations.<br>A better result, one round at a time.</div></section>
-          <section class="profiles-card"><h3>Assistant profiles</h3><p class="hint">Profiles are saved in your user configuration directory by default. Choose another directory to load an existing ZipperGen project’s profiles.</p><label for="project">Profile directory</label><input id="project" autocomplete="off"><button id="load-profiles" class="secondary">Load profiles</button><p id="profile-status" class="hint" role="status"></p><p id="profile-location" class="hint"></p><details id="add-profile"><summary>Create a named profile</summary><form id="profile-form"><label for="profile-name">Profile name</label><input id="profile-name" required placeholder="e.g. coding-agent"><label for="profile-backend">CLI assistant</label><select id="profile-backend"><option value="codex">Codex</option><option value="claude">Claude</option></select><button class="secondary" type="submit">Save to zippergen.toml</button></form></details><p class="hint">Profiles currently select the CLI. Model and effort controls await ZipperGen support.</p><div id="cli-checks"></div></section>
-        </aside>
-      </div>
-      <section class="history-section"><h2>Your rooms</h2><p class="hint">Pick up a live conversation or revisit its trace.</p><div id="history"></div></section>
-    </section>
-    <section id="room" hidden>
-      <div class="room-heading"><div><p class="eyebrow">PAIR PROGRAMMING / THE CORNER CAFÉ</p><h1>A little room for good work.</h1></div><span id="room-status" class="status-pill">Starting</span></div>
-      <div class="task-bar"><span class="eyebrow">THE TASK</span><p id="room-task"></p><span id="round-label"></span></div>
-      <div class="room-grid">
-        <div class="room-main">
-          <div class="cafe" aria-label="Live café room">
-            <div class="window" aria-hidden="true"><div class="sun"></div><span class="skyline one"></span><span class="skyline two"></span><span class="skyline three"></span></div>
-            <div class="wall-label" aria-hidden="true">GOOD THINGS<br>TAKE A FEW ROUNDS.</div><div class="shelf" aria-hidden="true"><i></i><i></i><i></i><span>☕</span></div>
-            <div class="plant" aria-hidden="true"><span></span><span></span><span></span><i></i></div><div class="rug" aria-hidden="true"></div>
-            <div id="actors" class="actors"></div>
-            <div class="cafe-caption"><span class="live-dot"></span>THE CORNER CAFÉ <span>01 / ENVIRONMENT</span></div>
-          </div>
-          <div class="protocol-strip"><span>Human</span><b>→</b><span>Implementer</span><b>⇄</b><span>Reviewer</span><b>→</b><span>Human</span></div>
-          <section id="human-panel" class="human-panel" aria-live="polite"></section>
-          <section id="outcome-panel" class="outcome-panel" hidden><p class="eyebrow">THE CREW'S FINAL WORD</p><h2 id="outcome-title"></h2><pre id="outcome"></pre></section>
-          <section class="activity-panel"><h3>Across the table</h3><p id="review-verdict" class="review-verdict"></p><div id="activity"></div></section>
+    <div class="room-toolbar">
+      <div class="room-name"><span class="small-caps">ENVIRONMENT 01</span><h1>The corner café<span class="room-name-dot">.</span></h1></div>
+      <button id="workspace-control" class="workspace-control"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h6l2 2h8v10H2Z"/></svg><span id="workspace-label">Choose a workspace</span><span>↗</span></button>
+      <span id="room-status" class="status-pill" role="status">Setting up</span>
+    </div>
+    <div id="room-layout" class="room-layout">
+      <section class="room-stage" aria-label="Crew room">
+        <div id="scene" class="scene"></div>
+        <div class="scene-caption"><span id="scene-hint">Two open seats. One shared task. Click a station to build your crew.</span><span class="local-mark"><i></i> ON YOUR MACHINE</span></div>
+        <div id="process-strip" class="process-strip" aria-label="Communication process"></div>
+      </section>
+      <aside id="inspector" class="inspector" aria-label="Room inspector" hidden>
+        <header class="inspector-header"><div><p id="inspector-eyebrow" class="small-caps">AT THE TABLE</p><h2 id="inspector-title">Implementer</h2></div><button id="close-inspector" class="icon-button" aria-label="Close inspector">×</button></header>
+        <div id="inspector-body">
+          <section id="role-panel" hidden>
+            <span id="role-access" class="permission"></span><p id="role-description" class="hint"></p>
+            <div id="role-configuration">
+              <label for="role-profile">Assistant profile</label><select id="role-profile"></select>
+              <div id="profile-summary" class="profile-summary"></div>
+              <button id="create-profile" class="text-button inline-link">＋ Create a profile</button>
+              <label for="role-instructions">Role instructions <span>optional</span></label><textarea id="role-instructions" rows="4" maxlength="30000" placeholder="Extra context or focus areas for this participant…"></textarea>
+              <p class="hint">Each role keeps its own conversation, even when both use the same profile.</p>
+            </div>
+            <div id="participant-info"></div><div id="transcript"></div>
+          </section>
+          <section id="human-settings" hidden>
+            <section id="human-panel" class="human-panel" aria-live="polite" hidden></section>
+            <div id="human-preferences">
+            <span class="permission human-tone">Human participant · You</span><p class="hint">Choose your place in the conversation.</p>
+            <label for="human-mode">Your involvement</label><select id="human-mode"><option value="full">Decide every round</option><option value="brief" selected>Brief me every round</option><option value="auto">Autonomous review</option></select><p id="mode-help" class="hint"></p>
+            <label for="max-rounds">Maximum rounds</label><input id="max-rounds" type="number" min="1" max="100" value="4">
+            <p class="hint">Another round carries the complete review back to the Implementer, with any guidance you add.</p>
+            </div><div id="human-transcript"></div>
+          </section>
+          <section id="brief-panel" hidden>
+            <p class="hint">A common brief for the whole crew.</p>
+            <label for="workspace">Working repository</label><input id="workspace" autocomplete="off" placeholder="/path/to/your/repository"><p class="hint">Implementer edits these files. Reviewer inspects the same files.</p>
+            <label for="task">The task</label><textarea id="task" rows="10" maxlength="30000" placeholder="What should the crew work on? Include what good looks like and how to verify it."></textarea>
+            <button id="brief-done" class="primary">Done</button>
+          </section>
+          <section id="settings-panel" hidden>
+            <p class="hint">Saved ZipperGen profiles are shared by your rooms.</p>
+            <label for="project">Profile directory</label><input id="project" autocomplete="off"><button id="load-profiles" class="secondary">Load profiles</button><p id="profile-location" class="hint path"></p><p id="profile-status" class="hint" role="status"></p>
+            <div id="saved-profiles"></div>
+            <details id="add-profile"><summary>Create a named profile</summary><form id="profile-form">
+              <label for="profile-name">Profile name</label><input id="profile-name" required placeholder="e.g. careful-reviewer">
+              <label for="profile-backend">CLI assistant</label><select id="profile-backend"><option value="codex">Codex</option><option value="claude">Claude</option></select>
+              <label for="profile-model">Model <span>optional</span></label><input id="profile-model" placeholder="Exact model ID" autocomplete="off">
+              <label for="profile-effort">Reasoning effort <span>optional</span></label><input id="profile-effort" placeholder="e.g. high" autocomplete="off"><p class="hint">Use values supported by your CLI. Pins apply to every turn, including resumed sessions.</p>
+              <button class="primary" type="submit">Save profile</button>
+            </form></details>
+            <div id="cli-checks"></div>
+          </section>
+          <section id="history-panel" hidden><p class="hint">Return to a live conversation or revisit its work.</p><div id="history"></div></section>
+          <section id="process-panel" hidden><span class="permission">Selected process</span><h3>Pair Programming</h3><p>Human shares the task with both roles. Implementer works in the repository and passes a proposal to Reviewer. Reviewer inspects the files and returns APPROVE or REVISE with findings.</p><p>Your involvement mode determines who decides whether to ship or request another round. The full review goes back to the same Implementer conversation.</p><p class="hint">Pair Programming is the available process in this version. Executed by ZipperGen.</p></section>
         </div>
-        <aside class="inspector"><div class="inspector-heading"><p class="eyebrow">PULL UP A CHAIR</p><h2>Behind the conversation</h2><p class="hint">Select a participant to inspect their work.</p></div><div id="inspector-tabs" class="tabs" role="tablist" aria-label="Participants"></div><div id="participant-info"></div><div id="transcript"></div><a id="trace-link" class="trace-link" download="zippercrew-trace.jsonl">↓ Download full trace</a><p class="hint">Full protocol events, action inputs and outputs. CLI internals are not streamed.</p><button id="stop-room" class="danger">Stop room</button><p class="hint">Stopping leaves edits in the working repository.</p></aside>
-      </div>
+        <footer id="inspector-footer" hidden><a id="trace-link" download="zippercrew-trace.jsonl">↓ Download full trace</a><span class="hint">Every protocol event and completed turn.</span></footer>
+      </aside>
+    </div>
+    <section id="outcome-panel" class="outcome-panel" hidden><div><p class="small-caps">THE FINAL WORD</p><h2 id="outcome-title"></h2></div><pre id="outcome"></pre></section>
+    <section class="task-dock" aria-label="Room task and execution">
+      <button id="task-control" class="task-control"><span class="task-symbol" aria-hidden="true">↗</span><span><span class="small-caps">SHARED BRIEF</span><span id="task-preview">What are we working on?</span></span><span class="edit-label">Edit brief</span></button>
+      <div class="run-controls"><span id="readiness" class="readiness">Choose two agents, a workspace, and a task.</span><span id="round-label" hidden></span><button id="start" class="primary" disabled>Start working <span>→</span></button><button id="human-return" class="primary" hidden>Your decision →</button><button id="stop-room" class="danger" hidden>Stop room</button></div>
     </section>
+    <div class="room-footer"><span id="handoff-label">Pair Programming · three participants, one conversation at a time.</span><button id="activity-control" class="text-button">View handoffs ↗</button></div>
+    <section id="activity-panel" hidden><h2>Across the table</h2><p id="review-verdict"></p><div id="activity"></div></section>
   </main>
-  <footer><span>ZipperCrew</span><span>The communication pattern is the product. The room makes it visible.</span><span>BUILT ON ZIPPERGEN</span></footer>
 </body>
 </html>

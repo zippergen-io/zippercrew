@@ -78,6 +78,7 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         if raw["type"] in {"send", "recv"} and not raw.get("control"):
             state["activity"].append(
                 {
+                    "id": event["id"],
                     "type": raw["type"],
                     "from": raw["from"],
                     "to": raw["to"],

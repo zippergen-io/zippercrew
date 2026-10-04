@@ -68,6 +68,8 @@ def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, An
             "access": "write" if role == "Implementer" else "read-only",
             "instructions": text_field(binding.get("instructions", ""), role),
         }
+        if not demo:
+            agents[role].update(profiles[name])
     return {
         "workspace": str(workspace),
         "project": str(project),

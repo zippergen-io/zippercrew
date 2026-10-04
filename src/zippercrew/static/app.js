@@ -1,9 +1,18 @@
 "use strict";
+import { PROCESS, createScene, paintScene, showMessage, resetMessages } from "/scene.js";
 
 const $ = (id) => document.getElementById(id);
-const roles = ["Implementer", "Reviewer", "Human"];
 const terminal = new Set(["completed", "failed", "stopped"]);
-let bootstrap, stream, current, selected = "Implementer", pendingId, transcriptKey;
+const panelIds = ["role-panel", "human-settings", "brief-panel", "settings-panel", "history-panel", "process-panel"];
+const modes = {
+  full: "See the full proposal and review. You decide whether to ship, continue, or abandon.",
+  brief: "Get a concise briefing each round, then choose what happens next.",
+  auto: "APPROVE finishes the process. REVISE continues within the round limit.",
+};
+let bootstrap, stream, current = null, selected = null, pendingId, transcriptKey;
+let profiles = {}, starting = false, navigation = 0, profileReturnRole = null;
+const draft = { project: "", workspace: "", task: "", human_mode: "brief", max_rounds: 4,
+  agents: { Implementer: { profile: "", instructions: "" }, Reviewer: { profile: "", instructions: "" } } };
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -11,290 +20,344 @@ function element(tag, text, className) {
   if (className) node.className = className;
   return node;
 }
-
-function showError(error) {
-  $("error").textContent = error.message || String(error);
-  $("error").hidden = false;
-}
-
+function showError(error) { $("error").textContent = error.message || String(error); $("error").hidden = false; }
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {} : {
-    method: "POST", headers: { "Content-Type": "application/json", "X-ZipperCrew": "1" },
-    body: JSON.stringify(data),
+    method: "POST", headers: { "Content-Type": "application/json", "X-ZipperCrew": "1" }, body: JSON.stringify(data),
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
   return result;
 }
-
-function profiles(data) {
-  const entries = bootstrap.demo ? [["Scripted demo", { backend: "demo" }]] : Object.entries(data.profiles);
-  for (const role of ["implementer", "reviewer"]) {
-    const select = $(`${role}-profile`), previous = select.value;
-    select.replaceChildren();
-    if (!entries.length) select.add(new Option("Create or load a profile first", ""));
-    for (const [name, profile] of entries) select.add(new Option(`${name} · ${profile.backend}`, name));
-    if (entries.some(([name]) => name === previous)) select.value = previous;
-  }
-  $("profile-status").textContent = entries.length ? `${entries.length} profile(s) available.` : "No profiles here yet. Create one below, or load another project.";
-  $("start").disabled = !entries.length;
-  if (!entries.length && !bootstrap.demo) $("add-profile").open = true;
-}
-
-async function loadProfiles() {
-  profileLocation();
-  try {
-    const data = await api(`/api/profiles?project=${encodeURIComponent($("project").value)}`);
-    profiles(data);
-  } catch (error) { showError(error); }
-}
-
-async function loadHistory() {
-  const rooms = await api("/api/rooms");
-  $("history").replaceChildren();
-  if (!rooms.length) $("history").append(element("p", "Your first conversation starts here.", "hint"));
-  for (const room of rooms) {
-    const button = element("button", undefined, "history-item");
-    button.append(element("span", room.task), element("small", `${room.status} · round ${room.round}`), element("span", "↗"));
-    button.onclick = () => openRoom(room.id);
-    $("history").append(button);
-  }
-}
-
 function presentation(text) {
   return String(text).replaceAll("zg run trace --tail 20 --json", "the participant inspector or Download full trace")
     .replaceAll("zg run trace --tail 40 --json", "the participant inspector or Download full trace");
 }
-
-function initActors() {
-  for (const role of roles) {
-    const actor = element("button", undefined, `actor ${role.toLowerCase()} waiting`);
-    actor.id = `actor-${role}`;
-    actor.innerHTML = '<span class="figure" aria-hidden="true"><i class="head"></i><i class="body"></i></span><span class="desk" aria-hidden="true"></span><span class="laptop" aria-hidden="true"></span><span class="mug" aria-hidden="true"></span>';
-    actor.append(element("span", role, "actor-name"), element("span", "Waiting", "actor-state"));
-    actor.onclick = () => selectRole(role);
-    $("actors").append(actor);
-    const tab = element("button", role);
-    tab.id = `tab-${role}`;
-    tab.setAttribute("role", "tab");
-    tab.onclick = () => selectRole(role);
-    $("inspector-tabs").append(tab);
+function profileDescription(profile) {
+  return [profile.backend, profile.model || "CLI default model", profile.reasoning_effort ? `${profile.reasoning_effort} effort` : "default effort"].join(" · ");
+}
+function configuration() { return current ? current.config : draft; }
+function ready() {
+  return draft.workspace.trim() && draft.task.trim() && Number.isInteger(draft.max_rounds)
+    && draft.max_rounds >= 1 && draft.max_rounds <= 100
+    && PROCESS.roles.filter(role => role.kind === "agent").every(role => profiles[draft.agents[role.name].profile]);
+}
+function roomStatus() {
+  if (!current) return starting ? "Starting" : ready() ? "Ready" : "Setting up";
+  if (terminal.has(current.status)) return current.status[0].toUpperCase() + current.status.slice(1);
+  if (current.pending) return "Needs human";
+  if (Object.values(current.participants).includes("working")) return "Working";
+  if (Object.values(current.participants).includes("reviewing")) return "Reviewing";
+  return "Waiting";
+}
+function renderRoom() {
+  const config = configuration(), status = roomStatus();
+  const states = current?.participants || Object.fromEntries(PROCESS.roles.map(role => [role.name, "ready"]));
+  paintScene({ states, bindings: config.agents, task: config.task, workspace: config.workspace, selected });
+  $("room-status").textContent = status;
+  $("room-status").dataset.status = status;
+  $("workspace-label").textContent = config.workspace || "Choose a workspace";
+  $("workspace-control").title = config.workspace;
+  $("task-preview").textContent = config.task || "What are we working on?";
+  $("task-control").title = config.task;
+  $("task-control").querySelector(".edit-label").textContent = current ? "View brief" : "Edit brief";
+  $("start").hidden = !!current;
+  $("start").disabled = starting || !ready();
+  $("start").textContent = starting ? "Starting…" : "Start working →";
+  $("readiness").hidden = !!current;
+  $("readiness").textContent = ready() ? "Your crew is ready." : "Choose two agents, a workspace, and a task.";
+  $("round-label").hidden = !current;
+  $("round-label").textContent = current ? `ROUND ${current.round} / ${config.max_rounds}` : "";
+  $("stop-room").hidden = !current || terminal.has(current.status);
+  $("human-return").hidden = !current?.pending;
+  $("human-preferences").hidden = !!current?.pending;
+  $("scene-hint").textContent = current ? (current.pending ? "Your crew is waiting for you. Select Human to respond." : terminal.has(current.status) ? "The work stays here. Select anyone to revisit the conversation." : "Click a participant to follow their conversation.") : ready() ? "Everyone is at the table. Start when you’re ready." : "Two open seats. One shared task. Click a station to build your crew.";
+  for (const button of $("process-strip").querySelectorAll("button")) {
+    button.classList.toggle("active", ["working", "reviewing", "needs human"].includes(states[button.dataset.role]));
   }
+  $("inspector-footer").hidden = !current;
+  if (current) $("trace-link").href = `/api/rooms/${current.id}/trace`;
 }
 
-function selectRole(role) {
-  selected = role;
+function setProfiles(data) {
+  profiles = bootstrap.demo ? { "Scripted demo": { backend: "demo" } } : data.profiles;
+  for (const binding of Object.values(draft.agents)) {
+    if (binding.profile && !profiles[binding.profile]) binding.profile = "";
+  }
+  $("profile-status").textContent = `${Object.keys(profiles).length} saved profile(s).`;
+  $("saved-profiles").replaceChildren();
+  for (const [name, profile] of Object.entries(profiles)) {
+    const item = element("div", name, "saved-profile");
+    item.append(element("small", profileDescription(profile)));
+    $("saved-profiles").append(item);
+  }
+  if (!Object.keys(profiles).length && !bootstrap.demo) $("add-profile").open = true;
+  if (PROCESS.roles.some(role => role.name === selected && role.kind === "agent")) renderRole();
+  renderRoom();
+}
+function profileLocation() {
+  const directory = $("project").value.trim().replace(/\/+$/, "");
+  $("profile-location").textContent = directory ? `Save location: ${directory}/zippergen.toml` : "Choose a profile directory.";
+}
+async function loadProfiles() {
+  profileLocation();
+  const project = $("project").value.trim();
+  const data = await api(`/api/profiles?project=${encodeURIComponent(project)}`);
+  if (draft.project !== project) for (const binding of Object.values(draft.agents)) binding.profile = "";
+  draft.project = project;
+  setProfiles(data);
+}
+async function loadHistory() {
+  const rooms = await api("/api/rooms");
+  $("history").replaceChildren();
+  if (!rooms.length) $("history").append(element("p", "No conversations yet. Your first crew is waiting at the table.", "hint"));
+  for (const room of rooms) {
+    const button = element("button", undefined, "history-item");
+    button.append(element("span", room.task), element("small", `${room.status} · round ${room.round} ↗`));
+    button.onclick = () => openRoom(room.id);
+    $("history").append(button);
+  }
+}
+function showInspector(which) {
+  selected = which;
   transcriptKey = null;
-  if (current) renderInspector(current);
-  for (const name of roles) {
-    $(`actor-${name}`).classList.toggle("selected", name === role);
-    $(`tab-${name}`).setAttribute("aria-selected", String(name === role));
+  panelIds.forEach(id => { $(id).hidden = true; });
+  const role = PROCESS.roles.find(role => role.name === which);
+  const names = { brief: "The shared brief", settings: "Assistant profiles", history: "Recent rooms", process: PROCESS.name };
+  $("inspector-title").textContent = role?.name || names[which];
+  $("inspector-eyebrow").textContent = role ? "AT THE TABLE" : "IN THIS ROOM";
+  $("inspector").hidden = false;
+  $("room-layout").classList.add("with-inspector");
+  if (role?.kind === "agent") { $("role-panel").hidden = false; renderRole(); }
+  else if (which === "Human") {
+    $("human-settings").hidden = false;
+    const config = configuration();
+    $("human-mode").value = config.human_mode;
+    $("max-rounds").value = config.max_rounds;
+    $("human-mode").disabled = !!current;
+    $("max-rounds").disabled = !!current;
+    $("mode-help").textContent = modes[config.human_mode];
+    renderTranscript("Human", $("human-transcript"));
+  } else if (which === "brief") {
+    $("brief-panel").hidden = false;
+    $("workspace").value = configuration().workspace;
+    $("task").value = configuration().task;
+    $("workspace").readOnly = !!current;
+    $("task").readOnly = !!current;
+  } else {
+    $({ settings: "settings-panel", history: "history-panel", process: "process-panel" }[which]).hidden = false;
+    if (which === "history") loadHistory().catch(showError);
   }
+  renderRoom();
 }
-
-function renderInspector(state) {
-  const binding = state.config.agents[selected];
-  const values = {
-    Role: selected, Profile: binding ? `${binding.profile} / ${binding.backend}` : "You · browser endpoint",
-    Access: binding ? binding.access : "Process decisions", State: state.participants[selected],
-    Round: `${state.round} of ${state.config.max_rounds}`, Workspace: state.config.workspace,
-  };
-  const list = element("dl", undefined, "participant-meta");
-  for (const [key, value] of Object.entries(values)) list.append(element("dt", key), element("dd", value));
-  $("participant-info").replaceChildren(list);
-  const key = `${selected}:${state.transcript.length}`;
-  if (transcriptKey === key) return;
+function closeInspector() {
+  $("inspector").hidden = true;
+  $("room-layout").classList.remove("with-inspector");
+  selected = null;
+  renderRoom();
+}
+function renderRole() {
+  const role = PROCESS.roles.find(role => role.name === selected);
+  if (!role || role.kind !== "agent") return;
+  const binding = configuration().agents[selected];
+  $("role-access").textContent = role.access;
+  $("role-access").dataset.role = role.name;
+  $("role-description").textContent = role.description;
+  $("role-configuration").hidden = !!current;
+  $("participant-info").hidden = !current;
+  if (!current) {
+    const select = $("role-profile");
+    select.replaceChildren(new Option("Choose an agent profile…", ""));
+    for (const [name, profile] of Object.entries(profiles)) select.add(new Option(`${name} · ${profile.backend}`, name));
+    select.value = binding.profile;
+    $("profile-summary").textContent = profiles[binding.profile] ? profileDescription(profiles[binding.profile]) : "Select a saved profile to take this seat.";
+    $("role-instructions").value = binding.instructions;
+    $("create-profile").hidden = bootstrap?.demo || false;
+  } else {
+    const meta = element("dl", undefined, "participant-meta");
+    for (const [key, value] of Object.entries({ Profile: binding.profile, Assistant: profileDescription(binding),
+      State: current.participants[selected], Round: `${current.round} of ${current.config.max_rounds}`,
+      Workspace: current.config.workspace })) meta.append(element("dt", key), element("dd", value));
+    $("participant-info").replaceChildren(meta);
+  }
+  renderTranscript(selected, $("transcript"));
+}
+function renderTranscript(role, container) {
+  const key = `${current?.id}:${role}:${current?.transcript.length}`;
+  if (key === transcriptKey) return;
   transcriptKey = key;
-  const entries = state.transcript.filter((entry) => entry.role === selected);
-  $("transcript").replaceChildren();
-  if (!entries.length) $("transcript").append(element("p", "Completed turns will appear here. Work in progress is visible in the room.", "hint"));
+  container.replaceChildren();
+  if (!current) return;
+  const entries = current.transcript.filter(entry => entry.role === role);
+  if (!entries.length) container.append(element("p", "Completed turns will appear here. The scene shows work in progress.", "hint"));
   for (const entry of entries) {
     const detail = element("details", undefined, "transcript-entry");
+    detail.dataset.role = role;
     detail.append(element("summary", `Round ${entry.round} · ${entry.action}`));
     detail.open = entry === entries.at(-1);
     for (const group of ["inputs", "outputs"]) {
       if (!entry[group]) continue;
       detail.append(element("h4", group === "inputs" ? "RECEIVED" : "SAID"));
-      for (const [name, value] of Object.entries(entry[group])) {
-        detail.append(element("h4", name), element("pre", typeof value === "string" ? value : JSON.stringify(value, null, 2)));
-      }
+      for (const [name, value] of Object.entries(entry[group])) detail.append(element("h4", name), element("pre", typeof value === "string" ? value : JSON.stringify(value, null, 2)));
     }
-    $("transcript").append(detail);
+    container.append(detail);
   }
 }
-
 async function answer(value) {
-  const request = current.pending;
+  const request = current?.pending;
   if (!request) return;
   const buttons = $("human-panel").querySelectorAll("button");
-  buttons.forEach((button) => { button.disabled = true; });
-  try {
-    await api(`/api/rooms/${current.id}/answer`, { request_id: request.id, value });
-  } catch (error) {
-    showError(error);
-    buttons.forEach((button) => { button.disabled = false; });
-  }
+  buttons.forEach(button => { button.disabled = true; });
+  try { await api(`/api/rooms/${current.id}/answer`, { request_id: request.id, value }); }
+  catch (error) { showError(error); buttons.forEach(button => { button.disabled = false; }); }
 }
-
-function humanPanel(state) {
-  const request = state.pending;
+function humanPanel() {
+  const request = current?.pending;
   if (pendingId === (request?.id || null)) return;
   pendingId = request?.id || null;
   const panel = $("human-panel");
-  panel.replaceChildren();
+  panel.replaceChildren(); panel.hidden = !request;
   if (!request) return;
   const { kind, rendered } = request.spec;
-  panel.append(element("p", "HUMAN / YOUR TURN", "eyebrow"));
-  panel.append(element("h2", kind === "select" ? "How does this round look?" : "Anything to add?"));
-  if (rendered.context) panel.append(element("pre", presentation(rendered.context)));
+  const brief = element("div"), actions = element("div", undefined, "human-actions");
+  brief.append(element("p", "HUMAN / YOUR TURN AT THE TABLE", "small-caps"), element("h2", kind === "select" ? "How does this round look?" : "Anything to add?"));
+  if (rendered.context) brief.append(element("pre", presentation(rendered.context)));
   if (kind === "select") {
-    panel.append(element("p", `Round ${state.round} of ${state.config.max_rounds}. Another round sends the full review back${state.round >= state.config.max_rounds ? "; the round limit has been reached, so the process will stop unresolved" : " and lets you add guidance"}. Ship it ends the process. Abandon leaves edits in the working tree.`, "hint"));
+    brief.append(element("p", `Round ${current.round} of ${current.config.max_rounds}. ${current.round >= current.config.max_rounds ? "The round limit is reached; Another round stops unresolved." : "Another round sends the full review back, then asks for optional guidance."} Ship it ends the process. Abandon leaves edits in the working tree.`, "hint"));
     const buttons = element("div", undefined, "human-buttons");
     for (const label of (rendered.prefill || "").split("\n").filter(Boolean)) {
-      const button = element("button", label);
-      button.onclick = () => answer(label);
-      buttons.append(button);
+      const button = element("button", label); button.onclick = () => answer(label); buttons.append(button);
     }
-    panel.append(buttons);
+    actions.append(buttons);
+    const inspect = element("button", "Read the full review ↗", "text-button");
+    inspect.onclick = () => showInspector("Reviewer"); actions.append(inspect);
   } else {
-    panel.append(element("p", rendered.instruction, "hint"));
+    brief.append(element("p", rendered.instruction, "hint"));
     const form = element("form"), input = element("textarea");
-    input.id = "human-guidance";
-    input.rows = 3;
-    input.maxLength = 30000;
-    input.placeholder = "Optional guidance. Leave empty to send the review as-is.";
+    input.id = "human-guidance"; input.rows = 3; input.maxLength = 30000;
+    input.placeholder = "Optional guidance. Leave empty to pass the full review through.";
     input.setAttribute("aria-label", "Guidance for the Implementer");
-    const button = element("button", "Continue the conversation →", "primary");
-    button.type = "submit";
-    form.append(input, button);
-    form.onsubmit = (event) => { event.preventDefault(); answer(input.value); };
-    panel.append(form);
+    const button = element("button", "Continue the conversation →", "primary"); button.type = "submit";
+    form.append(input, button); form.onsubmit = event => { event.preventDefault(); answer(input.value); };
+    actions.append(form);
   }
+  panel.append(brief, actions);
 }
-
-function render(state) {
+function render(state, { replay = false } = {}) {
+  const newHumanRequest = state.pending && state.pending.id !== current?.pending?.id;
   current = state;
-  $("room-task").textContent = state.config.task;
-  $("round-label").textContent = `ROUND ${state.round} / ${state.config.max_rounds}`;
-  $("room-status").textContent = state.pending ? "Your turn" : state.status;
-  for (const role of roles) {
-    const actor = $(`actor-${role}`), status = state.participants[role];
-    actor.className = `actor ${role.toLowerCase()} ${status.replaceAll(" ", "-")}${role === selected ? " selected" : ""}`;
-    actor.querySelector(".actor-state").textContent = status === "waiting" ? "Waiting · coffee break" : status;
-    actor.setAttribute("aria-label", `${role}: ${status}. Inspect conversation`);
-  }
-  humanPanel(state);
-  renderInspector(state);
-  $("review-verdict").textContent = state.review ? `${state.review.verdict} · ${state.review.findings} finding(s). ${state.review.headline}` : "Each handoff below is a real process message.";
-  $("activity").replaceChildren();
-  for (const item of state.activity.filter((item) => item.type === "send").slice(-5).reverse()) {
-    const line = element("div", undefined, "activity-line");
-    line.append(element("strong", `${item.from} → ${item.to}`), element("span", item.fields.join(", ")));
-    $("activity").append(line);
-  }
+  renderRoom(); humanPanel();
+  if (newHumanRequest) showInspector("Human");
+  if (PROCESS.roles.some(role => role.name === selected && role.kind === "agent")) renderRole();
+  if (selected === "Human") renderTranscript("Human", $("human-transcript"));
   const ended = terminal.has(state.status);
   $("outcome-panel").hidden = !ended;
   $("outcome-title").textContent = state.status === "completed" ? "The conversation is complete." : state.status === "failed" ? "The crew hit a snag." : "The room has stopped.";
   $("outcome").textContent = presentation(state.outcome || state.error || "");
-  $("stop-room").hidden = ended;
-  if (ended && stream) { stream.close(); $("connection").textContent = "Room history saved locally"; }
+  $("review-verdict").textContent = state.review ? `${state.review.verdict} · ${state.review.findings} finding(s). ${state.review.headline}` : "Every handoff below is a real process message.";
+  $("activity").replaceChildren();
+  const messages = state.activity.filter(item => item.type === "send");
+  for (const item of messages.slice(-8).reverse()) {
+    const row = element("div", undefined, "activity-line"); row.dataset.role = item.from;
+    row.append(element("strong", `${item.from} → ${item.to}`), element("span", item.fields.join(", "))); $("activity").append(row);
+  }
+  const message = messages.at(-1);
+  if (message) {
+    showMessage(message, { replay });
+    $("handoff-label").textContent = `${message.from} → ${message.to} · ${message.fields.join(", ")}`;
+  }
+  if (ended) { stream?.close(); $("connection").textContent = "History saved locally"; }
 }
-
+function connectRoom(state, { replay = false } = {}) {
+  stream?.close(); pendingId = undefined; transcriptKey = null; resetMessages();
+  window.history.replaceState(null, "", `/#room=${state.id}`);
+  render(state, { replay });
+  if (selected && !["settings", "history", "process"].includes(selected)) showInspector(selected);
+  if (terminal.has(state.status)) return;
+  const id = state.id, source = new EventSource(`/api/rooms/${id}/events`);
+  stream = source;
+  source.onopen = () => { if (stream === source) $("connection").textContent = "Live · connected"; };
+  source.addEventListener("state", event => { if (stream === source) render(JSON.parse(event.data)); });
+  source.onerror = () => { if (stream === source && !terminal.has(current.status)) $("connection").textContent = "Reconnecting…"; };
+}
 async function openRoom(id) {
+  const request = ++navigation;
   try {
-    if (stream) stream.close();
-    pendingId = undefined;
-    transcriptKey = null;
     const state = await api(`/api/rooms/${id}`);
-    $("setup").hidden = true;
-    $("room").hidden = false;
-    $("new-crew").hidden = false;
-    $("error").hidden = true;
-    $("trace-link").href = `/api/rooms/${id}/trace`;
-    window.history.replaceState(null, "", `/#room=${id}`);
-    render(state);
-    if (!terminal.has(state.status)) {
-      stream = new EventSource(`/api/rooms/${id}/events`);
-      stream.onopen = () => { $("connection").textContent = "Connected · live process"; };
-      stream.addEventListener("state", (event) => render(JSON.parse(event.data)));
-      stream.onerror = () => { if (!terminal.has(current.status)) $("connection").textContent = "Connection lost · reconnecting…"; };
-    }
-    selectRole(selected);
-    window.scrollTo(0, 0);
+    if (request !== navigation) return;
+    closeInspector(); connectRoom(state, { replay: true }); $("error").hidden = true;
   } catch (error) { showError(error); }
 }
 
-$("crew-form").onsubmit = async (event) => {
-  event.preventDefault();
-  $("error").hidden = true;
-  $("start").disabled = true;
-  try {
-    const agents = {};
-    for (const role of ["Implementer", "Reviewer"]) {
-      const prefix = role.toLowerCase();
-      agents[role] = { profile: $(`${prefix}-profile`).value, instructions: $(`${prefix}-instructions`).value };
-    }
-    const room = await api("/api/rooms", { project: $("project").value, workspace: $("workspace").value,
-      task: $("task").value, human_mode: $("human-mode").value, max_rounds: Number($("max-rounds").value), agents });
-    await openRoom(room.id);
-  } catch (error) { showError(error); }
-  finally { $("start").disabled = false; }
+$("start").onclick = async () => {
+  if (starting || !ready() || current) return;
+  starting = true; $("error").hidden = true; renderRoom();
+  try { connectRoom(await api("/api/rooms", draft)); }
+  catch (error) { showError(error); }
+  finally { starting = false; renderRoom(); }
 };
-
-$("profile-form").onsubmit = async (event) => {
-  event.preventDefault();
-  try {
-    profiles(await api("/api/profiles", { project: $("project").value, name: $("profile-name").value, backend: $("profile-backend").value }));
-    $("add-profile").open = false;
-    $("error").hidden = true;
-  } catch (error) { showError(error); }
-};
-$("load-profiles").onclick = loadProfiles;
-function profileLocation() {
-  const directory = $("project").value.trim().replace(/\/+$/, "");
-  $("profile-location").textContent = directory
-    ? `New profiles are saved to ${directory}/zippergen.toml`
-    : "Choose a directory to load or save profiles.";
-}
+$("role-profile").onchange = () => { draft.agents[selected].profile = $("role-profile").value; renderRole(); renderRoom(); };
+$("role-instructions").oninput = () => { draft.agents[selected].instructions = $("role-instructions").value; };
+$("workspace").oninput = () => { if (!current) { draft.workspace = $("workspace").value; renderRoom(); } };
+$("task").oninput = () => { if (!current) { draft.task = $("task").value; renderRoom(); } };
+$("human-mode").onchange = () => { draft.human_mode = $("human-mode").value; $("mode-help").textContent = modes[draft.human_mode]; renderRoom(); };
+$("max-rounds").oninput = () => { draft.max_rounds = Number($("max-rounds").value); renderRoom(); };
+$("close-inspector").onclick = closeInspector;
+$("brief-done").onclick = closeInspector;
+$("task-control").onclick = () => showInspector("brief");
+$("workspace-control").onclick = () => { showInspector("brief"); $("workspace").focus(); };
+$("process-control").onclick = () => showInspector("process");
+$("rooms-control").onclick = () => showInspector("history");
+$("settings-control").onclick = () => showInspector("settings");
+$("human-return").onclick = () => showInspector("Human");
+$("activity-control").onclick = () => { $("activity-panel").hidden = !$("activity-panel").hidden; };
 $("project").oninput = profileLocation;
-$("create-profile").onclick = () => {
-  $("add-profile").open = true;
-  $("add-profile").scrollIntoView({ block: "center" });
-  $("profile-name").focus({ preventScroll: true });
-};
-$("human-mode").onchange = () => {
-  $("mode-help").textContent = {
-    full: "Full proposal and review each round. You choose: ship, another round, or abandon.",
-    brief: "A concise briefing, then you choose: ship, another round, or abandon.",
-    auto: "The reviewer decides: APPROVE finishes, REVISE continues within the round limit.",
-  }[$("human-mode").value];
+$("load-profiles").onclick = () => loadProfiles().catch(showError);
+$("create-profile").onclick = () => { profileReturnRole = selected; showInspector("settings"); $("add-profile").open = true; $("profile-name").focus(); };
+$("profile-form").onsubmit = async event => {
+  event.preventDefault();
+  const button = event.submitter; button.disabled = true;
+  try {
+    const name = $("profile-name").value.trim(), project = $("project").value.trim();
+    const data = await api("/api/profiles", { project, name, backend: $("profile-backend").value,
+      model: $("profile-model").value, reasoning_effort: $("profile-effort").value });
+    if (draft.project !== project) for (const binding of Object.values(draft.agents)) binding.profile = "";
+    draft.project = project; setProfiles(data); $("error").hidden = true; $("add-profile").open = false;
+    if (profileReturnRole && !current) {
+      draft.agents[profileReturnRole].profile = name;
+      const role = profileReturnRole; profileReturnRole = null; showInspector(role);
+    }
+  } catch (error) { showError(error); }
+  finally { button.disabled = false; }
 };
 $("stop-room").onclick = async () => {
   try { render(await api(`/api/rooms/${current.id}/stop`, {})); }
   catch (error) { showError(error); }
 };
-$("new-crew").onclick = () => {
-  if (stream) stream.close();
-  $("room").hidden = true;
-  $("setup").hidden = false;
-  $("new-crew").hidden = true;
-  $("connection").textContent = "Your machine. Your crew.";
+$("new-room").onclick = () => {
+  if (starting) return;
+  ++navigation; stream?.close(); stream = null; current = null; pendingId = undefined; transcriptKey = null;
+  resetMessages(); closeInspector(); humanPanel(); $("outcome-panel").hidden = true; $("activity-panel").hidden = true;
+  $("activity").replaceChildren(); $("review-verdict").textContent = ""; $("error").hidden = true;
+  $("connection").textContent = "Local workspace";
+  $("handoff-label").textContent = "Pair Programming · three participants, one conversation at a time.";
   window.history.replaceState(null, "", "/");
-  loadHistory().catch(showError);
 };
 
 async function init() {
-  initActors();
+  createScene($("scene"), showInspector);
+  PROCESS.sequence.forEach((name, index) => {
+    if (index) $("process-strip").append(element("span", index === 2 ? "⇄" : "→", "process-arrow"));
+    const button = element("button", name, "process-node"); button.dataset.role = name;
+    button.onclick = () => showInspector(name); $("process-strip").append(button);
+  });
+  renderRoom();
   bootstrap = await api("/api/bootstrap");
   $("project").value = bootstrap.project;
   $("demo-banner").hidden = !bootstrap.demo;
   $("add-profile").hidden = bootstrap.demo;
-  $("create-profile").hidden = bootstrap.demo;
-  for (const check of Object.values(bootstrap.checks)) {
-    $("cli-checks").append(element("p", `${check.supported ? "✓" : "!"} ${check.backend} · ${check.supported ? "CLI compatible" : check.detail}`, `check${check.supported ? "" : " unavailable"}`));
-  }
+  for (const check of Object.values(bootstrap.checks)) $("cli-checks").append(element("p", `${check.supported ? "✓" : "!"} ${check.backend} · ${check.supported ? "CLI compatible" : check.detail}`, `check${check.supported ? "" : " unavailable"}`));
   await loadProfiles();
-  await loadHistory();
   const match = window.location.hash.match(/^#room=([a-f0-9]{32})$/);
   if (match) await openRoom(match[1]);
 }

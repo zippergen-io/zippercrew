@@ -34,6 +34,18 @@ or browser directory selection can reuse a repository's existing configuration.
 Existing project profiles are never moved automatically. No credentials are
 read or stored by the UI.
 Crew bindings are execution data, not a second assistant profile registry.
+Each binding snapshots its profile's backend, optional model, and reasoning
+effort at room creation. Those settings go unchanged to ZipperGen's native
+backend factory, which applies them to initial and resumed CLI turns. Browser
+configuration cannot override the saved profile's pins. Role instructions are
+per-Room additions. Profiles can change without altering an existing execution.
+
+The frontend creates one SVG scene before loading configuration. Setup edits a
+local draft; starting replaces that draft's presentation with server snapshots
+without replacing the scene. Participant and shared-brief inspectors serve both
+configuration and live inspection. `scene.js` describes roles, spatial positions,
+colors, and message links separately from the café illustration. See
+[room experience](room-experience.md) for the visual contract.
 
 ## Events and human endpoint
 
@@ -84,10 +96,6 @@ inspector directions. The persisted process outputs remain verbatim.
   requires the sibling editable checkout; `ZIPPERGEN_SOURCE` can select another
   checkout. Packaging reusable process factories upstream would remove this
   source-tree dependency. An integration test pins the expected process contract.
-* Assistant profiles currently contain only a backend. Model and effort are not
-  exposed by the upstream adapter. ZipperCrew does not fork command construction
-  or pretend that prompt text selects a model. A future upstream profile API can
-  add these controls. Role instructions are supported as per-Room additions.
 * Telegram consumes durable tasks in ZipperGen's SQLite execution store and uses
   its existing connector/deployment routing. This first local browser transport
   does not create a competing Telegram subsystem. Existing `zg deploy` Telegram
