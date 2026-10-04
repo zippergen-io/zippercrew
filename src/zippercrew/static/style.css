@@ -194,6 +194,10 @@ main {
   font-size:11px;
 }
 
+#create-profile {
+  margin-left: auto;
+}
+
 .step {
   font:10px ui-monospace,monospace;
   width:25px;

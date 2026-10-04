@@ -38,6 +38,7 @@ function profiles(data) {
   }
   $("profile-status").textContent = entries.length ? `${entries.length} profile(s) available.` : "No profiles here yet. Create one below, or load another project.";
   $("start").disabled = !entries.length;
+  if (!entries.length && !bootstrap.demo) $("add-profile").open = true;
 }
 
 async function loadProfiles() {
@@ -248,6 +249,11 @@ $("profile-form").onsubmit = async (event) => {
   } catch (error) { showError(error); }
 };
 $("load-profiles").onclick = loadProfiles;
+$("create-profile").onclick = () => {
+  $("add-profile").open = true;
+  $("add-profile").scrollIntoView({ block: "center" });
+  $("profile-name").focus({ preventScroll: true });
+};
 $("human-mode").onchange = () => {
   $("mode-help").textContent = {
     full: "Full proposal and review each round. You choose: ship, another round, or abandon.",
@@ -275,6 +281,7 @@ async function init() {
   $("project").value = bootstrap.project;
   $("demo-banner").hidden = !bootstrap.demo;
   $("add-profile").hidden = bootstrap.demo;
+  $("create-profile").hidden = bootstrap.demo;
   for (const check of Object.values(bootstrap.checks)) {
     $("cli-checks").append(element("p", `${check.supported ? "✓" : "!"} ${check.backend} · ${check.supported ? "CLI compatible" : check.detail}`, `check${check.supported ? "" : " unavailable"}`));
   }
