@@ -33,7 +33,11 @@ class Application(ThreadingHTTPServer):
             fcntl.flock(self.data_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
             self.data_lock.close()
-            raise ValueError("Another ZipperCrew service is using this data directory.") from exc
+            raise ValueError(
+                f"ZipperCrew is already running with data directory {data_dir}. "
+                "Open the existing instance in your browser, or stop it in its terminal "
+                "with Ctrl-C before starting again."
+            ) from exc
         self.rooms = Rooms(data_dir / "rooms")
         self.project = str(project.resolve())
         self.demo = demo
@@ -228,8 +232,11 @@ def main() -> None:
     parser.add_argument("--project", type=Path, default=Path.cwd())
     parser.add_argument("--demo", action="store_true", help="Scripted agents; no files changed")
     args = parser.parse_args()
-    source_root()
-    app = Application(args.port, args.data_dir.resolve(), args.project, args.demo)
+    try:
+        source_root()
+        app = Application(args.port, args.data_dir.resolve(), args.project, args.demo)
+    except (ValueError, OSError) as exc:
+        parser.exit(1, f"zippercrew: {exc}\n")
 
     def interrupt(signum: int, frame: Any) -> None:
         raise KeyboardInterrupt

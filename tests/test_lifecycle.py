@@ -1,10 +1,27 @@
 """A disappearing service must not leave an assistant working unobserved."""
 
+import fcntl
 import json
 import subprocess
 import sys
 
 from zippercrew.rooms import Room
+
+
+def test_duplicate_launch_reports_existing_instance_without_traceback(tmp_path):
+    with (tmp_path / "service.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        result = subprocess.run(
+            [sys.executable, "-m", "zippercrew.server", "--data-dir", str(tmp_path)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    assert result.returncode == 1
+    assert "ZipperCrew is already running" in result.stderr
+    assert str(tmp_path) in result.stderr
+    assert "Ctrl-C" in result.stderr
+    assert "Traceback" not in result.stderr
 
 
 def test_worker_exits_when_service_pipe_closes(config, tmp_path):
