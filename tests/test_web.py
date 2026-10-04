@@ -183,6 +183,22 @@ def test_local_origin_protection(service, config):
     assert request(base, "/api/rooms", config, **{"Content-Type": "text/plain"})[0] == 403
 
 
+def test_local_renderer_assets_and_path_boundary(service):
+    _, base, _ = service
+    for path, mime in [
+        ("/assets/characters/reviewer.png", "image/png"),
+        ("/assets/corner-cafe/background.png", "image/png"),
+        ("/vendor/phaser-3.90.0.min.js", "text/javascript"),
+        ("/room-engine.js", "text/javascript"),
+    ]:
+        with urllib.request.urlopen(base + path, timeout=5) as response:
+            assert response.headers["Content-Type"].startswith(mime)
+            assert len(response.read()) > 1000
+            assert "blob:" in response.headers["Content-Security-Policy"]
+    assert request(base, "/assets/../../../server.py")[0] == 404
+    assert request(base, "/assets/characters/missing.png")[0] == 404
+
+
 def test_restart_marks_interrupted_room_stopped(tmp_path, config):
     root = tmp_path / "rooms"
     room = root / "test"

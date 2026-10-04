@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import mimetypes
 import os
 import signal
 from concurrent.futures import ThreadPoolExecutor
@@ -97,7 +98,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+            "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; "
+            "frame-ancestors 'none'; base-uri 'none'",
         )
         self.end_headers()
         self.wfile.write(body)
@@ -108,15 +110,22 @@ class Handler(BaseHTTPRequestHandler):
         try:
             url = urlsplit(self.path)
             path = url.path
-            if path in {"/", "/app.js", "/scene.js", "/world.js", "/style.css"}:
+            if path in {"/", "/app.js", "/scene.js", "/room-engine.js", "/style.css"}:
                 name, mime = {
                     "/": ("index.html", "text/html; charset=utf-8"),
                     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                     "/scene.js": ("scene.js", "text/javascript; charset=utf-8"),
-                    "/world.js": ("world.js", "text/javascript; charset=utf-8"),
+                    "/room-engine.js": ("room-engine.js", "text/javascript; charset=utf-8"),
                     "/style.css": ("style.css", "text/css; charset=utf-8"),
                 }[path]
                 self.reply(200, (STATIC / name).read_bytes(), mime)
+            elif path.startswith(("/assets/", "/vendor/")):
+                target = (STATIC / path.lstrip("/")).resolve()
+                if not target.is_relative_to(STATIC.resolve()) or not target.is_file():
+                    self.reply(404, {"error": "Asset not found"})
+                    return
+                mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                self.reply(200, target.read_bytes(), mime)
             elif path == "/api/bootstrap":
                 self.reply(
                     200,

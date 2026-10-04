@@ -11,8 +11,19 @@ from playwright.sync_api import expect, sync_playwright
 pytestmark = pytest.mark.browser
 
 
+def inspect_scene(page):
+    return page.evaluate("async () => (await import('/scene.js')).inspectScene()")
+
+
 def screenshot(page, name):
     if os.environ.get("ZIPPERCREW_SCREENSHOTS"):
+        expect(page.locator("#room-art")).to_have_attribute("data-ready", "true")
+        # Finish the inspector's CSS resize and give Canvas a frame to repaint.
+        page.evaluate("""async () => {
+            await Promise.all(document.getAnimations().map(a => a.finished.catch(() => {})));
+            await new Promise(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        }""")
         target = Path(os.environ["ZIPPERCREW_SCREENSHOTS"])
         target.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(target / f"{name}.png"), full_page=True)
@@ -20,9 +31,9 @@ def screenshot(page, name):
 
 def configure(page, project, mode="brief"):
     for role in ("Implementer", "Reviewer"):
-        page.locator(f"#desk-{role}").click()
+        page.locator(f"#actor-{role}").click()
         page.get_by_label("Assistant profile", exact=True).select_option("Scripted demo")
-    page.locator("#actor-Human .head").click()
+    page.locator("#actor-Human").click()
     page.get_by_label("Your involvement").select_option(mode)
     page.get_by_label("Maximum rounds").fill("3")
     page.get_by_role("button", name="Close inspector").click()
@@ -53,7 +64,7 @@ def test_continuous_room_through_two_rounds_and_history(service):
         configure(page, project)
         screenshot(page, "ready")
         reviewer_seat = page.locator("#actor-Reviewer").get_attribute("data-x")
-        scene = page.locator("#room-art").element_handle()
+        scene = page.locator("#room-art canvas").element_handle()
         page.get_by_role("button", name="Start working").click()
         expect(page.locator("#actor-Implementer")).to_have_class(re.compile("working"))
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("waiting"))
@@ -61,27 +72,27 @@ def test_continuous_room_through_two_rounds_and_history(service):
         expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "coffee")
         assert page.locator("#actor-Reviewer").get_attribute("data-x") != reviewer_seat
         screenshot(page, "implementing")
-        assert scene.evaluate("node => node === document.getElementById('room-art')")
+        assert scene.evaluate("node => node === document.querySelector('#room-art canvas')")
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("reviewing"))
         expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "reading")
-        expect(page.locator("#actor-Reviewer .reading-arms")).to_be_visible()
+        assert inspect_scene(page)["participants"][1]["frame"] == "work"
         screenshot(page, "reviewing")
         expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible(
             timeout=15000
         )
         expect(page.locator("#actor-Human")).to_have_class(re.compile("needs-human"))
-        expect(page.locator("#message-paths path")).to_have_count(1)
+        assert inspect_scene(page)["messages"]
         screenshot(page, "human-turn")
         page.reload()
         expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible()
         # Historical messages do not pretend to be new transfers on reconnect.
-        expect(page.locator("#message-tokens")).to_be_empty()
+        assert not inspect_scene(page)["messages"]
         page.get_by_role("button", name="Another round", exact=True).click()
         page.get_by_label("Guidance for the Implementer").fill("Check zero as well.")
         page.get_by_role("button", name="Continue the conversation").click()
         expect(page.locator("#round-label")).to_have_text("ROUND 2 / 3", timeout=15000)
         expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=15000)
-        page.locator("#actor-Implementer .head").click()
+        page.locator("#actor-Implementer").click()
         expect(page.locator("#transcript")).to_contain_text("Check zero as well.")
         expect(page.locator("#role-access")).to_have_text("Write access")
         screenshot(page, "inspector")
@@ -91,6 +102,11 @@ def test_continuous_room_through_two_rounds_and_history(service):
         expect(page.locator("#room-status")).to_have_text("Completed")
         assert page.locator("#trace-link").get_attribute("href").endswith("/trace")
         page.get_by_role("button", name="Close inspector").click()
+        page.wait_for_function("""async () => {
+            const view = (await import('/scene.js')).inspectScene().viewport;
+            const width = document.getElementById('phaser-host').clientWidth;
+            return view.width === width && view.cameraWidth === width;
+        }""")
         screenshot(page, "completed")
         page.get_by_role("button", name="New room").click()
         page.get_by_role("button", name="Rooms", exact=True).click()
@@ -98,7 +114,7 @@ def test_continuous_room_through_two_rounds_and_history(service):
         expect(page.locator("#room-status")).to_have_text("Completed")
         expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)")
         page.set_viewport_size({"width": 390, "height": 844})
-        page.locator("#label-Reviewer").click()
+        page.locator("#actor-Reviewer").click()
         expect(page.locator("#role-access")).to_have_text("Read-only access")
         screenshot(page, "mobile")
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
@@ -127,7 +143,7 @@ def test_profile_creation_with_model_pins_from_empty_station(service):
         expect(page.locator("#profile-summary")).to_contain_text(
             "model-for-implementation · high effort"
         )
-        page.locator("#label-Reviewer").click()
+        page.locator("#actor-Reviewer").click()
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("empty"))
         page.get_by_label("Assistant profile", exact=True).select_option("precise-implementer")
         expect(page.locator("#role-access")).to_have_text("Read-only access")
@@ -150,21 +166,20 @@ def test_autonomous_review_same_room_and_motion_preference(service, motion):
         configure(page, project, "auto")
         page.evaluate("""() => {
             window.transfers = [];
-            new MutationObserver(records => records.forEach(record =>
-                record.addedNodes.forEach(node => {
-                    if (node.dataset?.messageId) window.transfers.push({ ...node.dataset });
-                })
-            )).observe(document.querySelector('#message-paths'), { childList: true });
+            document.addEventListener('room-message', event => {
+                if (!event.detail.replay) window.transfers.push(event.detail);
+            });
         }""")
-        scene = page.locator("#room-art").element_handle()
+        scene = page.locator("#room-art canvas").element_handle()
         page.get_by_role("button", name="Start working").click()
         expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)", timeout=15000)
         expect(page.locator("#human-panel")).to_be_hidden()
         transfers = page.evaluate("window.transfers")
         assert any(t["from"] == "Implementer" and t["to"] == "Reviewer" for t in transfers)
-        assert len({t["messageId"] for t in transfers}) == len(transfers)
-        assert scene.evaluate("node => node === document.getElementById('room-art')")
-        expect(page.locator("animateMotion")).to_have_count(0 if motion == "reduce" else 1)
+        assert len({t["id"] for t in transfers}) == len(transfers)
+        assert scene.evaluate("node => node === document.querySelector('#room-art canvas')")
+        assert inspect_scene(page)["reducedMotion"] == (motion == "reduce")
+        assert inspect_scene(page)["renderer"] == "Phaser.Canvas"
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         browser.close()
 
@@ -176,16 +191,77 @@ def test_stop_keeps_scene_and_result_accessible(service):
         page = browser.new_page(viewport={"width": 1366, "height": 768}, reduced_motion="reduce")
         page.goto(base)
         configure(page, project)
-        scene = page.locator("#room-art").element_handle()
+        scene = page.locator("#room-art canvas").element_handle()
         page.get_by_role("button", name="Start working").click()
         expect(page.locator("#actor-Implementer")).to_have_attribute("data-state", "working")
         page.get_by_role("button", name="Stop room", exact=True).click()
         expect(page.locator("#room-status")).to_have_text("Stopped")
         expect(page.locator("#actor-Implementer")).to_have_attribute("data-pose", "stopped")
-        assert scene.evaluate("node => node === document.getElementById('room-art')")
+        assert scene.evaluate("node => node === document.querySelector('#room-art canvas')")
         page.keyboard.press("Escape")
         expect(page.locator("#inspector")).to_be_hidden()
         page.get_by_role("button", name="Result", exact=False).click()
         expect(page.locator("#outcome-title")).to_have_text("Stopped")
         assert page.evaluate("document.documentElement.scrollHeight <= window.innerHeight")
+        browser.close()
+
+
+def test_canvas_selection_and_keyboard_inspector_coexist(service):
+    _, base, _ = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base)
+        expect(page.locator("#room-art")).to_have_attribute("data-ready", "true")
+        # Click the illustrated Human's face above the DOM keyboard target.
+        target = page.locator("#actor-Human").bounding_box()
+        page.mouse.click(target["x"] + target["width"] / 2, target["y"] - 75)
+        expect(page.locator("#inspector-title")).to_have_text("Human")
+        page.get_by_label("Maximum rounds").fill("12")
+        page.keyboard.press("Escape")
+        expect(page.locator("#inspector")).to_be_hidden()
+        expect(page.locator("#actor-Human")).to_be_focused()
+        page.keyboard.press("Enter")
+        expect(page.get_by_label("Maximum rounds")).to_have_value("12")
+        browser.close()
+
+
+def test_asset_failure_is_explicit_and_does_not_allow_start(service):
+    _, base, _ = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        page.route("**/assets/characters/reviewer.png", lambda route: route.abort())
+        page.goto(base)
+        expect(page.locator("#error")).to_contain_text("Room asset could not load")
+        expect(page.locator(".scene-loading")).to_contain_text("Reload to retry")
+        expect(page.locator("#room-art")).to_have_attribute("data-ready", "false")
+        expect(page.locator("#start")).to_be_disabled()
+        browser.close()
+
+
+def test_changing_rooms_cancels_in_flight_visuals(service):
+    _, base, project = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(base)
+        configure(page, project)
+        page.locator("#start").click()
+        page.wait_for_function("""async () => {
+            const state = (await import('/scene.js')).inspectScene();
+            return state.messages.length > 0;
+        }""")
+        page.get_by_role("button", name="New room").click()
+        # Let the old transfer's complete/fade callbacks pass their former deadline.
+        page.wait_for_timeout(2400)
+        assert not inspect_scene(page)["messages"]
+        page.emulate_media(reduced_motion="reduce")
+        page.wait_for_function(
+            "async () => (await import('/scene.js')).inspectScene().reducedMotion"
+        )
+        assert not any(p["moving"] for p in inspect_scene(page)["participants"])
+        assert not errors
         browser.close()

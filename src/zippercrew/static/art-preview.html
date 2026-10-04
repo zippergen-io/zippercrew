@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ZipperCrew art target</title><style>html,body,#target{margin:0;width:100%;height:100%;background:#263c31}#controls{position:fixed;top:15px;left:15px;z-index:3;display:flex;gap:5px}button{padding:9px;border:0;border-radius:5px;background:#f9ecd4;color:#304537}</style><script src="/vendor/phaser-3.90.0.min.js"></script></head><body><div id="controls"></div><div id="target"></div><script type="module">
+import {launchRoom} from '/room-engine.js';
+const states={Setup:{Human:'ready',Implementer:'unconfigured',Reviewer:'unconfigured'},Ready:{Human:'ready',Implementer:'ready',Reviewer:'ready'},Implementing:{Human:'waiting',Implementer:'working',Reviewer:'waiting'},Reviewing:{Human:'waiting',Implementer:'waiting',Reviewer:'reviewing'},Decision:{Human:'needs human',Implementer:'waiting',Reviewer:'waiting'},Completed:{Human:'completed',Implementer:'completed',Reviewer:'completed'}};
+const {scene}=launchRoom(document.getElementById('target'),{reducedMotion:true,onReady:()=>render('Ready')});
+function render(name){scene.present({states:states[name],bindings:name==='Setup'?{}:{Implementer:{profile:'example'},Reviewer:{profile:'example'}},task:'Build something worth reviewing.',selected:null});}
+for(const name of Object.keys(states)){const b=document.createElement('button');b.textContent=name;b.onclick=()=>render(name);document.getElementById('controls').append(b);}
+window.previewScene=scene;
+</script></body></html>

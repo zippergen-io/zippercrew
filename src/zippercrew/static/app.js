@@ -38,7 +38,7 @@ function profileDescription(profile) {
 }
 function configuration() { return current ? current.config : draft; }
 function ready() {
-  return draft.workspace.trim() && draft.task.trim() && Number.isInteger(draft.max_rounds)
+  return $("room-art")?.dataset.ready === "true" && draft.workspace.trim() && draft.task.trim() && Number.isInteger(draft.max_rounds)
     && draft.max_rounds >= 1 && draft.max_rounds <= 100
     && PROCESS.roles.filter(role => role.kind === "agent").every(role => profiles[draft.agents[role.name].profile]);
 }
@@ -160,7 +160,7 @@ function closeInspector() {
   renderRoom();
   const control = { brief: "project-board", settings: "settings-control", history: "rooms-control",
     process: "process-control", outcome: "result-control", activity: "activity-control" }[previous];
-  if (previous) document.getElementById(control || `label-${previous}`)?.focus({ preventScroll: true });
+  if (previous) document.getElementById(control || `actor-${previous}`)?.focus({ preventScroll: true });
 }
 function renderRole() {
   const role = PROCESS.roles.find(role => role.name === selected);
@@ -355,6 +355,9 @@ $("new-room").onclick = () => {
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && selected) closeInspector();
 });
+
+document.addEventListener("room-renderer-ready", renderRoom);
+document.addEventListener("room-renderer-error", event => showError(event.detail));
 
 async function init() {
   createScene($("scene"), showInspector);

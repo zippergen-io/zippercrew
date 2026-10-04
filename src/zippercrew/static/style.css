@@ -53,50 +53,6 @@ main { min-height:0; position:relative; background:radial-gradient(ellipse at 50
 .notices { position:absolute; left:25px; top:62px; z-index:5; max-width:min(600px,85vw); }
 .banner { font-size:11px; color:#765b30; background:#f5e6bde8; border:1px solid #e0cfa3; padding:7px 10px; border-radius:5px; }
 .error { color:#873d2b; background:#f7dfd1; border:1px solid #d8a28d; padding:12px; font-size:13px; border-radius:6px; white-space:pre-wrap; overflow-wrap:anywhere; margin-top:6px; }
-/* Scene entities. State selects a pose; movement only interpolates positions. */
-.interactive { cursor:pointer; outline:none; }
-.interactive:focus-visible { filter:drop-shadow(0 0 4px #f8ffdf); }
-.workstation:hover, .workstation[aria-pressed="true"] { filter:drop-shadow(0 0 4px #f9f5d3aa); }
-.actor-position { transition:transform .85s cubic-bezier(.3,.05,.25,1); }
-.character { transition:opacity .25s; }
-.participant.empty .character { opacity:0; }
-.selection-ring { opacity:0; transition:opacity .2s; }
-.selection-ring.visible, .participant:focus-visible .selection-ring { opacity:1; }
-.body-pose { transform-origin:0 -35px; transition:transform .65s ease; }
-.participant[data-pose="coffee"] .body-pose { transform:translateY(2px) rotate(-6deg); }
-.participant[data-pose="typing"] .body-pose { transform:rotate(6deg); }
-.participant[data-pose="reading"] .body-pose { transform:rotate(-4deg); }
-.participant[data-pose="attention"] .body-pose { transform:translateY(-5px); }
-.reading-arms,.coffee-arms,.attention-cue,.success-cue,.vacancy,.standing-legs { display:none; }
-.participant.empty .vacancy { display:initial; }
-.participant[data-pose="coffee"]:not(.human) .standing-legs { display:initial; }
-.participant[data-pose="coffee"]:not(.human) .seated-legs { display:none; }
-.participant[data-pose="reading"] .reading-arms { transform:translate(-12px,-20px); }
-.participant[data-pose="reading"] .work-arms, .participant[data-pose="coffee"] .work-arms { display:none; }
-.participant[data-pose="reading"] .reading-arms, .participant[data-pose="coffee"] .coffee-arms { display:initial; }
-.participant.working .hands { animation:typing .8s ease-in-out infinite; }
-.participant.reviewing .pencil { transform-origin:40px -82px; animation:annotate 2.4s ease-in-out infinite; }
-.workstation.working .code-lines { animation:screen 2s ease-in-out infinite; }
-.participant.needs-human .attention-cue { display:initial; animation:attention 2.8s ease-in-out infinite; }
-.participant.completed .success-cue { display:initial; }
-.participant.failed .character,.participant.stopped .character { opacity:.6; }
-.workstation.unconfigured .monitor-glass { fill:#819c8e; }
-.workstation.unconfigured .code-lines { opacity:.15; }
-.human-turn .workstation { opacity:.9; }
-.station-label { transition:opacity .2s; }
-.station-label rect { stroke:#fffdf2; stroke-width:1; }
-.station-label.selected rect,.station-label:hover rect,.station-label:focus-visible rect { stroke:#68836a; stroke-width:2; }
-.role-name { font:600 17px -apple-system,BlinkMacSystemFont,sans-serif; fill:#334e3d; }
-.station-state { font:14px -apple-system,BlinkMacSystemFont,sans-serif; fill:#536a57; }
-.board-heading { font:600 13px -apple-system,BlinkMacSystemFont,sans-serif; fill:#536345; }
-.board-task { font:15px -apple-system,BlinkMacSystemFont,sans-serif; fill:#475e45; }
-.board-workspace { font:11px -apple-system,BlinkMacSystemFont,sans-serif; fill:#6b775b; }
-#project-board:hover { filter:drop-shadow(0 0 3px #fff8d3); }
-#process-routes { opacity:0; transition:opacity .2s; }
-#process-routes path { fill:none; stroke:#435c49; stroke-width:2; stroke-dasharray:5 8; }
-.show-routes #process-routes { opacity:.3; }
-.message-line { fill:none; stroke-width:2; stroke-dasharray:4 7; opacity:.7; }
-.message-token { pointer-events:none; }
 /* A floating inspector for the world, not a second page. */
 .inspector { position:absolute; top:16px; right:16px; bottom:16px; width:326px; z-index:2; border:1px solid #b5c6b2; border-radius:12px; background:#f9fbf4f5; box-shadow:0 8px 28px #304e3a21,0 1px 2px #304e3a0d; display:flex; flex-direction:column; overflow:hidden; }
 .inspector-header { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--line); border-top:3px solid #91a889; }
@@ -185,10 +141,6 @@ input::placeholder,textarea::placeholder { color:#82907f; }
 .room-footer { display:flex; align-items:center; justify-content:space-between; gap:15px; margin-top:5px; color:#72816b; font-size:10px; }
 #handoff-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .room-footer .text-button { font-size:10px; padding:3px 0; }
-@keyframes typing { 50% { transform:translate(1px,-2px); } }
-@keyframes annotate { 50% { transform:rotate(9deg); } }
-@keyframes screen { 50% { opacity:.5; } }
-@keyframes attention { 50% { opacity:.68; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
 @media(max-width:1200px) { .connection { display:none; } .app-header { gap:16px; } .readiness { display:none; } .room-layout.with-inspector .room-stage { margin-right:328px; } .inspector { width:306px; right:10px; } }
 @media(max-width:850px) {
@@ -226,3 +178,22 @@ input::placeholder,textarea::placeholder { color:#82907f; }
   #task-preview { font-size:12px; }
   .notices { left:16px; top:55px; }
 }
+/* The illustrated game world fills the viewport. DOM handles keyboard selection. */
+main { background:#24372e; }
+#room-art { position:relative; overflow:hidden; }
+#phaser-host { position:absolute; inset:0; }
+#phaser-host canvas { display:block; }
+.scene-controls { position:absolute; inset:0; pointer-events:none; }
+.scene-controls button { position:absolute; transform:translate(-50%,-50%); pointer-events:auto; border:1px solid #ecdcb575; background:#253a31e8; color:#fff3d5; border-radius:20px; padding:9px 13px; font-size:12px; opacity:0; min-width:118px; min-height:40px; }
+.scene-controls button:hover,.scene-controls button:focus-visible,.scene-controls button.empty { opacity:1; }
+.scene-controls button:focus-visible { outline:2px solid #ffe9b0; }
+.scene-controls .scene-board { min-width:180px; min-height:110px; border-radius:8px; background:#263c318c; }
+.scene-loading { position:absolute; bottom:28px; left:25px; padding:9px 13px; border-radius:6px; background:#24382fdc; color:#ffe9bb; }
+.room-toolbar { top:15px; left:18px; }
+.environment-name,.scene-caption { color:#fff0ce; text-shadow:0 1px 4px #18291c; }
+.scene-caption { background:#263c31b5; padding:7px 10px; border-radius:6px; left:18px; font-size:11px; }
+.inspector { background:#fffaf1f5; box-shadow:0 10px 35px #0a160d55; }
+.room-layout.with-inspector .room-stage { margin-right:354px; }
+@media(max-width:1200px) { .room-layout.with-inspector .room-stage { margin-right:328px; } }
+@media(max-width:850px) { .room-layout.with-inspector .room-stage { margin-right:0; } }
+@media(max-width:570px) { .scene-controls button { font-size:11px; padding:7px 10px; } }

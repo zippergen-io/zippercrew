@@ -5,7 +5,7 @@ ZipperCrew makes that process easy to instantiate, use, observe, and enjoy.
 
 ## The boundary
 
-One local Python HTTP service serves a dependency-free browser frontend and
+One local Python HTTP service serves a browser frontend and
 streams room state over SSE. Each Room has a worker process running ZipperGen's
 existing `examples/pair_programming.py:pair_programming`. The source is loaded
 from the editable sibling checkout, never copied or rewritten. Workers isolate
@@ -40,13 +40,17 @@ backend factory, which applies them to initial and resumed CLI turns. Browser
 configuration cannot override the saved profile's pins. Role instructions are
 per-Room additions. Profiles can change without altering an existing execution.
 
-The frontend creates one SVG scene before loading configuration. Setup edits a
+The frontend creates one Phaser Canvas scene before loading configuration. Setup edits a
 local draft; starting replaces that draft's presentation with server snapshots
 without replacing the scene. Participant and shared-brief inspectors serve both
-configuration and live inspection. `scene.js` maintains separate participant and
-object entities, projects semantic states into poses/positions, and depth-sorts
-their SVG nodes. `world.js` supplies the shared 2.5D projection and café assets.
-The only backend change for this scene is serving the additional static module. See
+configuration and live inspection. `scene.js` is the boundary between snapshots,
+accessible DOM controls, and the renderer. `room-engine.js` owns a small entity
+registry, authored sprite poses, floor positions, depth sorting, and message
+effects. The role layout and café/character assets are separate from execution.
+Phaser is pinned and served locally; no npm install, CDN request, or frontend
+build is needed to run the application. Canvas rendering avoids a WebGL dependency.
+The backend additions serve packaged assets within the static directory and allow
+the loader's local blob image URLs in CSP. See
 [room experience](room-experience.md) for the visual contract.
 
 ## Events and human endpoint
