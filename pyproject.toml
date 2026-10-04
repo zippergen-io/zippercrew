@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zippercrew"
+version = "0.1.0"
+description = "Make the communication process visible."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["zippergen>=0.1.0a5"]
+
+[project.scripts]
+zippercrew = "zippercrew.server:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11", "mypy>=1.15", "playwright>=1.50"]
+
+[tool.uv.sources]
+zippergen = { path = "../zippergen", editable = true }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+zippercrew = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["browser: requires Playwright Chromium"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "zippergen.*"
+follow_imports = "skip"

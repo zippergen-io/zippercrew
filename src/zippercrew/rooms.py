@@ -1,0 +1,269 @@
+"""Local worker lifecycle, append-only room history, and human transport."""
+
+from __future__ import annotations
+
+import copy
+import json
+import os
+import signal
+import subprocess
+import sys
+import threading
+import time
+import uuid
+from pathlib import Path
+from typing import Any
+
+from zippergen.human_tasks import human_task_result_from_value
+from zippergen.workspace import Workspace
+
+from zippercrew.state import TERMINAL, apply_event, initial_state
+
+
+class Conflict(ValueError):
+    """An operation no longer applies to the current room state."""
+
+
+def directory(value: Any) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Choose an existing directory.")
+    path = Path(value).expanduser().resolve()
+    if not path.is_dir():
+        raise ValueError(f"Directory does not exist: {path}")
+    return path
+
+
+def text_field(value: Any, label: str, *, required: bool = False) -> str:
+    if not isinstance(value, str) or len(value) > 30000 or (required and not value.strip()):
+        raise ValueError(
+            f"{label} must be {'nonempty ' if required else ''}text, up to 30,000 chars."
+        )
+    return value.strip()
+
+
+def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, Any]:
+    workspace = directory(data.get("workspace"))
+    project = directory(data.get("project"))
+    profiles = Workspace(project).assistant_configurations()
+    mode = data.get("human_mode")
+    if mode not in {"full", "brief", "auto"}:
+        raise ValueError("Choose full, brief, or auto human involvement.")
+    rounds = data.get("max_rounds")
+    if type(rounds) is not int or not 1 <= rounds <= 100:
+        raise ValueError("Maximum rounds must be an integer between 1 and 100.")
+    agents = {}
+    for role in ("Implementer", "Reviewer"):
+        binding = data.get("agents", {}).get(role, {})
+        name = binding.get("profile")
+        if demo:
+            backend = "demo"
+            name = "Scripted demo"
+        else:
+            if name not in profiles:
+                raise ValueError(f"Choose an existing ZipperGen profile for {role}.")
+            backend = profiles[name]["backend"]
+        agents[role] = {
+            "profile": name,
+            "backend": backend,
+            "access": "write" if role == "Implementer" else "read-only",
+            "instructions": text_field(binding.get("instructions", ""), role),
+        }
+    return {
+        "workspace": str(workspace),
+        "project": str(project),
+        "task": text_field(data.get("task"), "Task", required=True),
+        "human_mode": mode,
+        "max_rounds": rounds,
+        "agents": agents,
+        "demo": demo,
+    }
+
+
+class Room:
+    def __init__(self, root: Path, config: dict[str, Any], room_id: str) -> None:
+        self.root = root
+        self.config = config
+        self.state = initial_state(room_id, config)
+        self.condition = threading.Condition(threading.RLock())
+        self.process: subprocess.Popen[str] | None = None
+        self.thread: threading.Thread | None = None
+        self.answer_in_flight: str | None = None
+
+    def snapshot(self) -> dict[str, Any]:
+        with self.condition:
+            return copy.deepcopy(self.state)
+
+    def record(self, event: dict[str, Any]) -> None:
+        with self.condition:
+            if self.state["status"] in TERMINAL:
+                return
+            event = {**event, "id": self.state["version"] + 1, "time": time.time()}
+            with (self.root / "events.jsonl").open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(event) + "\n")
+                stream.flush()
+            apply_event(self.state, event)
+            if event["type"] == "human.responded":
+                self.answer_in_flight = None
+            self.condition.notify_all()
+
+    def start(self) -> None:
+        self.root.mkdir(parents=True, mode=0o700)
+        (self.root / "config.json").write_text(json.dumps(self.config, indent=2), encoding="utf-8")
+        self.record({"type": "room.started", "config": self.config})
+        try:
+            with (self.root / "worker.log").open("w", encoding="utf-8") as errors:
+                self.process = subprocess.Popen(
+                    [sys.executable, "-m", "zippercrew.worker"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=errors,
+                    text=True,
+                    bufsize=1,
+                    start_new_session=True,
+                )
+            assert self.process.stdin is not None
+            self.process.stdin.write(json.dumps(self.config) + "\n")
+            self.process.stdin.flush()
+            self.thread = threading.Thread(target=self._observe, daemon=True)
+            self.thread.start()
+        except OSError as exc:
+            self.record({"type": "room.failed", "error": f"Could not launch room: {exc}"})
+
+    def _observe(self) -> None:
+        assert self.process is not None and self.process.stdout is not None
+        try:
+            for line in self.process.stdout:
+                self.record(json.loads(line))
+            code = self.process.wait()
+            if self.state["status"] not in TERMINAL:
+                self.record(
+                    {
+                        "type": "room.failed",
+                        "error": f"Room worker exited ({code}). "
+                        "See worker.log in this room's data directory.",
+                    }
+                )
+        except (OSError, ValueError) as exc:
+            self.stop(f"Room transport failed: {exc}", failed=True)
+        finally:
+            self.process.stdout.close()
+            if self.process.stdin:
+                self.process.stdin.close()
+
+    def respond(self, request_id: str, value: Any) -> None:
+        with self.condition:
+            pending = self.state["pending"]
+            if (
+                self.state["status"] in TERMINAL
+                or not pending
+                or pending["id"] != request_id
+                or self.answer_in_flight
+            ):
+                raise Conflict(
+                    "This human request has already been answered or is no longer active."
+                )
+            if not isinstance(value, str) or len(value) > 30000:
+                raise ValueError("A human response must be text, up to 30,000 characters.")
+            result = human_task_result_from_value(pending["spec"], value)
+            canonical = result[pending["spec"]["output"]]
+            assert self.process is not None and self.process.stdin is not None
+            try:
+                self.process.stdin.write(
+                    json.dumps({"request_id": request_id, "value": canonical}) + "\n"
+                )
+                self.process.stdin.flush()
+            except (OSError, ValueError) as exc:
+                raise Conflict("The room worker is no longer accepting answers.") from exc
+            self.answer_in_flight = request_id
+
+    def stop(
+        self,
+        reason: str = "Stopped by the Human. Edits remain in the workspace.",
+        *,
+        failed: bool = False,
+    ) -> None:
+        with self.condition:
+            if self.state["status"] in TERMINAL:
+                return
+            if self.process is not None:
+                try:
+                    os.killpg(self.process.pid, signal.SIGTERM)
+                    try:
+                        self.process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        pass
+                    # Also reap children whose parent exited before they did.
+                    os.killpg(self.process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                self.process.wait(timeout=3)
+            self.record({"type": "room.failed" if failed else "room.stopped", "error": reason})
+
+
+class Rooms:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.lock = threading.RLock()
+        self.items: dict[str, Room] = {}
+        for path in sorted(root.glob("*/config.json")):
+            config = json.loads(path.read_text(encoding="utf-8"))
+            room = Room(path.parent, config, path.parent.name)
+            journal = path.parent / "events.jsonl"
+            if journal.exists():
+                lines = journal.read_text(encoding="utf-8").splitlines()
+                for i, line in enumerate(lines):
+                    try:
+                        apply_event(room.state, json.loads(line))
+                    except ValueError:
+                        if i != len(lines) - 1:
+                            raise
+                        # A crash may truncate the last append. Repair only that suffix.
+                        journal.write_text("\n".join(lines[:i]) + "\n", encoding="utf-8")
+            if room.state["status"] not in TERMINAL:
+                room.record(
+                    {
+                        "type": "room.stopped",
+                        "error": "Service interrupted. "
+                        "History retained; start a new Room to continue. Edits remain.",
+                    }
+                )
+            self.items[path.parent.name] = room
+
+    def create(self, config: dict[str, Any]) -> Room:
+        with self.lock:
+            workspace = Path(config["workspace"])
+            for existing in self.items.values():
+                other = Path(existing.config["workspace"])
+                if existing.state["status"] not in TERMINAL and (
+                    workspace.is_relative_to(other) or other.is_relative_to(workspace)
+                ):
+                    raise Conflict("A Room is already using this workspace. Stop it first.")
+            room_id = uuid.uuid4().hex
+            room = Room(self.root / room_id, config, room_id)
+            self.items[room_id] = room
+            room.start()
+            return room
+
+    def get(self, room_id: str) -> Room:
+        with self.lock:
+            if room_id not in self.items:
+                raise KeyError("Room not found.")
+            return self.items[room_id]
+
+    def history(self) -> list[dict[str, Any]]:
+        with self.lock:
+            return [
+                {
+                    "id": room.state["id"],
+                    "status": room.state["status"],
+                    "task": room.config["task"],
+                    "round": room.state["round"],
+                }
+                for room in reversed(list(self.items.values()))
+            ]
+
+    def close(self) -> None:
+        with self.lock:
+            for room in self.items.values():
+                room.stop("Service stopped. Edits remain in the workspace.")
