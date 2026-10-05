@@ -51,9 +51,10 @@ outputs. **Handoffs** inspects real message envelopes and payload previews;
 download the full JSONL trace for complete information. Calm ambient behaviour
 makes waiting participants feel alive and yields immediately to real work.
 Short bubbles describe observable local activity; travelling cards represent
-actual protocol messages. The current CLI adapter exposes action starts and
-completed turns, so bubbles do not yet report live file edits or test commands.
-They never invent thoughts or infer state from silence.
+actual protocol messages. An optional ZipperGen CLI progress observer supplies live tool/file/test activity
+for bubbles and the participant inspector. Update the sibling ZipperGen checkout
+to include that hook; older checkouts retain action-start bubbles. Unknown commands get a general shell
+label. Bubbles never expose reasoning, invent thoughts, or infer state from silence.
 
 CLI/model failures appear in the Room with their error. Compatibility checks
 verify safety flags, not authentication. Profiles select Codex or Claude and

@@ -89,15 +89,29 @@ nothing. Work animation continues after the bubble fades. Leaving the active
 state removes the bubble immediately. Human gets the real decision UI, not
 invented commentary. Accessible status text mirrors the short bubble.
 
-Currently the native ZipperGen CLI adapter uses `subprocess.run(capture_output=True)`
-and exposes no incremental output callback. The truthful live bubbles are
-therefore “Working on the task…” and “Reviewing the proposal…” at observed
-`act_start` boundaries. We do **not** pretend to observe edits, test commands,
-or tool calls. A future upstream public-progress callback should supply typed,
-allowlisted tool/file/test events with participant/action identity; it must
-exclude reasoning and credentials. It can feed this same presentation cadence
-without replacing native CLI session/permission handling or adding an LLM call.
-Completed outputs and parsed review findings remain in the existing inspectors.
+The native ZipperGen CLI backend now offers an optional `on_progress` observer.
+ZipperCrew subscribes per role, retaining ZipperGen's prompts, permissions and
+persistent conversations. Codex's JSON tool events and Claude's streamed tool-use
+blocks supply public command/file metadata. Unknown events, reasoning, assistant
+text, raw tool output and patches never become bubbles.
+
+`activity.py` makes conservative deterministic summaries: recognized test commands
+become “Running tests…”, `git diff` becomes “Checking the diff…”, explicit file
+changes become “Updated session.py.” Unrecognized or compound commands remain
+“Running a shell command…”. Exit status can report a test command's success or
+failure; it cannot invent a finding count or change a review verdict. Only short
+summaries, basename, public tool ID and operation/phase enter the progress journal;
+raw command arguments are not persisted by ZipperCrew.
+
+Each CLI invocation has a unique ID. The reducer accepts its progress only while
+that same invocation is semantically active. Delayed observer events cannot revive
+an ended turn or leak into another round. Progress uses the existing bubble cadence
+and a bounded Recent activity section in the participant inspector. The normalized
+observations are in the full room journal. This is best-effort telemetry; missing
+progress leaves the work animation running without invented commentary. The
+observer queue never backpressures tool execution, and subscriber errors cannot
+change the final action result. Action-start bubbles remain the fallback until
+observable tool activity arrives.
 
 ### Protocol handoffs
 

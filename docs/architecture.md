@@ -86,6 +86,7 @@ an in-flight CLI, so a service crash does not leave an unobserved agent working.
 | `runtime` / `act_start` (assistant) | ZipperGen trace callback | Implementer working / Reviewer reviewing |
 | `runtime` / `act` (assistant) | Completed ZipperGen action | Waiting; append full turn to inspector |
 | `runtime` / `send`, `recv` | ZipperGen channels | Correlated message cards, inboxes, inspector and full trace |
+| `assistant.invocation`, `assistant.progress` | Optional native CLI observer | Current local activity and recent progress; no protocol messages |
 | `review.verdict` | Upstream `review_header` on completed review | APPROVE/REVISE display only |
 | `human.required` | Upstream human backend invocation | Pending task; Human active |
 | `human.responded` | Validated answer returned to runtime | Human waiting; append response |
@@ -109,11 +110,13 @@ inspector directions. The persisted process outputs remain verbatim.
   runs continue unchanged. A future durable Room adapter should render and
   complete those same stored tasks, allowing browser/Telegram completion to race
   through ZipperGen's single authoritative task completion operation.
-* The upstream native CLI backend returns completed turns, not incremental
-  terminal output or public session metadata. The inspector shows all action
-  inputs, proposals, reviews, human replies, and protocol events. A future
-  upstream invocation/stream hook can add terminal inspection without changing
-  the protocol or visual state model.
+* The native backend now has an optional public progress observer (see
+  `zippergen/docs/assistant-progress.md`). It preserves result/session validation
+  and exposes only selected tool metadata. ZipperCrew's adapter subscribes per
+  role and records sanitized summaries through `assistant.invocation` and
+  `assistant.progress`; the reducer rejects stale invocation IDs. No stdout
+  scraping, monkeypatching or replacement CLI/session machinery is needed.
+  Complete interactive terminal inspection remains outside this slice.
 
 No database, workflow editor, remote service, or replacement agent framework.
 
@@ -128,8 +131,8 @@ The Room distinguishes local activity from protocol communication. Local activit
 is shown through participant animation and short activity bubbles. Every visible
 protocol handoff corresponds to a real ZipperGen message and is represented as a
 message object moving between participants. Bubbles never claim access to hidden
-reasoning or fabricate thoughts. Current native CLI observability supports action
-boundary bubbles, not live file/test summaries; see the upstream gap above.
+reasoning or fabricate thoughts. The optional native CLI observer supports live tool/file/test summaries; action
+boundary bubbles remain a fallback when no public progress arrives.
 
 The reducer retains separate send/receive journal references, sender, receiver,
 channel and per-channel sequence; it tolerates receive-before-send callback order.

@@ -55,7 +55,7 @@ def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None)
                 "detail": config["human_mode"],
             }
         },
-        assistant_backend=backend or assistant_backend(config),
+        assistant_backend=backend or assistant_backend(config, emit),
         human_backend=human,
         trace=trace,
         timeout=0,

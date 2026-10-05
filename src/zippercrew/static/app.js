@@ -191,6 +191,13 @@ function renderRole() {
       State: current.participants[selected], Round: `${current.round} of ${current.config.max_rounds}`,
       Workspace: current.config.workspace })) meta.append(element("dt", key), element("dd", value));
     $("participant-info").replaceChildren(meta);
+    const progress = (current.progress || []).filter(item => item.role === selected).slice(-6);
+    if (progress.length) {
+      const recent = element("div", undefined, "recent-progress");
+      recent.append(element("h4", "Recent activity"));
+      for (const item of progress) recent.append(element("p", `Round ${item.round} · ${item.text}`));
+      $("participant-info").append(recent);
+    }
   }
   renderTranscript(selected, $("transcript"));
 }

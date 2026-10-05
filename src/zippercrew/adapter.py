@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from dataclasses import replace
+from inspect import signature
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -12,6 +13,8 @@ from typing import Any
 import zippergen
 from zippergen.assistant_backends import make_cli_assistant_backend
 from zippergen.workflow_io import load_workflow_spec, project_directory
+
+from zippercrew.activity import summarize
 
 ROLE_ACTIONS = {"implement": "Implementer", "review": "Reviewer"}
 
@@ -34,9 +37,25 @@ def load_process() -> tuple[Any, ModuleType]:
         return load_workflow_spec("examples/pair_programming.py:pair_programming")
 
 
-def assistant_backend(config: dict[str, Any]) -> Callable[..., dict[str, object]]:
+def assistant_backend(
+    config: dict[str, Any],
+    emit: Callable[[dict[str, Any]], None] | None = None,
+) -> Callable[..., dict[str, object]]:
+    def observe(role: str, event: dict[str, Any]) -> None:
+        if emit is None:
+            return
+        identity = {"role": role, "invocation_id": event["invocation_id"]}
+        if event.get("kind") == "invocation.started":
+            emit({"type": "assistant.invocation", **identity})
+        else:
+            activity = summarize(event)
+            if activity:
+                emit({"type": "assistant.progress", **identity, "activity": activity})
+
     # One native backend per role, constructed once per Room. The runtime's role
     # thread names supply participant identity to these upstream callables.
+    # Keep older sibling checkouts usable with action-boundary bubbles only.
+    supports_progress = "on_progress" in signature(make_cli_assistant_backend).parameters
     backends = {
         role: make_cli_assistant_backend(
             {
@@ -45,6 +64,11 @@ def assistant_backend(config: dict[str, Any]) -> Callable[..., dict[str, object]
                 if binding.get(key)
             },
             project_root=config["workspace"],
+            **(
+                {"on_progress": lambda event, role=role: observe(role, event)}
+                if emit and supports_progress
+                else {}
+            ),
         )
         for role, binding in config["agents"].items()
     }

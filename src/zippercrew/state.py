@@ -26,6 +26,8 @@ def initial_state(room_id: str, config: dict[str, Any]) -> dict[str, Any]:
         "transcript": [],
         "activity": [],
         "local_activity": {},
+        "invocations": {},
+        "progress": [],
         "messages": [],
     }
 
@@ -35,6 +37,25 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     state["version"] = event["id"]
     if kind == "room.started":
         state["status"] = "running"
+    elif kind == "assistant.invocation":
+        if state["participants"].get(event["role"]) in {"working", "reviewing"}:
+            state["invocations"][event["role"]] = event["invocation_id"]
+    elif kind == "assistant.progress":
+        role = event["role"]
+        if (
+            state["participants"].get(role) in {"working", "reviewing"}
+            and state["invocations"].get(role) == event["invocation_id"]
+        ):
+            activity = {
+                **event["activity"],
+                "id": event["id"],
+                "role": role,
+                "round": state["round"],
+                "source": "assistant.progress",
+                "invocation_id": event["invocation_id"],
+            }
+            state["local_activity"][role] = activity
+            state["progress"] = [*state["progress"], activity][-40:]
     elif kind == "human.required":
         state["pending"] = event["request"]
         state["participants"]["Human"] = "needs human"
@@ -58,6 +79,7 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         state["error"] = event.get("error")
         state["participants"] = {role: state["status"] for role in ROLES}
         state["local_activity"] = {}
+        state["invocations"] = {}
     elif kind == "runtime":
         raw = event["event"]
         role = raw.get("lifeline")
@@ -67,8 +89,7 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
                 state["round"] += 1
                 state["review"] = None
             state["participants"][role] = "reviewing" if role == "Reviewer" else "working"
-            # The native CLI backend currently exposes action boundaries, not
-            # live tool output. Never pretend a test or edit happened inside it.
+            # Action-start fallback, replaced only by observed public tool progress.
             state["local_activity"][role] = {
                 "id": event["id"],
                 "text": "Reviewing the proposal…" if role == "Reviewer" else "Working on the task…",
@@ -79,6 +100,7 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         elif raw["type"] == "act" and action_kind in {"assistant", "human"}:
             state["participants"][role] = "waiting"
             state["local_activity"].pop(role, None)
+            state["invocations"].pop(role, None)
             if action_kind == "assistant":
                 state["transcript"].append(
                     {
