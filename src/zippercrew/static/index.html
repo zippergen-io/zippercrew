@@ -11,13 +11,13 @@
     <input id="room-name" aria-label="Room name" maxlength="120" value="Pair programming" title="Rename this Room">
     <button id="process-control" class="process-control">Pair Programming <span aria-hidden="true">⌄</span></button>
     <button id="workspace-control" class="workspace-control"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h6l2 2h8v10H2Z"/></svg><span id="workspace-label">Choose repository</span></button>
-    <nav aria-label="Room controls"><button id="run-again" class="outline-button" hidden>Run again</button><details class="room-menu" id="room-menu"><summary aria-label="Room actions">⋯</summary><div><button id="rename-room">Rename room</button><button id="run-history">Run history</button><button id="save-room">Save room</button><button id="delete-room" class="danger">Delete room</button></div></details><span id="connection" class="connection">Local workspace</span><button id="rooms-control" class="text-button">Rooms</button><button id="settings-control" class="text-button">Settings</button><button id="new-room" class="outline-button">＋ New room</button></nav>
+    <nav aria-label="Room controls"><button id="run-again" class="outline-button" hidden>Run again</button><details class="room-menu" id="room-menu"><summary aria-label="Room actions">⋯</summary><div><button id="rename-room">Rename room</button><button id="run-history">Run history</button><button id="delete-room" class="danger">Delete room</button></div></details><span id="connection" class="connection">Local workspace</span><button id="rooms-control" class="text-button">Rooms</button><button id="settings-control" class="text-button">Settings</button><button id="new-room" class="outline-button">＋ New room</button></nav>
   </header>
   <main>
     <div class="notices"><div id="demo-banner" class="banner" hidden>Demo · scripted agents, real process</div><div id="error" class="error" role="alert" hidden></div></div>
     <div id="room-layout" class="room-layout">
       <section class="room-stage" aria-label="Crew room">
-        <div class="room-toolbar"><span id="room-status" class="status-pill" role="status">Setting up</span><span class="environment-name">Corner Café</span><span id="run-context" class="environment-name"></span><button id="latest-run" class="secondary" hidden>Latest run →</button></div>
+        <div class="room-toolbar"><span id="room-status" class="status-pill" role="status">Setting up</span><span class="environment-name">Corner Café</span><span id="save-status" role="status" aria-live="polite">Autosave on</span><button id="retry-save" class="text-button" hidden>Retry save</button><span id="run-context" class="environment-name"></span><button id="latest-run" class="secondary" hidden>Latest run →</button></div>
         <div id="scene" class="scene"></div>
         <div class="scene-caption"><span id="scene-hint">Select a station to choose an agent.</span></div>
       </section>
@@ -52,7 +52,7 @@
             <p class="hint">A common brief for the whole crew.</p>
             <label for="workspace">Working repository</label><input id="workspace" autocomplete="off" placeholder="/path/to/your/repository"><p class="hint">Implementer edits these files. Reviewer inspects the same files.</p>
             <label for="task">The task</label><textarea id="task" rows="10" maxlength="30000" placeholder="What should the crew work on? Include what good looks like and how to verify it."></textarea>
-            <button id="brief-done" class="primary">Done</button>
+            <p class="hint">Changes save automatically.</p>
           </section>
           <section id="settings-panel" hidden>
             <label for="room-motion">Room animation</label><select id="room-motion"><option value="full">Full</option><option value="reduced">Reduced</option></select>

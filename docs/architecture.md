@@ -117,9 +117,11 @@ inspector directions. The persisted process outputs remain verbatim.
   through ZipperGen's single authoritative task completion operation.
 * The native backend now has an optional public progress observer (see
   `zippergen/docs/assistant-progress.md`). It preserves result/session validation
-  and exposes only selected tool metadata. ZipperCrew's adapter subscribes per
+  and exposes selected tool metadata and optional command results. ZipperCrew's adapter subscribes per
   role and records sanitized summaries through `assistant.invocation` and
-  `assistant.progress`; the reducer rejects stale invocation IDs. No stdout
+  `assistant.progress`; the reducer rejects stale invocation IDs. Public command
+  results are stored separately as `assistant.tool_output` for trace inspection,
+  with only allowlisted metrics exposed in bubbles. No stdout
   scraping, monkeypatching or replacement CLI/session machinery is needed.
   Complete interactive terminal inspection remains outside this slice.
 
@@ -225,3 +227,54 @@ Runs, and removes only known run directories under ZipperCrew storage plus the
 Room record. It never traverses workspace/profile config paths. A persisted
 deletion marker lets startup finish an interrupted deletion rather than re-adopt
 orphaned execution directories. Symlinked run directories are refused.
+
+### Observable result detail and scene surfaces
+
+The CLI progress hook previously exposed commands and exit codes, but discarded
+command results and Claude Read ranges. A small upstream telemetry extension adds
+optional observed command output and read offset/limit metadata. Claude completion
+records are correlated by tool-use ID within one invocation, never across sessions.
+This remains an observation API; workflow actions, permissions, messages and final
+result validation are unchanged. The UI only displays deterministic allowlisted
+result summaries. Public command output is available in the trace (bounded at
+262,144 characters per tool result, with explicit truncation metadata); reasoning and file-read
+bodies are excluded. As with existing full action payloads, traces are local debug
+artifacts and may contain workspace content.
+
+The Corner Café uses fixed scene-space received-shadow polygons, independent of
+soft floor-contact and directional cast shadows. Per-sprite alpha masks allow
+partial-body shading; the counter has a matching depth-sorted foreground layer.
+The shared brief is a textured Canvas surface projected into the board quadrilateral
+inside Phaser. These surfaces and ambient movement cannot enable or delay work.
+
+Lightweight Room edits autosave after 700 ms, with a persistent Saving / Saved /
+Not saved indicator and a Retry action. Switching or closing an inspector flushes
+pending draft changes; a failed write retains the draft. Navigation flushes drafts,
+and leaving the document warns while changes remain unpersisted. Creating a shared
+named assistant profile remains an explicit operation.
+
+Ambient actions are role-specific and use authored aisle/approach points. Coffee,
+board and window trips share a reservation; ordinary stillness remains the usual
+outcome of a scheduling opportunity. A bounded long idle interval prevents a
+participant remaining frozen indefinitely. Semantic work and Human attention cancel
+ambient movement immediately. Reduced motion disables ambient actions altogether.
+
+### Responsive application shell
+
+The shell has one fluid, full-width grid: intrinsic header, flexible workspace,
+and intrinsic action footer. The workspace divides into `minmax(0, 1fr)` for the
+Room and a bounded 22–27rem inspector. The inspector header/footer remain in view;
+only its body scrolls. Flexible children explicitly permit shrinking in both axes.
+Legacy floating-inspector margins and competing fixed scene heights are removed.
+
+On ordinary laptop viewports the Room receives the space left after controls.
+Below the minimum usable workspace height (20rem), the document scrolls instead
+of hiding overflow. At widths of 900px or less, Room and inspector stack, with the
+footer in normal flow; it cannot cover either surface. Header and footer controls
+wrap, and long brief/path content cannot impose a minimum page width.
+
+The existing Phaser ResizeObserver remains the sizing authority. Canvas backing
+size follows its container; CSS does not stretch the rendered canvas. The camera
+continues fitting the existing world and preserving its aspect ratio, including
+intentional letterboxing at extreme aspect ratios. No rendering or process
+behavior changes are required for this shell layout.

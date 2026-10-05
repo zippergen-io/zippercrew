@@ -42,7 +42,7 @@ def test_summaries_do_not_expose_command_arguments_output_or_thoughts():
 
 def test_test_result_is_only_reported_from_observed_exit_status():
     event = {"kind": "command", "command": "python -m unittest", "phase": "completed"}
-    assert summarize(event)["text"] == "Shell command finished."
+    assert summarize(event)["text"] == "Test command finished."
     assert summarize({**event, "exit_code": 0})["text"] == "Test command succeeded."
     assert summarize({**event, "exit_code": 1})["text"] == "Test command failed."
 
@@ -122,3 +122,68 @@ def test_older_upstream_keeps_action_boundary_fallback(config, monkeypatch):
     result = assistant_backend(config, observed.append)(module.review, {"proposal": "work"})
     assert list(result.values()) == ["done"]
     assert not observed
+
+
+def test_result_details_are_observed_bounded_and_exclude_arbitrary_output():
+    command = {"kind": "command", "phase": "completed", "command": "pytest -q"}
+    assert (
+        summarize({**command, "output": "password=SECRET\n2 failed, 14 passed in 1.23s\n"})[
+            "detail"
+        ]
+        == "2 failed · 14 passed"
+    )
+    assert "detail" not in summarize({**command, "output": "14 passed SECRET=hidden"})
+    assert "detail" not in summarize({**command, "phase": "started", "output": "14 passed"})
+    assert (
+        summarize({**command, "command": "git diff --check", "exit_code": 0})["detail"]
+        == "No whitespace errors"
+    )
+    assert (
+        summarize({**command, "command": "git diff --check", "exit_code": 2})["detail"]
+        == "Exit status 2"
+    )
+    assert "detail" not in summarize(
+        {**command, "command": "echo '14 passed'", "output": "14 passed"}
+    )
+    read = {
+        "kind": "file",
+        "operation": "read",
+        "phase": "started",
+        "path": "notes.tex",
+        "offset": 70,
+        "limit": 71,
+    }
+    assert summarize(read)["detail"] == "lines 70–140"
+    assert "detail" not in summarize({**read, "offset": "SECRET"})
+    assert "detail" not in summarize({**read, "offset": True})
+
+
+def test_public_output_is_trace_only(config, monkeypatch):
+    from zippercrew.adapter import assistant_backend, load_process
+
+    def factory(selection, *, project_root, on_progress=None):
+        def invoke(action, inputs):
+            on_progress({"kind": "invocation.started", "invocation_id": "turn"})
+            on_progress(
+                {
+                    "kind": "command",
+                    "phase": "completed",
+                    "command": "pytest -q",
+                    "output": "failure details\n14 passed in 1.0s",
+                    "invocation_id": "turn",
+                    "tool_id": "tool-1",
+                    "exit_code": 0,
+                }
+            )
+            return {action.outputs[0][0]: "done"}
+
+        return invoke
+
+    monkeypatch.setattr("zippercrew.adapter.make_cli_assistant_backend", factory)
+    _, module = load_process()
+    events = []
+    assistant_backend(config, events.append)(module.implement, {"task": "work"})
+    assert events[1]["type"] == "assistant.tool_output"
+    assert events[1]["output"].startswith("failure details")
+    assert events[2]["activity"]["detail"] == "14 passed"
+    assert "failure details" not in str(events[2])

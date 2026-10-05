@@ -118,6 +118,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/scene.js",
                 "/room-engine.js",
                 "/presentation.js",
+                "/surfaces.js",
                 "/inspector.js",
                 "/style.css",
             }:
@@ -126,6 +127,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                     "/scene.js": ("scene.js", "text/javascript; charset=utf-8"),
                     "/room-engine.js": ("room-engine.js", "text/javascript; charset=utf-8"),
+                    "/surfaces.js": ("surfaces.js", "text/javascript; charset=utf-8"),
                     "/presentation.js": ("presentation.js", "text/javascript; charset=utf-8"),
                     "/inspector.js": ("inspector.js", "text/javascript; charset=utf-8"),
                     "/style.css": ("style.css", "text/css; charset=utf-8"),

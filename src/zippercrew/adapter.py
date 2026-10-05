@@ -48,6 +48,16 @@ def assistant_backend(
         if event.get("kind") == "invocation.started":
             emit({"type": "assistant.invocation", **identity})
         else:
+            if event.get("kind") == "command" and isinstance(event.get("output"), str):
+                emit(
+                    {
+                        "type": "assistant.tool_output",
+                        **identity,
+                        "tool_id": event.get("tool_id"),
+                        "output": event["output"],
+                        "truncated": bool(event.get("output_truncated")),
+                    }
+                )
             activity = summarize(event)
             if activity:
                 emit({"type": "assistant.progress", **identity, "activity": activity})

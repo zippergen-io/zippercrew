@@ -158,7 +158,10 @@ export function renderParticipant({ state, role, events, loading, error, overvie
     const identity = node('p', role.kind === 'agent' ? `${cli(binding.backend)} · ${role.access}` : 'Human participant · You', 'participant-runtime');
     const section = node('section', undefined, 'current-activity');
     section.append(node('h3', active || semantic === 'needs human' ? 'Current activity' : 'Last activity'));
-    if (active) section.append(node('p', activity?.text || (semantic === 'reviewing' ? 'Reviewing the proposal…' : 'Working on the task…'), 'activity-title'));
+    if (active) {
+      section.append(node('p', activity?.text || (semantic === 'reviewing' ? 'Reviewing the proposal…' : 'Working on the task…'), 'activity-title'));
+      if (activity?.detail) section.append(node('p', activity.detail, 'activity-consequence'));
+    }
     else if (semantic === 'needs human') section.append(node('p', 'Your decision is needed', 'activity-title'));
     else if (response) {
       section.append(node('p', 'Responded to the crew', 'activity-title'));

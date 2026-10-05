@@ -87,7 +87,7 @@ export function createScene(container, onSelect) {
         button.dataset.pose = person.pose;
         button.dataset.ambient = person.ambientAction || '';
         const activity = document.getElementById(`local-activity-${person.name}`);
-        const text = person.currentActivity?.text || '';
+        const text = [person.currentActivity?.text, person.currentActivity?.detail].filter(Boolean).join(' · ');
         if (activity.textContent !== text) activity.textContent = text;
         button.dataset.x = person.worldX;
         button.dataset.y = person.worldY;

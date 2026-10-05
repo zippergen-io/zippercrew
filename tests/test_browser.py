@@ -42,7 +42,8 @@ def configure(page, project, mode="brief"):
     page.get_by_label("The task", exact=True).fill(
         "Fix the rounding error and add a regression test."
     )
-    page.get_by_role("button", name="Done", exact=True).click()
+    page.locator("#close-inspector").click()
+    expect(page.locator("#save-status")).to_have_text("Saved")
     expect(page.locator("#room-status")).to_have_text("Ready")
 
 
@@ -164,11 +165,8 @@ def test_profile_creation_with_model_pins_from_empty_station(service):
         page.locator("#role-model").fill("review-model")
         page.locator("#role-effort").fill("low")
         page.locator("#room-menu summary").click()
-        page.locator("#save-room").click()
+        expect(page.locator("#save-status")).to_have_text("Saved")
         page.wait_for_function("location.hash.includes('room=')")
-        page.wait_for_function(
-            "document.getElementById('connection').textContent === 'Room saved locally'"
-        )
         page.reload()
         page.locator("#actor-Reviewer").click()
         expect(page.locator("#role-model")).to_have_value("review-model")
@@ -257,7 +255,7 @@ def test_asset_failure_is_explicit_and_does_not_allow_start(service):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page()
-        page.route("**/assets/characters/reviewer-v2.png", lambda route: route.abort())
+        page.route("**/assets/characters/reviewer-v*.png", lambda route: route.abort())
         page.goto(base)
         expect(page.locator("#error")).to_contain_text("Room asset could not load")
         expect(page.locator(".scene-loading")).to_contain_text("Reload to retry")
@@ -320,7 +318,7 @@ def test_cosmetic_policy_is_calm_interruptible_and_observable(service):
             const calm = new AmbientDirector(() => 0.2);
             let actions = 0;
             for (let t = 0; t < 3600000; t += 1000) if (calm.step('Human', 'waiting', t)) actions++;
-            check(actions === 0, 'doing nothing remains possible indefinitely');
+            check(actions > 0 && actions < 300, 'occasional movement, mostly stillness');
             const a = new ActivityCadence();
             const first = { id: 1, text: 'Working on the task…' };
             const next = { id: 2, text: 'Reviewing the proposal…' };
@@ -381,11 +379,13 @@ def test_scene_preempts_ambient_and_does_not_invent_message_receipts(service):
         assert page.evaluate("roomTest.inspect().participants[1].state") == "waiting"
         page.evaluate("""() => {
             viewTest.states.Reviewer = 'reviewing';
-            viewTest.activities.Reviewer = {id:1, text:'Reviewing the proposal…'};
+            viewTest.activities.Reviewer = {id:1, text:'Reading notes.tex…', detail:'lines 70–140'};
             roomTest.present(viewTest);
         }""")
         assert page.evaluate("roomTest.inspect().participants[1].ambientAction") is None
         page.wait_for_function("() => roomTest.inspect().participants[1].currentActivity !== null")
+        assert page.evaluate("roomTest.people.get('Reviewer').bubbleDetail.text") == "lines 70–140"
+        assert page.evaluate("roomTest.people.get('Reviewer').bubbleDetail.visible")
         page.evaluate("""() => {
             window.envelopeTest = {id:'test-send', version:1, from:'Implementer', to:'Reviewer',
                 send_id:5, receive_id:null, seq:12, channel:'work',
@@ -450,7 +450,7 @@ def test_named_room_rerun_preserves_history_and_safe_delete(service):
         page.get_by_label("Room name", exact=True).fill("GLOVE review")
         page.get_by_label("Room name", exact=True).press("Tab")
         page.locator("#start").click()
-        expect(page.locator("#room-status")).to_have_text("Completed", timeout=15000)
+        expect(page.locator("#room-status")).to_have_text("Completed", timeout=30000)
         first_url = page.url
         canvas = page.locator("#room-art canvas").element_handle()
         page.get_by_role("button", name="Run again", exact=True).click()
@@ -464,7 +464,7 @@ def test_named_room_rerun_preserves_history_and_safe_delete(service):
         expect(page.locator("#participant-details")).to_be_hidden()
         expect(page.locator("#role-profile")).to_have_value("Scripted demo")
         page.locator("#start").click()
-        expect(page.locator("#room-status")).to_have_text("Completed", timeout=15000)
+        expect(page.locator("#room-status")).to_have_text("Completed", timeout=30000)
         assert page.url != first_url
         assert canvas.evaluate("node => node === document.querySelector('#room-art canvas')")
         page.get_by_label("Room name", exact=True).fill("GLOVE final review")

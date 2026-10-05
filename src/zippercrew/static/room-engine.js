@@ -1,3 +1,4 @@
+import { ChalkBrief, RoomLighting } from '/surfaces.js';
 import { AmbientDirector, ActivityCadence } from '/presentation.js';
 
 /* Phaser owns drawing and animation, never protocol decisions. */
@@ -7,7 +8,7 @@ export const ART = {
   revision: 'grounded-cafe-agent-cast-v2',
   background: '/assets/corner-cafe/background-v2.png',
   furniture: '/assets/corner-cafe/furniture-v2.png',
-  workstations: '/assets/corner-cafe/workstations-v3.png',
+  workstations: '/assets/corner-cafe/workstations-v4.png',
   board: { x: 1080, y: 160, width: 265, height: 175 },
   furnitureCuts: [[0, 520, 1049, 1536], [0, 513, 1024]],
   characterCuts: {
@@ -27,6 +28,7 @@ export const ROLES = [
     color: 0xeb7954,
     seat: { x: 440, y: 660 },
     rest: { x: 260, y: 520 },
+    approach: { x: 355, y: 635 }, aisleX: 275,
     desk: { x: 515, y: 805 },
     size: 330,
     deskWidth: 370,
@@ -40,8 +42,9 @@ export const ROLES = [
     name: 'Reviewer',
     key: 'reviewer',
     color: 0x35a8b0,
-    seat: { x: 1040, y: 675 },
+    seat: { x: 1045, y: 695 },
     rest: { x: 1240, y: 525 },
+    approach: { x: 960, y: 670 }, aisleX: 850,
     desk: { x: 1135, y: 805 },
     size: 385,
     deskWidth: 370,
@@ -57,6 +60,7 @@ export const ROLES = [
     color: 0xa37ab5,
     seat: { x: 730, y: 845 },
     rest: { x: 730, y: 845 },
+    approach: { x: 780, y: 785 }, aisleX: 780,
     desk: { x: 875, y: 885 },
     size: 375,
     deskWidth: 290,
@@ -153,7 +157,7 @@ export class CafeScene extends Phaser.Scene {
     this.load.image('cafe', ART.background);
     this.load.image('furniture', ART.furniture);
     this.load.image('workstations', ART.workstations);
-    for (const role of ROLES) this.load.image(role.key, `/assets/characters/${role.key}-v2.png`);
+    for (const role of ROLES) this.load.image(role.key, `/assets/characters/${role.key}-${role.key === 'reviewer' ? 'v3' : 'v2'}.png`);
     this.load.on('loaderror', (file) => {
       this.loadFailed = true;
       this.callbacks.onError(new Error(`Room asset could not load: ${file.key}`));
@@ -165,15 +169,13 @@ export class CafeScene extends Phaser.Scene {
       .setDisplaySize(WORLD.width, WORLD.height).setDepth(-1000);
     addAtlas(this.textures.get('furniture'), 3, 2, null, atlasRegions(ART.furnitureCuts));
     addAtlas(this.textures.get('workstations'), 2, 1);
+    this.lighting = new RoomLighting(this, ROLES);
     for (const role of ROLES) {
       addAtlas(this.textures.get(role.key), 3, 3, FRAMES, atlasRegions(ART.characterCuts[role.key]));
       const chair = this.add
         .image(role.seat.x - 10, role.seat.y + 4, 'furniture', String(role.chair))
         .setOrigin(0.5, 1);
-      chair.setScale(role.chairWidth / chair.width).setDepth(role.seat.y - 4);
-      const shadow = this.add
-        .ellipse(role.seat.x, role.seat.y - 4, 125, 28, 0x172819, 0.22)
-        .setDepth(role.seat.y - 2);
+      chair.setScale(role.chairWidth / chair.width).setFlipX(role.name !== 'Human').setDepth(role.seat.y - 4);
       const sprite = this.add.sprite(role.seat.x, role.seat.y, role.key, 'idle').setOrigin(0.5, 1);
       const baseScale = role.size / this.textures.get(role.key).get('idle').height;
       sprite.setScale(baseScale).setDepth(role.seat.y);
@@ -181,8 +183,6 @@ export class CafeScene extends Phaser.Scene {
         .image(role.desk.x, role.desk.y, role.name === 'Human' ? 'furniture' : 'workstations', String(role.furniture))
         .setOrigin(0.5, 1);
       desk.setScale(role.deskWidth / desk.width).setDepth(role.desk.y);
-      this.add.ellipse(role.desk.x + 10, role.desk.y - 8, role.deskWidth * 0.9, 28, 0x40342d, 0.12)
-        .setDepth(role.desk.y - 8);
       const ring = this.add
         .ellipse(role.seat.x, role.seat.y, 133, 36)
         .setStrokeStyle(2, role.color, 0.85)
@@ -214,13 +214,17 @@ export class CafeScene extends Phaser.Scene {
       const inbox = this.add.text(0, 0, '', { fontFamily: 'system-ui', fontSize: '15px',
         color: '#fffaf0', backgroundColor: '#273d32', padding: { x: 6, y: 3 },
       }).setOrigin(0.5, 0).setDepth(2100).setVisible(false);
+      const bubbleDetail = this.add.text(0, 0, '', {
+        fontFamily: 'system-ui', fontSize: '15px', color: '#627068',
+        wordWrap: { width: 245 }, align: 'center',
+      }).setOrigin(.5, 1).setDepth(2901).setVisible(false);
       this.people.set(role.name, {
+        bubbleDetail,
         inbox, bubbleBack, bubble, ambientAction: null, currentActivity: null,
         role,
         sprite,
         desk,
         chair,
-        shadow,
         ring,
         label,
         baseScale,
@@ -230,19 +234,12 @@ export class CafeScene extends Phaser.Scene {
         motion: null,
       });
     }
+    for (const person of this.people.values()) this.lighting.attach(person);
     this.board = this.add
       .zone(ART.board.x, ART.board.y, ART.board.width, ART.board.height)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.callbacks.onSelect('brief'));
-    this.brief = this.add
-      .text(ART.board.x - 100, ART.board.y - 52, 'What are we\nworking on?', {
-        fontFamily: 'system-ui',
-        fontSize: '20px',
-        fontStyle: 'bold',
-        color: '#f6efe2',
-        wordWrap: { width: 205 },
-      })
-      .setDepth(2);
+    this.brief = new ChalkBrief(this);
     this.resize();
     this.scale.on('resize', () => this.resize());
     this.ready = true;
@@ -314,10 +311,10 @@ export class CafeScene extends Phaser.Scene {
         .setPosition(destination.x, destination.y)
         .setFrame(pose)
         .setScale(person.baseScale)
-        .setAngle(0);
+        .setAngle(0).setFlipX(false);
       sprite.setAlpha(['failed', 'stopped'].includes(state) ? 0.62 : 1);
       sprite.setDepth(destination.y);
-      person.shadow.setPosition(destination.x, destination.y - 3).setDepth(destination.y - 2);
+      this.lighting.update(person);
       person.ring.setPosition(destination.x, destination.y).setDepth(destination.y - 1);
       person.label.setPosition(destination.x, destination.y + 15);
       if (!this.reducedMotion && visible) {
@@ -368,30 +365,12 @@ export class CafeScene extends Phaser.Scene {
       visible &&
       Math.hypot(sprite.x - destination.x, sprite.y - destination.y) > 5
     ) {
-      sprite.setFrame('walk-a');
-      person.tween = this.tweens.add({
-        targets: sprite,
-        x: destination.x,
-        y: destination.y,
-        duration: role.name === 'Implementer' ? 850 : 1150,
-        ease: 'Sine.easeInOut',
-        onUpdate: (t) => {
-          sprite.setFrame(Math.floor(t.progress * 6) % 2 ? 'walk-a' : 'walk-b');
-          sprite.setDepth(sprite.y);
-          person.shadow.setPosition(sprite.x, sprite.y - 3).setDepth(sprite.y - 2);
-          this.reportPositions();
-        },
-        onComplete: () => {
-          settle();
-          // Ease into the seated pose at the end of the walk; feet stay anchored.
-          if (['working', 'reviewing'].includes(state))
-            person.reaction = this.tweens.add({
-              targets: sprite,
-              scaleY: { from: person.baseScale * 1.035, to: person.baseScale },
-              duration: 220,
-              ease: 'Sine.easeOut',
-            });
-        },
+      person.tween = this.walk(person, destination, () => {
+        settle();
+        if (['working', 'reviewing'].includes(state)) person.reaction = this.tweens.add({
+          targets: sprite, scaleY: { from: person.baseScale * 1.025, to: person.baseScale },
+          duration: 220, ease: 'Sine.easeOut',
+        });
       });
     } else settle();
   }
@@ -421,26 +400,49 @@ export class CafeScene extends Phaser.Scene {
     person.ambientPose?.stop();
     person.ambientAction = action;
     const { sprite, role, home } = person;
-    const destination = action === 'board' ? { x: 1000, y: 475 }
-      : action === 'coffee' && role.name === 'Implementer' ? { x: 430, y: 485 } : home;
+    const destination = action === 'board' ? { x: 1010, y: 460 }
+      : action === 'coffee' ? { x: 585, y: 490 }
+      : action === 'window' ? { x: 215, y: 460 } : home;
     const frame = { coffee: 'coffee', tablet: 'think', board: 'think', monitor: 'think',
-      phone: 'work', stretch: 'idle', 'look-around': 'idle' }[action] || person.restFrame;
+      phone: 'work', window: 'think', stretch: 'idle', 'look-around': 'think' }[action] || person.restFrame;
     person.pose = action || person.semanticPose;
     const settle = () => {
-      sprite.setFrame(frame).setAngle(0).setScale(person.baseScale);
+      sprite.setPosition(destination.x, destination.y).setFrame(frame).setAngle(0).setScale(person.baseScale).setFlipX(false);
       if (action) person.ambientPose = this.tweens.add({
         targets: sprite, angle: action === 'stretch' ? -3 : role.name === 'Reviewer' ? -1 : 1.5,
         duration: role.name === 'Implementer' ? 1000 : 1800, yoyo: true, hold: 700,
       });
     };
     if (Math.hypot(sprite.x - destination.x, sprite.y - destination.y) < 5) settle();
-    else person.ambientTween = this.tweens.add({
-      targets: sprite, x: destination.x, y: destination.y,
-      duration: role.name === 'Implementer' ? 1300 : 1750, ease: 'Sine.easeInOut',
-      onUpdate: t => sprite.setFrame(Math.floor(t.progress * 8) % 2 ? 'walk-a' : 'walk-b'),
-      onComplete: settle,
+    else person.ambientTween = this.walk(person, destination, settle, true);
+  }
+  walk(person, destination, complete, ambient = false) {
+    const {sprite, role} = person;
+    const points = [{x:sprite.x,y:sprite.y}];
+    // Authored circulation: centre aisle for the Human, outside edges for
+    // agents, and a back aisle shared by the board, window and coffee counter.
+    const {aisleX} = role;
+    const short = Math.hypot(sprite.x-destination.x,sprite.y-destination.y)<180;
+    if (!short && sprite.y > 610) points.push({x:aisleX,y:role.name==='Human'?Math.min(sprite.y,785):sprite.y}, {x:aisleX,y:465});
+    if (!short && destination.y > 610) {
+      points.push({x:aisleX,y:465}, {x:aisleX,y:destination.y-35});
+      points.push(role.approach);
+    } else if (!short) points.push({x:destination.x,y:465});
+    points.push(destination);
+    const distances=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.y-points[i].y));
+    const total=distances.reduce((a,b)=>a+b,0);
+    return this.tweens.addCounter({from:0,to:total,
+      duration: Math.min(ambient?2600:1300, Math.max(550,total*(ambient?3:1.6))),
+      ease:'Sine.easeInOut', onUpdate:t=>{
+        let remaining=t.getValue(), segment=0;
+        while(segment<distances.length-1 && remaining>distances[segment]) remaining-=distances[segment++];
+        const from=points[segment], to=points[segment+1], fraction=distances[segment]?remaining/distances[segment]:1;
+        sprite.setPosition(from.x+(to.x-from.x)*fraction,from.y+(to.y-from.y)*fraction)
+          .setFrame(Math.floor(t.progress*10)%2?'walk-a':'walk-b').setFlipX(to.x<from.x).setAngle(0);
+      }, onComplete:complete,
     });
   }
+
   removeMessage(id) {
     const token = this.messages.get(id);
     if (!token) return;
@@ -458,6 +460,7 @@ export class CafeScene extends Phaser.Scene {
       person.currentActivity = null;
       person.bubble.setVisible(false);
       person.bubbleBack.setVisible(false);
+      person.bubbleDetail.setVisible(false);
       this.transition(person, person.state);
     }
   }
@@ -548,24 +551,29 @@ export class CafeScene extends Phaser.Scene {
       }
       const sprite = person.sprite;
       sprite.setDepth(sprite.y);
-      person.shadow.setPosition(sprite.x, sprite.y - 3).setDepth(sprite.y - 2);
+      this.lighting.update(person);
       person.ring.setPosition(sprite.x, sprite.y).setDepth(sprite.y - 1);
       person.label.setPosition(sprite.x, sprite.y + 15);
       const activity = this.activities.step(person.role.name, person.state,
         this.pendingView?.activities?.[person.role.name], now, this.pendingView?.replay);
       person.currentActivity = activity;
-      person.bubble.setVisible(!!activity).setPosition(sprite.x, sprite.y - person.role.size - 12);
-      person.bubbleBack.setVisible(!!activity).setPosition(person.bubble.x, person.bubble.y);
+      const anchorY = sprite.y - person.role.size - 12;
+      person.bubble.setVisible(!!activity).setPosition(sprite.x, anchorY - (activity?.detail ? 25 : 0));
+      person.bubbleDetail.setVisible(!!activity?.detail).setPosition(sprite.x, anchorY - 9);
+      person.bubbleBack.setVisible(!!activity).setPosition(sprite.x, anchorY);
       if (activity) {
-        if (person.bubble.text !== activity.text) {
+        if (person.bubble.text !== activity.text || person.bubbleDetail.text !== (activity.detail || '')) {
           person.bubble.setText(activity.text);
-          const w = person.bubble.width, h = person.bubble.height;
+          person.bubbleDetail.setText(activity.detail || '');
+          const w = Math.max(person.bubble.width, person.bubbleDetail.width + 28);
+          const h = person.bubble.height + (activity.detail ? 25 : 0);
           person.bubbleBack.clear().fillStyle(0xfffaf0)
             .fillRoundedRect(-w / 2, -h, w, h, 10)
             .fillTriangle(-6, 0, 8, 0, 0, 8);
         }
         const age = now - this.activities.people.get(person.role.name).shown;
         person.bubble.setAlpha(this.reducedMotion ? 1 : Math.min(1, (6500 - age) / 700));
+        person.bubbleDetail.setAlpha(person.bubble.alpha);
         person.bubbleBack.setAlpha(person.bubble.alpha);
       }
     }
@@ -607,6 +615,7 @@ export class CafeScene extends Phaser.Scene {
         y: p.sprite.y,
         moving: !!p.tween?.isPlaying() || !!p.ambientTween?.isPlaying(),
         visible: p.sprite.visible,
+        lighting: { contact: p.shadow.visible, cast: p.castShadow.visible, received: p.receivedShadow.visible },
       })),
     };
   }

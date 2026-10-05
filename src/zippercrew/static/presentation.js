@@ -2,9 +2,9 @@
  * Nothing here emits a workflow event or enables a process action. */
 const AMBIENT_STATES = new Set(['ready', 'waiting', 'completed']);
 const ACTIONS = {
-  Implementer: ['stretch', 'coffee', 'monitor'],
+  Implementer: ['stretch', 'coffee', 'monitor', 'board'],
   Reviewer: ['tablet', 'board', 'coffee'],
-  Human: ['phone', 'look-around', 'coffee'],
+  Human: ['phone', 'look-around', 'coffee', 'window'],
 };
 export class AmbientDirector {
   constructor(random = Math.random) {
@@ -23,7 +23,7 @@ export class AmbientDirector {
     if (!AMBIENT_STATES.has(state) || reduced) { this.cancel(role); return null; }
     if (!p || p.state !== state) {
       this.cancel(role);
-      p = { state, due: now + this.pause(25000, 30000), action: null, previous: null };
+      p = { state, due: now + this.pause(25000, 30000), action: null, previous: null, lastAction: now };
       this.people.set(role, p);
     }
     if (p.action && now >= p.until) {
@@ -35,14 +35,14 @@ export class AmbientDirector {
     if (!p.action && now >= p.due) {
       p.due = now + this.pause(35000, 55000);
       // Ordinary stillness is intentionally the most frequent outcome.
-      if (this.random() < 0.65) return null;
+      if (this.random() < 0.65 && now - p.lastAction < 150000) return null;
       const choices = (ACTIONS[role] || ['look-around']).filter(a => a !== p.previous);
       const action = choices[Math.floor(this.random() * choices.length)];
-      const resource = (role === 'Implementer' && action === 'coffee') || action === 'board'
+      const resource = ['coffee', 'board', 'window'].includes(action)
         ? 'back-aisle' : null;
       if (resource && this.reservations.has(resource)) return null;
       if (resource) this.reservations.set(resource, role);
-      Object.assign(p, { action, previous: action, resource, until: now + this.pause(6500, 4500) });
+      Object.assign(p, { lastAction: now, action, previous: action, resource, until: now + this.pause(6500, 4500) });
     }
     return p.action;
   }
@@ -62,7 +62,7 @@ export class ActivityCadence {
     }
     if (item && item.id !== p.seen) {
       p.seen = item.id;
-      const meaning = JSON.stringify([item.round, item.text]);
+      const meaning = JSON.stringify([item.round, item.text, item.detail]);
       if (!replay && meaning !== p.lastMeaning) p.pending = item;
       p.lastMeaning = meaning;
     }

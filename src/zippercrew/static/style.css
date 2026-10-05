@@ -6,7 +6,6 @@
 }
 * { box-sizing:border-box; }
 [hidden] { display:none !important; }
-body { margin:0; height:100dvh; display:grid; grid-template-rows:58px minmax(0,1fr) auto; overflow:hidden; }
 button,input,select,textarea { font:inherit; color:inherit; }
 button { cursor:pointer; border:0; background:none; border-radius:7px; }
 button:disabled { opacity:.48; cursor:not-allowed; }
@@ -34,10 +33,6 @@ nav { display:flex; align-items:center; gap:19px; margin-left:auto; white-space:
 .secondary { background:#e2eadb; padding:10px 13px; font-size:12px; }
 .danger { background:#eee1d8; color:#994f35; padding:10px 12px; font-size:12px; }
 .icon-button { padding:0 4px; font-size:23px; line-height:1; color:#70816f; }
-main { min-height:0; position:relative; background:radial-gradient(ellipse at 50% 36%,#e7ece0 0%,#d1ddd3 62%,#bdcfc5 100%); }
-.room-layout { position:relative; height:100%; }
-.room-stage { height:100%; position:relative; margin-right:0; transition:margin-right .3s ease; }
-.room-layout.with-inspector .room-stage { margin-right:354px; }
 .scene { height:100%; width:100%; }
 #room-art { display:block; width:100%; height:100%; overflow:visible; }
 .room-toolbar { position:absolute; top:20px; left:25px; display:flex; gap:10px; align-items:center; z-index:1; pointer-events:none; }
@@ -53,8 +48,7 @@ main { min-height:0; position:relative; background:radial-gradient(ellipse at 50
 .notices { position:absolute; left:25px; top:62px; z-index:5; max-width:min(600px,85vw); }
 .banner { font-size:11px; color:#765b30; background:#f5e6bde8; border:1px solid #e0cfa3; padding:7px 10px; border-radius:5px; }
 .error { color:#873d2b; background:#f7dfd1; border:1px solid #d8a28d; padding:12px; font-size:13px; border-radius:6px; white-space:pre-wrap; overflow-wrap:anywhere; margin-top:6px; }
-/* A floating inspector for the world, not a second page. */
-.inspector { position:absolute; top:16px; right:16px; bottom:16px; width:326px; z-index:2; border:1px solid #b5c6b2; border-radius:12px; background:#f9fbf4f5; box-shadow:0 8px 28px #304e3a21,0 1px 2px #304e3a0d; display:flex; flex-direction:column; overflow:hidden; }
+/* Inspector content; sizing and scrolling belong to the application shell below. */
 .inspector-header { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--line); border-top:3px solid #91a889; }
 .inspector[data-role="Human"] .inspector-header { border-top-color:var(--human); }
 .inspector[data-role="Implementer"] .inspector-header { border-top-color:var(--impl); }
@@ -84,7 +78,6 @@ input::placeholder,textarea::placeholder { color:#82907f; }
 #inspector-footer { border-top:1px solid var(--line); padding:13px 20px; }
 #inspector-footer a { font-size:12px; }
 #inspector-footer .hint { display:block; margin:6px 0 0; font-size:10px !important; }
-#brief-done { margin-top:15px; width:100%; }
 #load-profiles { margin-top:9px; }
 #add-profile { border-top:1px solid var(--line); padding-top:15px; margin-top:15px; }
 #add-profile summary { cursor:pointer; font-size:13px; }
@@ -135,42 +128,6 @@ input::placeholder,textarea::placeholder { color:#82907f; }
 #handoff-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .room-footer .text-button { font-size:10px; padding:3px 0; }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
-@media(max-width:1200px) { .connection { display:none; } .app-header { gap:16px; } .readiness { display:none; } .room-layout.with-inspector .room-stage { margin-right:328px; } .inspector { width:306px; right:10px; } }
-@media(max-width:850px) {
-  body { height:auto; min-height:100dvh; overflow:auto; grid-template-rows:auto minmax(0,1fr) auto; }
-  .app-header { flex-wrap:wrap; padding:13px 16px; gap:12px; }
-  .workspace-control { max-width:180px; }
-  nav { gap:15px; }
-  .room-layout { height:auto; }
-  .room-stage,.room-layout.with-inspector .room-stage { margin-right:0; height:65dvh; min-height:440px; }
-  .inspector { position:relative; inset:auto; width:auto; max-height:620px; margin:0 14px 16px; }
-  .scene-caption { font-size:11px; left:16px; }
-  .room-toolbar { top:14px; left:16px; }
-  .control-dock { position:relative; padding:10px 16px 6px; }
-  .run-controls { gap:8px; }
-  .edit-label { display:none; }
-}
-@media(max-width:570px) {
-  .brand { font-size:17px; }
-  .process-control { margin-left:auto; border:0; padding:0; font-size:11px; }
-  .app-header { gap:10px; }
-  .workspace-control { max-width:145px; font-size:10px; padding:6px; }
-  nav { gap:12px; }
-  .outline-button { font-size:10px; padding:6px; }
-  .text-button { font-size:11px; }
-  .room-stage,.room-layout.with-inspector .room-stage { height:470px; min-height:0; }
-  .room-toolbar { gap:8px; }
-  .environment-name { font-size:10px; }
-  .status-pill { font-size:11px; }
-  .scene-caption { bottom:18px; font-size:10px; }
-  .task-dock { flex-wrap:wrap; gap:9px; }
-  .task-control { flex-basis:100%; }
-  .run-controls { margin-left:auto; }
-  .primary { padding:10px 15px; }
-  .room-footer { font-size:9px; }
-  #task-preview { font-size:12px; }
-  .notices { left:16px; top:55px; }
-}
 /* The illustrated game world fills the viewport. DOM handles keyboard selection. */
 main { background:#24372e; }
 #room-art { position:relative; overflow:hidden; }
@@ -185,10 +142,6 @@ main { background:#24372e; }
 .room-toolbar { top:15px; left:18px; }
 .environment-name,.scene-caption { color:#fff0ce; text-shadow:0 1px 4px #18291c; }
 .scene-caption { background:#263c31b5; padding:7px 10px; border-radius:6px; left:18px; font-size:11px; }
-.inspector { background:#fffaf1f5; box-shadow:0 10px 35px #0a160d55; }
-.room-layout.with-inspector .room-stage { margin-right:354px; }
-@media(max-width:1200px) { .room-layout.with-inspector .room-stage { margin-right:328px; } }
-@media(max-width:850px) { .room-layout.with-inspector .room-stage { margin-right:0; } }
 @media(max-width:570px) { .scene-controls button { font-size:11px; padding:7px 10px; } }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -197,8 +150,6 @@ main { background:#24372e; }
 .activity-line small { color: var(--muted); }
 
 /* Participant inspector: identity → activity → conversation → technical detail. */
-.inspector { width:360px; background:#fcfcf8fa; }
-.room-layout.with-inspector .room-stage { margin-right:388px; }
 .inspector-header { padding:14px 18px; }
 .inspector-header .small-caps { font-size:11px; }
 #inspector-body { padding:16px 18px; scrollbar-gutter:stable; }
@@ -251,17 +202,23 @@ main { background:#24372e; }
 .activity-log { padding-left:17px; font-size:12px; line-height:1.65; overflow-wrap:anywhere; }
 .activity-log li { margin:7px 0; }
 #human-overview:not(:empty)::before { content:"Your decisions guide the crew."; display:block; font-size:12px; color:var(--muted); margin:0 0 12px; }
-@media(max-width:1200px) { .inspector { width:340px; } .room-layout.with-inspector .room-stage { margin-right:362px; } }
-@media(max-width:850px) { .inspector { width:auto; } .room-layout.with-inspector .room-stage { margin-right:0; } }
 
-/* Persistent Room shell. Only the inspector body scrolls on desktop. */
-body { height:100dvh; grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; }
-.app-header { min-height:60px; padding:10px 18px; gap:14px; flex-wrap:wrap; }
+/* Application shell: one width owner, intrinsic chrome, flexible workspace.
+ * The 20rem row floor keeps the inspector usable in exceptionally short windows.
+ * It creates document scrolling, never an inaccessible overflow boundary. */
+html { min-width:0; }
+body {
+  margin:0; width:100%; max-width:none; height:100dvh; min-height:100dvh;
+  display:grid; grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(20rem,1fr) auto;
+  overflow:visible;
+}
+.app-header { min-width:0; min-height:60px; padding:10px 18px; gap:14px; flex-wrap:wrap; }
 .brand { font-size:17px; flex:none; }
 #room-name { width:clamp(150px,19vw,290px); min-width:0; padding:6px 8px; border-color:transparent; background:transparent; font-weight:650; }
 #room-name:hover,#room-name:focus { border-color:var(--line); background:white; }
 .process-control { padding-left:14px; }
-.app-header nav { gap:13px; }
+.app-header nav { min-width:0; max-width:100%; flex-wrap:wrap; gap:13px; }
 .app-header .connection { display:none; }
 .workspace-control { max-width:180px; }
 .room-menu { position:relative; }
@@ -269,24 +226,39 @@ body { height:100dvh; grid-template-rows:auto minmax(0,1fr) auto; overflow:hidde
 .room-menu>div { position:absolute; right:0; top:35px; width:170px; padding:7px; background:var(--surface); box-shadow:0 5px 25px #18291c30; border:1px solid var(--line); border-radius:8px; }
 .room-menu button { display:block; width:100%; text-align:left; font-size:12px; padding:10px; }
 .room-menu button:hover { background:#e9eee6; }
-main { min-width:0; min-height:0; }
-.room-layout { display:grid; grid-template-columns:minmax(0,1fr) clamp(300px,25vw,390px); height:100%; min-height:0; }
-.room-stage,.room-layout.with-inspector .room-stage { margin:0; min-width:0; min-height:0; height:100%; transition:none; overflow:hidden; }
-.inspector { position:relative; inset:auto; width:auto; min-width:0; min-height:0; max-height:none; margin:0; border:0; border-left:1px solid var(--line); border-radius:0; box-shadow:none; background:#fcfcf8; }
-.inspector-header,#inspector-footer { flex:none; }
-#inspector-body { min-height:0; overflow:auto; }
-#close-inspector { font-size:18px; }
-.control-dock { min-width:0; padding:10px 18px max(7px,env(safe-area-inset-bottom)); }
-.task-dock { min-width:0; gap:14px; }
-.task-control { min-width:0; }
-.run-controls { flex-shrink:0; gap:10px; }
-.room-footer { min-width:0; }
+main { position:relative; min-width:0; min-height:0; width:100%; max-width:none; }
+.room-layout {
+  display:grid; grid-template-columns:minmax(0,1fr) clamp(22rem,26vw,27rem);
+  grid-template-rows:minmax(0,1fr); width:100%; height:100%; min-width:0; min-height:0;
+}
+.room-stage {
+  position:relative; margin:0; min-width:0; min-height:0;
+  overflow:hidden;
+}
+.scene { position:absolute; inset:0; min-width:0; min-height:0; }
+.inspector {
+  display:flex; flex-direction:column; min-width:0; min-height:0;
+  border:0; border-left:1px solid var(--line); background:#fcfcf8;
+  overflow:hidden; overflow-wrap:anywhere;
+}
+.inspector-header,#inspector-footer { flex:none; min-width:0; }
+#inspector-body { flex:1 1 0; min-width:0; min-height:0; overflow:auto; }
+#close-inspector { flex:none; font-size:18px; }
+.room-toolbar { right:18px; }
+.control-dock {
+  position:relative; min-width:0; padding:10px 18px max(7px,env(safe-area-inset-bottom));
+}
+.task-dock { min-width:0; flex-wrap:wrap; gap:14px; }
+.task-control { flex:1 1 20rem; min-width:0; }
+.run-controls { flex:0 1 auto; min-width:0; max-width:100%; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-left:auto; }
+.room-footer { min-width:0; flex-wrap:wrap; }
 .powered-by { display:flex; align-items:center; gap:5px; text-decoration:none; white-space:nowrap; flex:none; color:var(--muted); }
 .powered-by img { width:22px; height:22px; }
-#handoff-label { margin-left:auto; }
+#handoff-label { min-width:0; margin-left:auto; }
 @media(min-width:901px) {
   .inspector[hidden] { display:flex !important; }
 }
+@media(max-width:1200px) { .readiness { display:none; } }
 @media(max-width:1100px) {
   .workspace-control { display:none; }
   .app-header { gap:10px; }
@@ -294,22 +266,32 @@ main { min-width:0; min-height:0; }
   .process-control { font-size:11px; padding-left:10px; }
 }
 @media(max-width:900px) {
-  body { height:auto; min-height:100dvh; overflow:auto; grid-template-rows:auto auto auto; }
-  .room-layout { display:flex; flex-direction:column; height:auto; }
-  .room-stage,.room-layout.with-inspector .room-stage { height:60dvh; min-height:360px; }
-  .inspector { width:100%; height:480px; max-height:65dvh; border-top:1px solid var(--line); }
+  body { height:auto; grid-template-rows:auto minmax(0,1fr) auto; }
+  .room-layout { grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto; height:auto; }
+  .room-stage { height:min(60dvh,34rem); }
+  .inspector { height:clamp(20rem,60dvh,34rem); border-left:0; border-top:1px solid var(--line); }
   .app-header nav { margin-left:auto; gap:12px; }
   .app-header { padding:10px 14px; }
   #room-name { flex:1; }
-  .control-dock { position:sticky; bottom:0; z-index:4; }
   .room-footer .powered-by { font-size:9px; }
 }
 @media(max-width:570px) {
   .app-header nav { flex-basis:100%; justify-content:flex-end; }
+  .process-control { border:0; padding:0; }
   #room-name { width:130px; }
-  .task-dock { flex-wrap:wrap; }
   .task-control { flex-basis:100%; }
+  .edit-label { display:none; }
   .room-footer { gap:8px; }
   #handoff-label { display:none; }
   .room-footer .text-button { margin-left:auto; }
 }
+
+/* Save feedback remains visible even when the editor is closed. */
+#save-status { font-size:12px; color:#496354; white-space:nowrap; }
+#save-status[data-state="saving"] { color:#695424; }
+#save-status[data-state="error"] { color:#a3372a; font-weight:600; }
+#retry-save { font-size:12px; }
+.room-toolbar { flex-wrap:wrap; }
+
+#save-status { background:#fffaf0ec; padding:5px 8px; border-radius:5px; }
+.room-toolbar button { pointer-events:auto; background:#fffaf0; }

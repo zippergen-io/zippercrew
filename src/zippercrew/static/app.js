@@ -11,6 +11,7 @@ const modes = {
   brief: "Get a concise briefing each round, then choose what happens next.",
   auto: "APPROVE finishes the process. REVISE continues within the round limit.",
 };
+let metaTimer, metaPatch = {}, metaRevision = 0, saveIssue;
 let room = null, saveTimer, draftDirty = false, draftRevision = 0, renameSave = Promise.resolve(), saveChain = Promise.resolve();
 let bootstrap, stream, current = null, selected = null, pendingId;
 let profiles = {}, starting = false, navigation = 0, profileReturnRole = null;
@@ -61,7 +62,6 @@ function renderRoom(replay = false) {
   $('latest-run').hidden = !historical;
   $('run-history').disabled = !room?.runs.length;
   $('delete-room').disabled = !room || (!!current && !terminal.has(current.status));
-  $('save-room').disabled = !!current;
   $('room-name').title = room ? `Room: ${room.name}` : 'Name this Room';
   const config = configuration(), status = roomStatus();
   const desktop = matchMedia('(min-width: 901px)').matches;
@@ -137,6 +137,8 @@ async function loadHistory() {
   }
 }
 function showInspector(which) {
+  if (selected !== which && current && Object.keys(metaPatch).length) saveMetadata().catch(showError);
+  if (selected !== which && !current && draftDirty) saveDraft().catch(showError);
   if (typeof which === 'object' && which.message) {
     showInspector('activity');
     const row = [...document.querySelectorAll('#activity details')].find(n => n.dataset.message === which.message);
@@ -178,6 +180,8 @@ function showInspector(which) {
   renderRoom();
 }
 function closeInspector() {
+  if (current && Object.keys(metaPatch).length) saveMetadata().catch(showError);
+  if (!current && draftDirty) saveDraft().catch(showError);
   if (matchMedia('(min-width: 901px)').matches) {
     const previous = selected;
     showInspector(current ? 'Implementer' : 'brief');
@@ -384,7 +388,6 @@ $("task").oninput = () => { if (!current) { draft.task = $("task").value; render
 $("human-mode").onchange = () => { draft.human_mode = $("human-mode").value; $("mode-help").textContent = modes[draft.human_mode]; renderRoom(); };
 $("max-rounds").oninput = () => { draft.max_rounds = Number($("max-rounds").value); renderRoom(); };
 $("close-inspector").onclick = closeInspector;
-$("brief-done").onclick = closeInspector;
 $("task-control").onclick = () => showInspector("brief");
 $("workspace-control").onclick = () => { showInspector("brief"); $("workspace").focus(); };
 $("process-control").onclick = () => showInspector("process");
@@ -396,7 +399,7 @@ $("human-return").onclick = () => showInspector("Human");
 $("result-control").onclick = () => showInspector("outcome");
 $("activity-control").onclick = () => showInspector("activity");
 $("project").oninput = profileLocation;
-$("load-profiles").onclick = () => loadProfiles().catch(showError);
+$("load-profiles").onclick = () => loadProfiles().then(scheduleSave).catch(showError);
 $("create-profile").onclick = () => { profileReturnRole = selected; showInspector("settings"); $("add-profile").open = true; $("profile-name").focus(); };
 $("profile-form").onsubmit = async event => {
   event.preventDefault();
@@ -419,8 +422,9 @@ $("stop-room").onclick = async () => {
   catch (error) { showError(error); }
 };
 function setupRoom(record) {
-  clearTimeout(saveTimer); ++navigation; stream?.close(); stream = null;
+  clearTimeout(saveTimer); clearTimeout(metaTimer); metaPatch = {}; ++navigation; stream?.close(); stream = null;
   room = record; draftDirty = false; current = null; pendingId = undefined;
+  saveFeedback('saved');
   Object.assign(draft, structuredClone(record.config), { task: record.brief });
   $('room-name').value = record.name;
   $('project').value = draft.project;
@@ -434,8 +438,10 @@ function setupRoom(record) {
   showInspector('brief');
 }
 async function openContext(id, runId, setup = false) {
-  await renameSave.catch(() => {});
-  if (!current && draftDirty) await saveDraft();
+  try {
+    await saveMetadata();
+    if (!current && draftDirty) await saveDraft();
+  } catch (error) { showError(error); return; }
   const request = ++navigation;
   try {
     const record = await api(`/api/rooms/${id}/context`);
@@ -452,30 +458,44 @@ async function openContext(id, runId, setup = false) {
     showError(error);
   }
 }
+function saveFeedback(state, error) {
+  if (error) saveIssue = error.message;
+  if (state === 'saved' && saveIssue && $('error').textContent === saveIssue) {
+    $('error').hidden = true; saveIssue = null;
+  }
+  $('save-status').dataset.state = state;
+  $('save-status').textContent = {saving: 'Saving…', saved: 'Saved', error: 'Not saved'}[state];
+  $('save-status').title = error?.message || 'Room configuration saves automatically';
+  $('retry-save').hidden = state !== 'error';
+}
 function saveDraft() {
   clearTimeout(saveTimer);
   if (current) return Promise.resolve();
   const generation = navigation, revision = draftRevision;
   const data = { name: $('room-name').value.trim() || 'Pair programming', config: structuredClone(draft), brief: draft.task };
   delete data.config.task;
+  saveFeedback('saving');
   const operation = saveChain.catch(() => {}).then(async () => {
     if (generation !== navigation) return;
     const saved = room ? await api(`/api/rooms/${room.id}/save`, data) : await api('/api/rooms', data);
     if (generation !== navigation) return;
     room = saved; draftDirty = draftRevision !== revision;
-    $('connection').textContent = 'Room saved locally';
+    saveFeedback(draftDirty ? 'saving' : 'saved');
     localStorage.setItem('zippercrew.lastRoom', room.id);
     window.history.replaceState(null, '', `/#room=${room.id}&setup=1`);
     renderRoom();
   });
-  saveChain = operation;
-  return operation;
+  saveChain = operation.catch(error => {
+    if (generation === navigation) { draftDirty = true; saveFeedback('error', error); }
+    throw error;
+  });
+  return saveChain;
 }
 function scheduleSave() {
   if (current) return;
   draftDirty = true; ++draftRevision;
   clearTimeout(saveTimer);
-  $('connection').textContent = 'Unsaved changes';
+  saveFeedback('saving');
   saveTimer = setTimeout(() => saveDraft().catch(showError), 700);
 }
 async function loadRuns() {
@@ -495,6 +515,7 @@ async function loadRuns() {
 $('new-room').onclick = async () => {
   if (starting) return;
   try {
+    await saveMetadata();
     if (!current && draftDirty) await saveDraft();
     const record = await api('/api/rooms', { name: 'Pair programming', config: { project: draft.project } });
     setupRoom(record); await loadProfiles();
@@ -502,7 +523,7 @@ $('new-room').onclick = async () => {
 };
 $('run-again').onclick = async () => {
   try {
-    await renameSave;
+    await saveMetadata();
     const record = await api(`/api/rooms/${room.id}/context`);
     setupRoom(record); await loadProfiles();
     $('task').focus();
@@ -511,20 +532,35 @@ $('run-again').onclick = async () => {
 $('latest-run').onclick = () => openRoom(room.runs.at(-1));
 $('run-history').onclick = () => { $('room-menu').open = false; showInspector('runs'); };
 $('rename-room').onclick = () => { $('room-menu').open = false; $('room-name').focus(); $('room-name').select(); };
-$('room-name').onchange = () => {
-  const id = room?.id, name = $('room-name').value;
-  renameSave = (async () => {
-    if (current && id) {
-      const saved = await api(`/api/rooms/${id}/save`, { name });
-      if (room?.id === id) room = saved;
-    } else await saveDraft();
-  })();
-  renameSave.catch(showError);
+function saveMetadata() {
+  clearTimeout(metaTimer);
+  if (!room || !Object.keys(metaPatch).length) return renameSave;
+  const id = room.id, revision = metaRevision, patch = {...metaPatch};
+  saveFeedback('saving');
+  renameSave = renameSave.catch(() => {}).then(async () => {
+    const saved = await api(`/api/rooms/${id}/save`, patch);
+    if (room?.id !== id) return;
+    room = saved;
+    if (revision === metaRevision) { metaPatch = {}; saveFeedback('saved'); }
+  }).catch(error => { if (room?.id === id) saveFeedback('error', error); throw error; });
+  return renameSave;
+}
+function scheduleMetadata(patch) {
+  Object.assign(metaPatch, patch); ++metaRevision;
+  clearTimeout(metaTimer); saveFeedback('saving');
+  metaTimer = setTimeout(() => saveMetadata().catch(showError), 700);
+}
+$('room-name').oninput = () => {
+  if (!current) scheduleSave();
+  else scheduleMetadata({ name: $('room-name').value.trim() || 'Pair programming' });
 };
-$('save-room').onclick = () => { $('room-menu').open = false; saveDraft().catch(showError); };
+$('room-name').onchange = () => {
+  if (!current) saveDraft().catch(showError);
+  else saveMetadata().catch(showError);
+};
 $('delete-room').onclick = async () => {
   $('room-menu').open = false;
-  try { await renameSave; } catch (error) { showError(error); return; }
+  try { await saveMetadata(); } catch (error) { showError(error); return; }
   if (!room || !confirm(`Delete “${room.name}” and all ${room.runs.length} runs, transcripts and traces? This deletes only ZipperCrew records and artifacts. Your source repository and shared profiles will not be deleted.`)) return;
   try {
     clearTimeout(saveTimer); await saveChain.catch(() => {});
@@ -549,9 +585,22 @@ for (const id of ['role-profile', 'role-instructions', 'workspace', 'task', 'hum
 $('room-motion').addEventListener('change', () => {
   draft.motion = $('room-motion').value;
   if (!current) scheduleSave();
-  else if (room) api(`/api/rooms/${room.id}/save`, { motion: draft.motion }).then(saved => { if (room?.id === saved.id) room = saved; }).catch(showError);
+  else if (room) scheduleMetadata({ motion: draft.motion });
 });
 
+$('retry-save').onclick = () => {
+  if (!current) saveDraft().catch(showError);
+  else saveMetadata().catch(showError);
+};
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && !current && draftDirty) saveDraft().catch(showError);
+  if (document.hidden && current) saveMetadata().catch(showError);
+});
+window.addEventListener('beforeunload', event => {
+  if (draftDirty || $('save-status').dataset.state === 'saving' || $('save-status').dataset.state === 'error') {
+    event.preventDefault(); event.returnValue = '';
+  }
+});
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && selected) closeInspector();
 });
