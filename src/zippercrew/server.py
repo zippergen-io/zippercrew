@@ -116,6 +116,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/scene.js",
                 "/room-engine.js",
                 "/presentation.js",
+                "/inspector.js",
                 "/style.css",
             }:
                 name, mime = {
@@ -124,6 +125,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/scene.js": ("scene.js", "text/javascript; charset=utf-8"),
                     "/room-engine.js": ("room-engine.js", "text/javascript; charset=utf-8"),
                     "/presentation.js": ("presentation.js", "text/javascript; charset=utf-8"),
+                    "/inspector.js": ("inspector.js", "text/javascript; charset=utf-8"),
                     "/style.css": ("style.css", "text/css; charset=utf-8"),
                 }[path]
                 self.reply(200, (STATIC / name).read_bytes(), mime)

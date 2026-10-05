@@ -146,3 +146,38 @@ It reserves shared destinations, favors stillness and cancels on semantic change
 The browser stores only the Full/Reduced motion preference; it never sends ambient
 choices back to the worker. Existing workflow execution, human endpoints and CLI
 permissions remain unchanged.
+
+## Participant inspector
+
+The Room shows the process happening. The inspector explains the selected
+participant's part in that process. The trace records everything.
+
+The participant inspector presents identity and semantic state first, one current
+or last meaningful activity next, and protocol conversation as its primary content.
+The latest round is expanded; earlier rounds and the initial brief are collapsed.
+Profile, CLI, model/effort, workspace path, role instructions and recent distinct
+local activity remain available in secondary disclosures. Setup keeps its existing
+profile and Human-mode editors.
+
+`inspector.js` reads real send/receive envelopes from the existing JSONL trace
+endpoint. It correlates sender, recipient, channel and sequence, tolerating
+receive-before-send callbacks; it does not turn assistant inputs, local progress,
+or repeated task context into messages. Rounds follow actual Implementer action
+starts. In particular, guidance sent before the next round starts stays with the
+round in which it was sent. The original brief appears once as its real initial
+handoff. Runtime control envelopes remain available in Handoffs and the trace.
+
+The browser fetches the journal on participant selection and subsequent protocol
+changes, not every local progress update. It retains complete conversation history
+beyond the Room's bounded recent-message projection. Payloads are expanded on demand,
+with structured review headers surfaced as verdict, finding count and headline.
+Markdown is parsed by locally pinned Marked and sanitized by DOMPurify to a small
+allowlist of document elements. Images, embedded controls and non-HTTP(S) navigation
+are disabled. Original trace payloads are never modified.
+
+Live snapshots update the current-activity summary. Equivalent recent activities
+are deduplicated, with the last five distinct observations in a closed activity log;
+the full journal is still downloadable. Expanded messages and keyboard focus persist
+across local activity updates. A newly advanced round becomes the default focus.
+There are no inspector writes to workflow state, no new API, and no renderer or
+animation changes; the service only adds a static route for the inspector module.

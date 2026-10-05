@@ -1,6 +1,8 @@
 "use strict";
 import { PROCESS, createScene, paintScene, showMessage, resetMessages, roomMotion } from "/scene.js";
 
+import { renderParticipant, resetInspector } from "/inspector.js";
+
 const $ = (id) => document.getElementById(id);
 const terminal = new Set(["completed", "failed", "stopped"]);
 const panelIds = ["role-panel", "human-settings", "brief-panel", "settings-panel", "history-panel", "process-panel", "outcome-panel", "activity-panel"];
@@ -9,7 +11,7 @@ const modes = {
   brief: "Get a concise briefing each round, then choose what happens next.",
   auto: "APPROVE finishes the process. REVISE continues within the round limit.",
 };
-let bootstrap, stream, current = null, selected = null, pendingId, transcriptKey;
+let bootstrap, stream, current = null, selected = null, pendingId;
 let profiles = {}, starting = false, navigation = 0, profileReturnRole = null;
 const draft = { project: "", workspace: "", task: "", human_mode: "brief", max_rounds: 4,
   agents: { Implementer: { profile: "", instructions: "" }, Reviewer: { profile: "", instructions: "" } } };
@@ -71,7 +73,7 @@ function renderRoom(replay = false) {
   $("stop-room").hidden = !current || terminal.has(current.status);
   $("result-control").hidden = !current || !terminal.has(current.status);
   $("human-return").hidden = !current?.pending;
-  $("human-preferences").hidden = !!current?.pending;
+  $("human-preferences").hidden = !!current;
   $("scene-hint").textContent = current ? (current.pending ? "Your turn · select Human to respond." : terminal.has(current.status) ? "Select a participant to inspect the conversation." : "Click a participant to follow their conversation.") : ready() ? "Crew ready · start when you are." : "Select a station to choose an agent.";
   for (const button of $("process-strip").querySelectorAll("button")) {
     button.classList.toggle("active", ["working", "reviewing", "needs human"].includes(states[button.dataset.role]));
@@ -127,7 +129,8 @@ function showInspector(which) {
     return;
   }
   selected = which;
-  transcriptKey = null;
+  if (journal.error) journal.key = null;
+  resetParticipantInspector();
   panelIds.forEach(id => { $(id).hidden = true; });
   const role = PROCESS.roles.find(role => role.name === which);
   const names = { brief: "The shared brief", settings: "Room settings", history: "Recent rooms", process: PROCESS.name, outcome: "Room result", activity: "Handoffs" };
@@ -145,7 +148,7 @@ function showInspector(which) {
     $("human-mode").disabled = !!current;
     $("max-rounds").disabled = !!current;
     $("mode-help").textContent = modes[config.human_mode];
-    renderTranscript("Human", $("human-transcript"));
+    renderHuman();
   } else if (which === "brief") {
     $("brief-panel").hidden = false;
     $("workspace").value = configuration().workspace;
@@ -173,6 +176,7 @@ function renderRole() {
   if (!role || role.kind !== "agent") return;
   const binding = configuration().agents[selected];
   $("role-access").textContent = role.access;
+  $("role-access").hidden = !!current;
   $("role-access").dataset.role = role.name;
   $("role-description").textContent = role.description;
   $("role-configuration").hidden = !!current;
@@ -185,42 +189,43 @@ function renderRole() {
     $("profile-summary").textContent = profiles[binding.profile] ? profileDescription(profiles[binding.profile]) : "Select a saved profile to take this seat.";
     $("role-instructions").value = binding.instructions;
     $("create-profile").hidden = bootstrap?.demo || false;
-  } else {
-    const meta = element("dl", undefined, "participant-meta");
-    for (const [key, value] of Object.entries({ Profile: binding.profile, Assistant: profileDescription(binding),
-      State: current.participants[selected], Round: `${current.round} of ${current.config.max_rounds}`,
-      Workspace: current.config.workspace })) meta.append(element("dt", key), element("dd", value));
-    $("participant-info").replaceChildren(meta);
-    const progress = (current.progress || []).filter(item => item.role === selected).slice(-6);
-    if (progress.length) {
-      const recent = element("div", undefined, "recent-progress");
-      recent.append(element("h4", "Recent activity"));
-      for (const item of progress) recent.append(element("p", `Round ${item.round} · ${item.text}`));
-      $("participant-info").append(recent);
-    }
   }
-  renderTranscript(selected, $("transcript"));
+  renderParticipantView(role);
 }
-function renderTranscript(role, container) {
-  const key = `${current?.id}:${role}:${current?.transcript.length}`;
-  if (key === transcriptKey) return;
-  transcriptKey = key;
-  container.replaceChildren();
+// Reuse the complete, existing journal for message bodies and older rounds.
+// Fetch on protocol changes only, never on each stdout/progress update.
+let journal = { room: null, key: null, events: [], loading: false, error: null };
+function resetParticipantInspector() {
+  resetInspector([$("participant-info"), $("transcript"), $("participant-details"),
+    $("human-overview"), $("human-transcript"), $("human-details")]);
+}
+function renderHuman() {
+  $("human-preferences").hidden = !!current;
+  renderParticipantView(PROCESS.roles.find(role => role.name === "Human"));
+}
+function renderParticipantView(role) {
   if (!current) return;
-  const entries = current.transcript.filter(entry => entry.role === role);
-  if (!entries.length) container.append(element("p", "Completed turns will appear here. The scene shows work in progress.", "hint"));
-  for (const entry of entries) {
-    const detail = element("details", undefined, "transcript-entry");
-    detail.dataset.role = role;
-    detail.append(element("summary", `Round ${entry.round} · ${entry.action}`));
-    detail.open = entry === entries.at(-1);
-    for (const group of ["inputs", "outputs"]) {
-      if (!entry[group]) continue;
-      detail.append(element("h4", group === "inputs" ? "RECEIVED" : "SAID"));
-      for (const [name, value] of Object.entries(entry[group])) detail.append(element("h4", name), element("pre", typeof value === "string" ? value : JSON.stringify(value, null, 2)));
-    }
-    container.append(detail);
+  const human = role.name === "Human";
+  if (journal.room !== current.id) journal = { room: current.id, key: null, events: [], loading: false, error: null };
+  const key = JSON.stringify([current.status, (current.messages || []).map(m => [m.id, m.version])]);
+  if (journal.key !== key && !journal.loading) {
+    const request = journal;
+    request.loading = true; request.error = null;
+    fetch(`/api/rooms/${current.id}/trace`).then(async response => {
+      if (!response.ok) throw new Error('Unable to load conversation');
+      request.events = (await response.text()).split('\n').filter(Boolean).map(line => JSON.parse(line));
+      request.key = key;
+    }).catch(error => { request.error = error.message; request.key = key; }).finally(() => {
+      request.loading = false;
+      if (journal !== request || current?.id !== request.room) return;
+      const selectedRole = PROCESS.roles.find(r => r.name === selected);
+      if (selectedRole) renderParticipantView(selectedRole);
+    });
   }
+  renderParticipant({ state: current, role, events: journal.events, loading: journal.loading, error: journal.error,
+    overview: $(human ? "human-overview" : "participant-info"),
+    conversation: $(human ? "human-transcript" : "transcript"),
+    technical: $(human ? "human-details" : "participant-details") });
 }
 async function answer(value) {
   const request = current?.pending;
@@ -269,7 +274,7 @@ function render(state, { replay = false } = {}) {
   renderRoom(replay); humanPanel();
   if (newHumanRequest) showInspector("Human");
   if (PROCESS.roles.some(role => role.name === selected && role.kind === "agent")) renderRole();
-  if (selected === "Human") renderTranscript("Human", $("human-transcript"));
+  if (selected === "Human") renderHuman();
   const ended = terminal.has(state.status);
   if (newlyEnded) showInspector("outcome");
   $("outcome-title").textContent = state.status === "completed" ? "Completed" : state.status === "failed" ? "Execution failed" : "Stopped";
@@ -299,7 +304,7 @@ function render(state, { replay = false } = {}) {
   if (ended) { stream?.close(); $("connection").textContent = "History saved locally"; }
 }
 function connectRoom(state, { replay = false } = {}) {
-  stream?.close(); pendingId = undefined; transcriptKey = null; resetMessages();
+  stream?.close(); pendingId = undefined; resetParticipantInspector(); resetMessages();
   window.history.replaceState(null, "", `/#room=${state.id}`);
   render(state, { replay });
   if (selected && !["settings", "history", "process"].includes(selected)) showInspector(selected);
@@ -369,7 +374,7 @@ $("stop-room").onclick = async () => {
 };
 $("new-room").onclick = () => {
   if (starting) return;
-  ++navigation; stream?.close(); stream = null; current = null; pendingId = undefined; transcriptKey = null;
+  ++navigation; stream?.close(); stream = null; current = null; pendingId = undefined; resetParticipantInspector();
   resetMessages(); closeInspector(); humanPanel(); $("outcome-panel").hidden = true; $("activity-panel").hidden = true;
   $("activity").replaceChildren(); $("review-verdict").textContent = ""; $("error").hidden = true;
   $("connection").textContent = "Local workspace";

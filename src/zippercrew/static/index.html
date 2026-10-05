@@ -24,7 +24,7 @@
         <header class="inspector-header"><div><p id="inspector-eyebrow" class="small-caps">AT THE TABLE</p><h2 id="inspector-title">Implementer</h2></div><button id="close-inspector" class="icon-button" aria-label="Close inspector">×</button></header>
         <div id="inspector-body">
           <section id="role-panel" hidden>
-            <span id="role-access" class="permission"></span><p id="role-description" class="hint"></p>
+            <p id="role-description" class="hint role-description"></p><span id="role-access" class="permission"></span>
             <div id="role-configuration">
               <label for="role-profile">Assistant profile</label><select id="role-profile"></select>
               <div id="profile-summary" class="profile-summary"></div>
@@ -32,16 +32,17 @@
               <label for="role-instructions">Role instructions <span>optional</span></label><textarea id="role-instructions" rows="4" maxlength="30000" placeholder="Extra context or focus areas for this participant…"></textarea>
               <p class="hint">Each role keeps its own conversation, even when both use the same profile.</p>
             </div>
-            <div id="participant-info"></div><div id="transcript"></div>
+            <div id="participant-info"></div><div id="transcript"></div><div id="participant-details"></div>
           </section>
           <section id="human-settings" hidden>
+            <div id="human-overview"></div>
             <section id="human-panel" class="human-panel" aria-live="polite" hidden></section>
             <div id="human-preferences">
             <span class="permission human-tone">Human participant · You</span><p class="hint">Choose your place in the conversation.</p>
             <label for="human-mode">Your involvement</label><select id="human-mode"><option value="full">Decide every round</option><option value="brief" selected>Brief me every round</option><option value="auto">Autonomous review</option></select><p id="mode-help" class="hint"></p>
             <label for="max-rounds">Maximum rounds</label><input id="max-rounds" type="number" min="1" max="100" value="4">
             <p class="hint">Another round carries the complete review back to the Implementer, with any guidance you add.</p>
-            </div><div id="human-transcript"></div>
+            </div><div id="human-transcript"></div><div id="human-details"></div>
           </section>
           <section id="brief-panel" hidden>
             <p class="hint">A common brief for the whole crew.</p>
@@ -70,7 +71,7 @@
           <section id="outcome-panel" class="outcome-panel" hidden><h2 id="outcome-title"></h2><pre id="outcome"></pre></section>
           <section id="activity-panel" hidden><p id="review-verdict"></p><div id="activity"></div></section>
         </div>
-        <footer id="inspector-footer" hidden><a id="trace-link" download="zippercrew-trace.jsonl">↓ Download full trace</a><span class="hint">Every protocol event and completed turn.</span></footer>
+        <footer id="inspector-footer" hidden><a id="trace-link" download="zippercrew-trace.jsonl">View full trace ↓</a><span class="hint">Download every protocol event and completed turn.</span></footer>
       </aside>
     </div>
   </main>

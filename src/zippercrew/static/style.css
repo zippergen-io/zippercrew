@@ -81,13 +81,6 @@ input::placeholder,textarea::placeholder { color:#82907f; }
 .participant-meta { font-size:12px; line-height:1.7; margin:0 0 20px; }
 .participant-meta dt { color:var(--muted); margin-top:10px; font-size:11px; }
 .participant-meta dd { margin:0; overflow-wrap:anywhere; }
-.transcript-entry { border-top:1px solid var(--line); padding:13px 0; }
-.transcript-entry summary { cursor:pointer; font-size:12px; }
-.transcript-entry[data-role="Implementer"] summary,.activity-line[data-role="Implementer"] strong { color:var(--impl); }
-.transcript-entry[data-role="Reviewer"] summary,.activity-line[data-role="Reviewer"] strong { color:var(--rev); }
-.transcript-entry[data-role="Human"] summary,.activity-line[data-role="Human"] strong { color:var(--human); }
-.transcript-entry pre { font:11px/1.7 ui-monospace,monospace; white-space:pre-wrap; overflow-wrap:anywhere; padding:10px; background:#edf0e5; border-radius:4px; max-height:380px; overflow-y:auto; }
-.transcript-entry h4 { font-size:10px; font-weight:500; color:var(--muted); margin:17px 0 7px; }
 #inspector-footer { border-top:1px solid var(--line); padding:13px 20px; }
 #inspector-footer a { font-size:12px; }
 #inspector-footer .hint { display:block; margin:6px 0 0; font-size:10px !important; }
@@ -202,3 +195,61 @@ main { background:#24372e; }
 .activity-line summary { cursor: pointer; line-height: 1.5; }
 .activity-line pre { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .activity-line small { color: var(--muted); }
+
+/* Participant inspector: identity → activity → conversation → technical detail. */
+.inspector { width:360px; background:#fcfcf8fa; }
+.room-layout.with-inspector .room-stage { margin-right:388px; }
+.inspector-header { padding:14px 18px; }
+.inspector-header .small-caps { font-size:11px; }
+#inspector-body { padding:16px 18px; scrollbar-gutter:stable; }
+.role-description { margin:0 0 12px; }
+.participant-state { display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:12px; color:var(--muted); }
+.state-badge { background:#e5ece5; color:#365843; border-radius:5px; padding:5px 8px; font-weight:650; }
+.state-badge[data-state="reviewing"] { background:#dceee9; color:var(--rev); }
+.state-badge[data-state="working"] { background:#f6e4da; color:var(--impl); }
+.state-badge[data-state="needs human"] { background:#eee3f3; color:var(--human); }
+.state-badge[data-state="failed"],.state-badge[data-state="stopped"] { background:#f6e1dc; color:#913e30; }
+.participant-runtime { font-size:12px; color:var(--muted); margin-bottom:17px; }
+.current-activity { border-left:3px solid var(--line); padding:0 0 0 12px; margin:0 0 22px; }
+.inspector[data-role="Reviewer"] .current-activity { border-color:var(--rev); }
+.inspector[data-role="Implementer"] .current-activity { border-color:var(--impl); }
+.inspector[data-role="Human"] .current-activity { border-color:var(--human); }
+.current-activity h3 { font-size:11px; color:var(--muted); font-weight:500; letter-spacing:0; margin:0 0 7px; }
+.activity-title { font-size:14px; font-weight:650; margin:0 0 8px; overflow-wrap:anywhere; }
+.activity-headline { font-size:12px; line-height:1.55; margin:8px 0; }
+.activity-consequence { display:block; font-size:11px; color:var(--muted); }
+.section-heading { font-size:14px; letter-spacing:0; margin:0 0 5px; }
+.conversation-round { border-top:1px solid var(--line); padding:11px 0 2px; }
+.conversation-round>summary { font-size:12px; font-weight:600; padding-bottom:9px; cursor:pointer; }
+.message-card { padding:12px; margin:0 0 10px; border:1px solid #dde4dd; border-radius:7px; background:#fff; overflow-wrap:anywhere; }
+.message-card[data-direction="sent"] { background:#f2f6f3; }
+.message-route { font-size:11px; color:var(--muted); margin:0 0 5px; }
+.message-card h4 { font-size:13px; margin:0 0 7px; }
+.message-preview { font-size:12px; line-height:1.6; margin:8px 0; }
+.review-badge { display:inline-block; font-size:11px; font-weight:650; padding:4px 7px; border-radius:4px; margin:0; background:#f6ecd8; color:#78551b; }
+.review-badge.approve { color:#2b6545; background:#e0eee3; }
+.message-pending { display:block; color:#78551b; font-size:11px; margin-bottom:7px; }
+.message-full>summary { cursor:pointer; font-size:11px; color:var(--green); text-underline-offset:3px; }
+.message-full[open]>summary { margin-bottom:14px; }
+.message-full[open] { border-top:1px solid var(--line); padding-top:10px; }
+.full-payload { font-size:12px; }
+.message-prose { line-height:1.7; overflow-wrap:anywhere; font-size:12px; }
+.message-prose p { white-space:pre-line; margin:0 0 12px; }
+.message-prose h1,.message-prose h2,.message-prose h3,.message-prose h4,.message-prose h5,.message-prose h6 { font-size:14px; margin:18px 0 9px; letter-spacing:0; }
+.message-prose ul,.message-prose ol { padding-left:20px; margin:10px 0; }
+.message-prose li { margin:7px 0; }
+.message-prose code { font:11px/1.6 ui-monospace,SFMono-Regular,monospace; background:#e9eeea; border-radius:3px; padding:1px 3px; }
+.message-prose pre,.full-payload>pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#eef2ed; padding:10px; border-radius:4px; }
+.message-prose blockquote { margin:10px 0; padding-left:10px; border-left:2px solid #bacdbf; }
+.message-prose table { display:block; overflow:auto; border-collapse:collapse; }
+.message-prose th,.message-prose td { border:1px solid var(--line); padding:6px; }
+.message-prose a:not([href]) { color:inherit; }
+.full-payload>details { margin-top:16px; border-top:1px solid var(--line); padding-top:10px; }
+.full-payload>details>summary { cursor:pointer; color:var(--muted); font-size:11px; }
+.quiet-details { border-top:1px solid var(--line); margin-top:12px; padding-top:12px; }
+.quiet-details>summary { font-size:12px; cursor:pointer; color:var(--muted); }
+.activity-log { padding-left:17px; font-size:12px; line-height:1.65; overflow-wrap:anywhere; }
+.activity-log li { margin:7px 0; }
+#human-overview:not(:empty)::before { content:"Your decisions guide the crew."; display:block; font-size:12px; color:var(--muted); margin:0 0 12px; }
+@media(max-width:1200px) { .inspector { width:340px; } .room-layout.with-inspector .room-stage { margin-right:362px; } }
+@media(max-width:850px) { .inspector { width:auto; } .room-layout.with-inspector .room-stage { margin-right:0; } }

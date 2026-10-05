@@ -46,8 +46,10 @@ Decide every round corresponds to `full`; Brief me every round to
 committing or pushing. Another round sends the entire review back, then asks
 for optional guidance. Abandon and Stop leave existing edits in the workspace.
 
-Click any participant to inspect their state, role, profile, action inputs and
-outputs. **Handoffs** inspects real message envelopes and payload previews;
+Click any participant to see their state, current activity and protocol conversation
+grouped by round. The latest round is open; full messages and formatted reviews
+expand on demand. Profile, workspace and deduplicated local activity live in
+secondary sections. **Handoffs** inspects real message envelopes and payload previews;
 download the full JSONL trace for complete information. Calm ambient behaviour
 makes waiting participants feel alive and yields immediately to real work.
 Short bubbles describe observable local activity; travelling cards represent
