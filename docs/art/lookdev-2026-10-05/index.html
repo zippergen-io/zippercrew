@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZipperCrew · Grounded room, designed cast</title>
+  <style>
+    :root { font: 15px/1.5 system-ui, sans-serif; color: #eeeeef; background: #191b20; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; }
+    header, footer { max-width: 1200px; }
+    h1 { font-size: 25px; margin: 0 0 5px; }
+    p { margin: 8px 0 18px; color: #b9bdc7; }
+    a { color: #c8cbff; text-underline-offset: 3px; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; margin: 20px 0 14px; }
+    select { font: inherit; padding: 8px 12px; background: #292d36; border: 1px solid #636b7b; color: inherit; border-radius: 5px; }
+    input { accent-color: #c8cbff; }
+    label { display: inline-flex; gap: 9px; align-items: center; }
+    .stage { display: grid; grid-template-columns: minmax(0,1fr); gap: 20px; }
+    .stage.compare { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    figure { min-width: 0; margin: 0; }
+    .image { display: grid; place-items: center; background: #e9e8e3; }
+    img { display: block; width: 100%; max-height: 76vh; object-fit: contain; }
+    .compare img { height: 54vh; }
+    figcaption { color: #b9bdc7; margin: 10px 0 24px; }
+    .roles { display: grid; grid-template-columns: repeat(3,1fr); text-align: center; padding: 9px; background: #30343c; }
+    footer { border-top: 1px solid #3a3e49; padding-top: 18px; }
+    footer a { display: inline-block; margin: 0 20px 12px 0; }
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 2px solid #c8cbff; outline-offset: 4px; }
+    @media(max-width: 850px) { body { padding: 16px; } .stage.compare { grid-template-columns: 1fr; } .compare img { height: auto; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ZipperCrew · Grounded room, designed cast</h1>
+    <p>Art-direction study · 5 October 2026. Production remains unchanged.</p>
+  </header>
+  <div class="controls">
+    <label for="study">Study <select id="study">
+      <option value="combined">Combined target</option>
+      <option value="environment">Environment only</option>
+      <option value="personas">Persona sheet</option>
+      <option value="silhouettes">Silhouette test</option>
+    </select></label>
+    <label><input type="checkbox" id="compare"> Compare</label>
+    <label id="reference-label" for="reference" hidden>With <select id="reference">
+      <option value="current">Current production room</option>
+      <option value="previous">Previous 3D human-cast study</option>
+      <option value="personas">Persona sheet</option>
+      <option value="silhouettes">Silhouette test</option>
+      <option value="environment">Environment only</option>
+    </select></label>
+  </div>
+  <main id="stage" class="stage">
+    <figure>
+      <div class="roles" id="main-roles" hidden><span>Human</span><span>Implementer</span><span>Reviewer</span></div>
+      <a class="image" id="main-link"><img id="main-image" alt=""></a>
+      <figcaption id="main-caption"></figcaption>
+    </figure>
+    <figure id="reference-figure" hidden>
+      <div class="roles" id="reference-roles" hidden><span>Human</span><span>Implementer</span><span>Reviewer</span></div>
+      <a class="image" id="reference-link"><img id="reference-image" alt=""></a>
+      <figcaption id="reference-caption"></figcaption>
+    </figure>
+  </main>
+  <footer>
+    <a href="environment.png">Environment PNG</a>
+    <a href="personas.png">Persona sheet PNG</a>
+    <a href="combined.png">Combined target PNG</a>
+    <a href="silhouettes.png">Silhouette PNG</a>
+    <a href="README.md">Assessment and art direction</a>
+    <a href="prompts.md">Generation prompts</a>
+    <p>Static concepts generated with the built-in image tool. Click any image for its original resolution. No application or server is needed to view this page.</p>
+  </footer>
+  <script>
+    const studies = {
+      combined: { file: 'combined.png', title: 'Grounded room + designed personas', caption: 'Coral Implementer at work, teal Reviewer waiting beside its station, Human observing at the shared table. A static art target, not a runtime screenshot.' },
+      environment: { file: 'environment.png', title: 'Corner Café without personas', caption: 'Believable furniture, edited materials, two single-user desks, clear walking space and one shared lighting direction.' },
+      personas: { file: 'personas.png', title: 'Human, Implementer and Reviewer concept sheet', caption: 'Top: neutral poses. Bottom: characteristic role poses. Human stays human; the two AI roles have deliberately different robot silhouettes.' },
+      silhouettes: { file: 'silhouettes.png', title: 'Black silhouette study', caption: 'Hair and broad cuffs; swept wedge and antenna; upright shield and long neck. Generated contour study of the same six poses, with role colors and interior details suppressed.' },
+      current: { file: '../lookdev-2026-10-04/current-production-reference.png', title: 'Current production room', caption: 'Existing Phaser room, including application chrome. These production assets have not been replaced.' },
+      previous: { file: '../lookdev-2026-10-04/direction-a-modern-3d.png', title: 'Previous modern 3D human-cast study', caption: 'Yesterday’s all-human cast, shown here to evaluate the shift toward distinct agent personas.' },
+    };
+    const $ = id => document.getElementById(id);
+    function show(slot, key) {
+      const study = studies[key];
+      $(`${slot}-image`).src = study.file;
+      $(`${slot}-image`).alt = study.title;
+      $(`${slot}-link`).href = study.file;
+      $(`${slot}-caption`).textContent = study.caption;
+      $(`${slot}-roles`).hidden = !['personas', 'silhouettes'].includes(key);
+    }
+    function render() {
+      const compare = $('compare').checked;
+      $('stage').classList.toggle('compare', compare);
+      $('reference-label').hidden = !compare;
+      $('reference-figure').hidden = !compare;
+      show('main', $('study').value);
+      show('reference', $('reference').value);
+    }
+    for (const id of ['study', 'compare', 'reference']) $(id).addEventListener('change', render);
+    render();
+  </script>
+</body>
+</html>
