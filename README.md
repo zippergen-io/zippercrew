@@ -30,7 +30,7 @@ Open http://127.0.0.1:8765. You are already in the room:
    Waiting agents walk away with coffee;
    proposals travel between workstations as the process advances.
 
-**Settings** contains profile management; **Rooms** reopens previous executions.
+**Settings** contains profile management and Full/Reduced room animation; **Rooms** reopens previous executions.
 **Result** reopens the final outcome. Escape closes an inspector.
 Profiles are saved by default
 in `~/.config/zippercrew/zippergen.toml`, outside your source repositories. If
@@ -47,8 +47,13 @@ committing or pushing. Another round sends the entire review back, then asks
 for optional guidance. Abandon and Stop leave existing edits in the workspace.
 
 Click any participant to inspect their state, role, profile, action inputs and
-outputs. Download the full JSONL trace from the Room. The café animates only
-when ZipperGen reports actual work or a pending human interaction.
+outputs. **Handoffs** inspects real message envelopes and payload previews;
+download the full JSONL trace for complete information. Calm ambient behaviour
+makes waiting participants feel alive and yields immediately to real work.
+Short bubbles describe observable local activity; travelling cards represent
+actual protocol messages. The current CLI adapter exposes action starts and
+completed turns, so bubbles do not yet report live file edits or test commands.
+They never invent thoughts or infer state from silence.
 
 CLI/model failures appear in the Room with their error. Compatibility checks
 verify safety flags, not authentication. Profiles select Codex or Claude and

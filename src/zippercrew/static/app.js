@@ -1,5 +1,5 @@
 "use strict";
-import { PROCESS, createScene, paintScene, showMessage, resetMessages } from "/scene.js";
+import { PROCESS, createScene, paintScene, showMessage, resetMessages, roomMotion } from "/scene.js";
 
 const $ = (id) => document.getElementById(id);
 const terminal = new Set(["completed", "failed", "stopped"]);
@@ -50,10 +50,10 @@ function roomStatus() {
   if (Object.values(current.participants).includes("reviewing")) return "Reviewing";
   return "Waiting";
 }
-function renderRoom() {
+function renderRoom(replay = false) {
   const config = configuration(), status = roomStatus();
   const states = current?.participants || Object.fromEntries(PROCESS.roles.map(role => [role.name, "ready"]));
-  paintScene({ states, bindings: config.agents, task: config.task, workspace: config.workspace, selected });
+  paintScene({ states, bindings: config.agents, task: config.task, workspace: config.workspace, selected, activities: current?.local_activity || {}, replay });
   $("room-status").textContent = status;
   $("room-status").dataset.status = status;
   $("workspace-label").textContent = config.workspace.split("/").filter(Boolean).at(-1) || "Choose repository";
@@ -120,11 +120,17 @@ async function loadHistory() {
   }
 }
 function showInspector(which) {
+  if (typeof which === 'object' && which.message) {
+    showInspector('activity');
+    const row = [...document.querySelectorAll('#activity details')].find(n => n.dataset.message === which.message);
+    if (row) { row.open = true; row.scrollIntoView({ block: 'nearest' }); row.querySelector('summary').focus(); }
+    return;
+  }
   selected = which;
   transcriptKey = null;
   panelIds.forEach(id => { $(id).hidden = true; });
   const role = PROCESS.roles.find(role => role.name === which);
-  const names = { brief: "The shared brief", settings: "Assistant profiles", history: "Recent rooms", process: PROCESS.name, outcome: "Room result", activity: "Handoffs" };
+  const names = { brief: "The shared brief", settings: "Room settings", history: "Recent rooms", process: PROCESS.name, outcome: "Room result", activity: "Handoffs" };
   $("inspector-title").textContent = role?.name || names[which];
   $("inspector-eyebrow").textContent = role ? "Participant" : "Room";
   $("inspector").dataset.role = role?.name || "";
@@ -253,7 +259,7 @@ function render(state, { replay = false } = {}) {
   const newlyEnded = terminal.has(state.status) && (current?.id !== state.id || current?.status !== state.status);
   const newHumanRequest = state.pending && state.pending.id !== current?.pending?.id;
   current = state;
-  renderRoom(); humanPanel();
+  renderRoom(replay); humanPanel();
   if (newHumanRequest) showInspector("Human");
   if (PROCESS.roles.some(role => role.name === selected && role.kind === "agent")) renderRole();
   if (selected === "Human") renderTranscript("Human", $("human-transcript"));
@@ -262,17 +268,27 @@ function render(state, { replay = false } = {}) {
   $("outcome-title").textContent = state.status === "completed" ? "Completed" : state.status === "failed" ? "Execution failed" : "Stopped";
   $("outcome").textContent = presentation(state.outcome || state.error || "");
   $("review-verdict").textContent = state.review ? `${state.review.verdict} · ${state.review.findings} finding(s). ${state.review.headline}` : "Every handoff below is a real process message.";
+  const expanded = new Set([...$('activity').querySelectorAll('details[open]')].map(n => n.dataset.message));
   $("activity").replaceChildren();
-  const messages = state.activity.filter(item => item.type === "send");
-  for (const item of messages.slice(-8).reverse()) {
-    const row = element("div", undefined, "activity-line"); row.dataset.role = item.from;
-    row.append(element("strong", `${item.from} → ${item.to}`), element("span", item.fields.join(", "))); $("activity").append(row);
+  const messages = state.messages || [];
+  for (const item of [...messages].reverse()) {
+    const row = element('details', undefined, 'activity-line');
+    row.dataset.role = item.from; row.dataset.message = item.id; row.open = expanded.has(item.id);
+    row.append(element('summary', `${item.from} → ${item.to} · ${item.label}`));
+    const meta = element('dl', undefined, 'participant-meta');
+    for (const [label, value] of Object.entries({
+      Status: item.receive_id != null ? 'Received by runtime' : 'Sent · awaiting runtime receive',
+      Channel: item.channel ?? 'Default', Sequence: item.seq ?? 'Not exposed',
+      'Send event': item.send_id ?? 'Awaiting trace', 'Receive event': item.receive_id ?? 'Pending',
+      Fields: item.fields.join(', ') || 'Runtime control',
+    })) meta.append(element('dt', label), element('dd', String(value)));
+    row.append(meta, element('pre', item.preview || 'Control payload is private to the runtime.'));
+    row.append(element('small', 'Preview only. Download full trace below for the complete payload and exact events.'));
+    $('activity').append(row);
   }
-  const message = messages.at(-1);
   for (const item of messages) showMessage(item, { replay });
-  if (message) {
-    $("handoff-label").textContent = `${message.from} → ${message.to} · ${message.fields.join(", ")}`;
-  }
+  const message = messages.filter(m => !m.control).at(-1);
+  if (message) $('handoff-label').textContent = `${message.from} → ${message.to} · ${message.label}`;
   if (ended) { stream?.close(); $("connection").textContent = "History saved locally"; }
 }
 function connectRoom(state, { replay = false } = {}) {
@@ -315,6 +331,8 @@ $("task-control").onclick = () => showInspector("brief");
 $("workspace-control").onclick = () => { showInspector("brief"); $("workspace").focus(); };
 $("process-control").onclick = () => showInspector("process");
 $("rooms-control").onclick = () => showInspector("history");
+$('room-motion').value = roomMotion();
+$('room-motion').onchange = () => roomMotion($('room-motion').value);
 $("settings-control").onclick = () => showInspector("settings");
 $("human-return").onclick = () => showInspector("Human");
 $("result-control").onclick = () => showInspector("outcome");

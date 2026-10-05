@@ -5,20 +5,16 @@ export const PROCESS = {
   id: 'pair_programming',
   name: 'Pair Programming',
   roles: ROLES.map((role) => ({ ...role, kind: role.name === 'Human' ? 'human' : 'agent' })),
-  links: [
-    ['Human', 'Implementer'],
-    ['Human', 'Reviewer'],
-    ['Implementer', 'Reviewer'],
-    ['Implementer', 'Human'],
-    ['Reviewer', 'Human'],
-  ],
   sequence: ['Human', 'Implementer', 'Reviewer', 'Human'],
 };
 let renderer,
   root,
   view,
-  lastMessage = 0,
+  messageVersions = new Map(),
+  sentMessages = new Set(),
   messageQueue = [];
+let motionPreference = 'full';
+try { motionPreference = localStorage.getItem('zippercrew-motion') || 'full'; } catch {}
 const preference = matchMedia('(prefers-reduced-motion: reduce)');
 const labels = {
   unconfigured: 'Choose agent',
@@ -52,6 +48,12 @@ export function createScene(container, onSelect) {
     button.textContent = role.name;
     button.onclick = () => onSelect(role.name);
     controls.append(button);
+    const activity = document.createElement('span');
+    activity.id = `local-activity-${role.name}`;
+    activity.className = 'sr-only';
+    activity.setAttribute('role', 'status');
+    activity.setAttribute('aria-label', `${role.name} activity`);
+    controls.append(activity);
   }
   const board = document.createElement('button');
   board.id = 'project-board';
@@ -61,7 +63,7 @@ export function createScene(container, onSelect) {
   board.onclick = () => onSelect('brief');
   controls.append(board);
   renderer = launchRoom(host, {
-    reducedMotion: preference.matches,
+    reducedMotion: preference.matches || motionPreference === 'reduced',
     onSelect,
     onReady: (scene) => {
       host.querySelector('canvas').setAttribute('aria-label', 'Corner Café crew room');
@@ -83,6 +85,10 @@ export function createScene(container, onSelect) {
         button.style.top = `${person.y}px`;
         button.dataset.state = person.state;
         button.dataset.pose = person.pose;
+        button.dataset.ambient = person.ambientAction || '';
+        const activity = document.getElementById(`local-activity-${person.name}`);
+        const text = person.currentActivity?.text || '';
+        if (activity.textContent !== text) activity.textContent = text;
         button.dataset.x = person.worldX;
         button.dataset.y = person.worldY;
         button.classList.toggle('empty', person.state === 'unconfigured');
@@ -104,20 +110,21 @@ export function createScene(container, onSelect) {
       board.style.top = `${brief.y}px`;
     },
   });
-  preference.addEventListener('change', (event) => renderer.scene.setReducedMotion(event.matches));
+  preference.addEventListener('change', () => renderer.scene.setReducedMotion(preference.matches || motionPreference === 'reduced'));
 }
 export function paintScene(next) {
   view = next;
   renderer?.scene.present(next);
 }
 export function showMessage(message, options = {}) {
-  if (!message || message.id <= lastMessage) return;
-  lastMessage = message.id;
-  if (!PROCESS.links.some(([a, b]) => a === message.from && b === message.to)) return;
+  if (!message || messageVersions.get(message.id) === message.version) return;
+  const newSend = !sentMessages.has(message.id) && message.send_id != null;
+  if (newSend) sentMessages.add(message.id);
+  messageVersions.set(message.id, message.version);
   if (renderer?.scene.ready) renderer.scene.message(message, options);
   else messageQueue.push({ message, options });
   // Accessible event hook mirrors observed sends; it does not manufacture them.
-  root?.dispatchEvent(
+  if (newSend) root?.dispatchEvent(
     new CustomEvent('room-message', {
       detail: { ...message, replay: !!options.replay },
       bubbles: true,
@@ -125,11 +132,21 @@ export function showMessage(message, options = {}) {
   );
 }
 export function resetMessages() {
-  lastMessage = 0;
+  messageVersions.clear();
+  sentMessages.clear();
   messageQueue = [];
   renderer?.scene.resetMessages();
 }
 
 export function inspectScene() {
   return renderer?.scene.inspect();
+}
+
+export function roomMotion(value) {
+  if (value !== undefined) {
+    motionPreference = value === 'reduced' ? 'reduced' : 'full';
+    try { localStorage.setItem('zippercrew-motion', motionPreference); } catch {}
+    renderer?.scene.setReducedMotion(preference.matches || motionPreference === 'reduced');
+  }
+  return motionPreference;
 }

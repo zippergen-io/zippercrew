@@ -50,6 +50,9 @@
             <button id="brief-done" class="primary">Done</button>
           </section>
           <section id="settings-panel" hidden>
+            <label for="room-motion">Room animation</label><select id="room-motion"><option value="full">Full</option><option value="reduced">Reduced</option></select>
+            <p class="hint">Reduced keeps status, activity bubbles and message receipts visible without ambient movement. Your system's reduced-motion preference always applies.</p>
+            <h3>Assistant profiles</h3>
             <p class="hint">Saved ZipperGen profiles are shared by your rooms.</p>
             <label for="project">Profile directory</label><input id="project" autocomplete="off"><button id="load-profiles" class="secondary">Load profiles</button><p id="profile-location" class="hint path"></p><p id="profile-status" class="hint" role="status"></p>
             <div id="saved-profiles"></div>

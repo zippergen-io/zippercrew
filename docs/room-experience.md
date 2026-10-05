@@ -14,7 +14,7 @@ DOM inspectors. No game mechanic controls the workflow.
   objects. Floor Y determines overlap order, including while walking.
 * `scene.js` adapts runtime snapshots into the renderer and keeps accessible DOM
   controls aligned with scene entities. `PROCESS` declares Pair Programming's
-  roles and communication links. It also deduplicates messages received via SSE.
+  roles. Message routes come exclusively from runtime envelopes; it deduplicates SSE updates.
 * `app.js` retains the existing draft, API/SSE, profile, inspector and human-task
   logic. Before starting, bindings determine whether a seat is occupied. Once
   running, server snapshots exclusively determine participant semantic states.
@@ -59,21 +59,82 @@ Two authored walking frames interpolate short predetermined routes. Implementer
 moves faster than Reviewer. Small posture loops distinguish typing from reading.
 Timers only animate a pose inside an existing semantic state; they never infer
 work, completion, testing, silence or review results. A new state cancels its
-predecessor's movement, reaction and posture callbacks. No autonomous simulation
-decides what the characters do next.
+predecessor's movement, reaction and posture callbacks. Semantic state always
+wins, including during an ambient walk. Animation never gates a runtime action.
 
-Each newly observed numbered runtime `send` creates a role-colored document on
-an elevated route between its actual participants. Arrival triggers a short
-receive reaction without changing semantic state. Concurrent sends coexist,
-bounded to six tokens; completed effects are removed. Repeated snapshots do not
-duplicate messages. Opening history or reloading consumes past IDs without
-replaying them. Switching rooms cancels all old transfers and their callbacks.
-The full trace remains authoritative if the snapshot's bounded activity window
-omits older sends during a long disconnection.
+### Ambient life
 
-Reduced motion removes walking, easing and loops while retaining distinct poses,
-positions and a static document at the latest recipient. Changes to that OS
-preference apply immediately. The scene is silent.
+`presentation.js` owns a small, pure `AmbientDirector` with injected time and
+randomness. `semanticState`, `ambientAction`, and `currentActivity` are separate.
+Only ready, waiting and completed participants are eligible. Initial pauses are
+25–55 seconds; later attempts are 35–90 seconds apart. 65% of attempts do nothing.
+An action lasts 6.5–11 seconds followed by 45–120 seconds of rest. Consecutive
+actions differ. Human attention, active work, unconfigured and error states
+never allow ambient behaviour.
+
+Implementer stretches, glances at the monitor or visits the coffee counter.
+Reviewer reads the tablet, checks the shared board or holds coffee. Human checks
+the phone, looks around or has coffee at the table. The existing authored poses
+are reused; no art assets change. Short authored destinations stay behind the
+workstations; an exclusive back-aisle reservation avoids simultaneous visits.
+A new semantic state cancels ambient movement and releases its reservation
+immediately. A real incoming message also interrupts an ambient action.
+
+### Local activity bubbles
+
+**Activity bubbles describe observable local work, never hidden reasoning.**
+`ActivityCadence` deduplicates event IDs, coalesces new activity, allows at least
+4.5 seconds to read a bubble, and expires it after 6.5 seconds. Silence generates
+nothing. Work animation continues after the bubble fades. Leaving the active
+state removes the bubble immediately. Human gets the real decision UI, not
+invented commentary. Accessible status text mirrors the short bubble.
+
+Currently the native ZipperGen CLI adapter uses `subprocess.run(capture_output=True)`
+and exposes no incremental output callback. The truthful live bubbles are
+therefore “Working on the task…” and “Reviewing the proposal…” at observed
+`act_start` boundaries. We do **not** pretend to observe edits, test commands,
+or tool calls. A future upstream public-progress callback should supply typed,
+allowlisted tool/file/test events with participant/action identity; it must
+exclude reasoning and credentials. It can feed this same presentation cadence
+without replacing native CLI session/permission handling or adding an LLM call.
+Completed outputs and parsed review findings remain in the existing inspectors.
+
+### Protocol handoffs
+
+**The Room distinguishes local activity from protocol communication. Local
+activity is shown through participant animation and short activity bubbles.
+Every visible protocol handoff corresponds to a real ZipperGen message and is
+represented as a message object moving between participants.**
+
+`state.py` projects `send`/`recv` onto envelope identities
+`(sender, receiver, channel, sequence)`. Send and receive journal IDs are separate,
+including when concurrent trace callbacks report receive before send. Binding
+names supply labels (Task, Proposal, Review, Guidance, or generic field names).
+Runtime control messages use smaller members of the same card family; private
+control payloads are never exposed. Channel/sequence are correlation cues, not
+invented CLI session identifiers.
+
+Sends originate at the actual sender, branch as separate recipient envelopes,
+and can fly concurrently. Per-channel sequence orders incoming stacks. Animation
+arrival does **not** mark delivery: unreceived cards stay visibly pending, with
+an incoming count. Only runtime receive updates the receipt. The runtime consumes
+the channel item on receive; no extra acknowledgement or failure is inferred.
+Animations may catch up after a recorded receive, but never delay it.
+
+Cards carry a sender-colored edge, a compact label and receipt/sequence. Click a
+card or open **Handoffs** for sender, receiver, channel, sequence, separate event
+IDs, a bounded payload preview and the full trace link. Only three cards per
+recipient are drawn; the inspector preserves every outstanding envelope and
+80 recently consumed envelopes. Received cards fade after a short readable
+pause. Repeated snapshots do not duplicate flights. Reload/history restores
+pending cards statically and does not replay consumed messages. Room changes
+cancel old effects. Full payloads and complete history remain in the trace.
+
+**Settings → Room animation → Reduced** disables ambient motion, walking and
+loops while retaining poses, activity text, pending cards and real receipts.
+This preference is saved in browser local storage. OS reduced motion always
+wins and changes apply immediately. The scene is silent. Telegram remains a
+delivery surface for Human where upstream supports it, never a new lifeline.
 
 ## Interaction and accessibility
 

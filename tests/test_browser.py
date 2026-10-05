@@ -265,3 +265,148 @@ def test_changing_rooms_cancels_in_flight_visuals(service):
         assert not any(p["moving"] for p in inspect_scene(page)["participants"])
         assert not errors
         browser.close()
+
+
+def test_cosmetic_policy_is_calm_interruptible_and_observable(service):
+    _, base, _ = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        page.goto(base)
+        result = page.evaluate("""async () => {
+            const { AmbientDirector, ActivityCadence } = await import('/presentation.js');
+            const check = (condition, message) => { if (!condition) throw Error(message); };
+            let rolls = [];
+            const d = new AmbientDirector(() => rolls.shift() ?? 0.99);
+            check(d.step('Implementer', 'waiting', 0) === null, 'initial pause');
+            rolls = [0, 0.9, 0.4, 0]; // cadence, do action, coffee, duration
+            check(d.step('Implementer', 'waiting', 60000) === 'coffee', 'coffee');
+            check(d.reservations.get('back-aisle') === 'Implementer', 'reserve shared aisle');
+            d.step('Reviewer', 'waiting', 0);
+            rolls = [0, 0.9, 0.4];
+            check(d.step('Reviewer', 'waiting', 60000) === null, 'no shared collision');
+            check(d.step('Implementer', 'working', 60001) === null, 'work preempts');
+            check(d.reservations.size === 0, 'release reservation');
+            for (const state of ['working', 'reviewing', 'needs human',
+                                'failed', 'stopped', 'unconfigured'])
+                check(d.step('Human', state, 1000000) === null, 'forbidden ambient state');
+            check(d.step('Reviewer', 'waiting', 2000000, true) === null, 'reduced motion');
+            const calm = new AmbientDirector(() => 0.2);
+            let actions = 0;
+            for (let t = 0; t < 3600000; t += 1000) if (calm.step('Human', 'waiting', t)) actions++;
+            check(actions === 0, 'doing nothing remains possible indefinitely');
+            const a = new ActivityCadence();
+            const first = { id: 1, text: 'Working on the task…' };
+            const next = { id: 2, text: 'Reviewing the proposal…' };
+            check(a.step('Implementer', 'working', first, 0).id === 1, 'observed activity');
+            check(a.step('Implementer', 'working', next, 100).id === 1, 'rate limiting');
+            check(a.step('Implementer', 'working', next, 4500).id === 2, 'latest useful event');
+            check(a.step('Implementer', 'working', next, 12000) === null,
+                  'expires without invention');
+            check(a.step('Implementer', 'working', {...next, id:3}, 12500) === null,
+                  'repeated output stays suppressed after expiry');
+            check(a.step('Implementer', 'waiting', first, 13000) === null, 'no waiting bubbles');
+            check(a.step('Human', 'working', next, 14000) === null, 'no human invention');
+            check(a.step('Reviewer', 'reviewing', next, 0, true) === null, 'no history replay');
+            return true;
+        }""")
+        assert result
+        browser.close()
+
+
+def test_scene_preempts_ambient_and_does_not_invent_message_receipts(service):
+    _, base, _ = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(base)
+        expect(page.locator("#room-art")).to_have_attribute("data-ready", "true")
+        # Component harness uses the production renderer, with explicit semantic
+        # inputs and an injected random source. It never mutates a real process.
+        page.evaluate("""async () => {
+            const { launchRoom } = await import('/room-engine.js');
+            const host = document.createElement('div');
+            host.style.cssText = 'position:fixed;inset:0;z-index:9000';
+            document.body.append(host);
+            await new Promise(resolve => launchRoom(host, { onReady(scene) {
+                window.roomTest = scene;
+                window.viewTest = {
+                    states: { Implementer:'waiting', Reviewer:'waiting', Human:'waiting' },
+                    bindings: { Implementer:{profile:'test'}, Reviewer:{profile:'test'} },
+                    activities: {}, task:'Test presentation priorities' };
+                scene.setReducedMotion(true);
+                scene.present(window.viewTest);
+                scene.setReducedMotion(false);
+                resolve();
+            }}));
+        }""")
+        page.evaluate("""() => {
+            const s = window.roomTest;
+            s.ambient.random = () => 0.99;
+            s.ambient.step('Reviewer', 'waiting', s.time.now);
+            const p = s.ambient.people.get('Reviewer');
+            p.due = -1;
+            let rolls = [0, .9, .4, 0];
+            s.ambient.random = () => rolls.shift() ?? .99;
+        }""")
+        page.wait_for_function("() => roomTest.inspect().participants[1].ambientAction === 'board'")
+        assert page.evaluate("roomTest.inspect().participants[1].state") == "waiting"
+        page.evaluate("""() => {
+            viewTest.states.Reviewer = 'reviewing';
+            viewTest.activities.Reviewer = {id:1, text:'Reviewing the proposal…'};
+            roomTest.present(viewTest);
+        }""")
+        assert page.evaluate("roomTest.inspect().participants[1].ambientAction") is None
+        page.wait_for_function("() => roomTest.inspect().participants[1].currentActivity !== null")
+        page.evaluate("""() => {
+            window.envelopeTest = {id:'test-send', version:1, from:'Implementer', to:'Reviewer',
+                send_id:5, receive_id:null, seq:12, channel:'work',
+                label:'Proposal', status:'sent'};
+            roomTest.message(envelopeTest);
+        }""")
+        page.wait_for_function("() => roomTest.inspect().envelopes[0]?.arrived")
+        envelope = page.evaluate("roomTest.inspect().envelopes[0]")
+        assert envelope["status"] == "sent" and envelope["receive_id"] is None
+        page.evaluate("""() => {
+            roomTest.message({...envelopeTest, version:2, receive_id:7, status:'received'});
+        }""")
+        assert page.evaluate("roomTest.inspect().envelopes[0].status") == "received"
+        page.evaluate("""() => {
+            viewTest.states.Human = 'needs human';
+            roomTest.present(viewTest);
+            roomTest.setReducedMotion(true);
+        }""")
+        people = page.evaluate("roomTest.inspect().participants")
+        assert not any(p["ambientAction"] or p["moving"] for p in people)
+        assert people[2]["frame"] == "receive"
+        page.evaluate("roomTest.resetMessages()")
+        assert page.evaluate("roomTest.inspect().messages") == []
+        assert not errors
+        browser.close()
+
+
+def test_motion_setting_and_inspectable_protocol_history(service):
+    _, base, project = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.goto(base)
+        configure(page, project)
+        page.locator("#settings-control").click()
+        page.get_by_label("Room animation", exact=True).select_option("reduced")
+        assert inspect_scene(page)["reducedMotion"]
+        page.get_by_role("button", name="Close inspector").click()
+        page.locator("#start").click()
+        expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible()
+        page.locator("#activity-control").click()
+        row = page.locator("#activity details").filter(has_text="Implementer → Reviewer · Proposal")
+        row.locator("summary").click()
+        expect(row).to_contain_text("Received by runtime")
+        expect(row).to_contain_text("Demo proposal, round 1")
+        expect(row).to_contain_text("Send event")
+        page.reload()
+        expect(page.locator("#room-art")).to_have_attribute("data-ready", "true")
+        assert inspect_scene(page)["reducedMotion"]
+        browser.close()

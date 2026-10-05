@@ -1,3 +1,5 @@
+import { AmbientDirector, ActivityCadence } from '/presentation.js';
+
 /* Phaser owns drawing and animation, never protocol decisions. */
 export const WORLD = { width: 1536, height: 1024 };
 export const ROLES = [
@@ -118,7 +120,9 @@ export class CafeScene extends Phaser.Scene {
     this.reducedMotion = reducedMotion;
     this.people = new Map();
     this.messages = new Map();
-    this.lastMessage = 0;
+    this.messageVersions = new Map();
+    this.ambient = new AmbientDirector();
+    this.activities = new ActivityCadence();
     this.pendingView = null;
   }
   preload() {
@@ -179,7 +183,17 @@ export class CafeScene extends Phaser.Scene {
           .on('pointerdown', () => this.callbacks.onSelect(role.name))
           .on('pointerover', () => label.setVisible(true))
           .on('pointerout', () => label.setVisible(this.selected === role.name));
+      const bubble = this.add.text(0, 0, '', {
+        fontFamily: 'system-ui', fontSize: '19px', color: '#24372f',
+        padding: { x: 14, y: 9 },
+        wordWrap: { width: 240 }, align: 'center',
+      }).setOrigin(0.5, 1).setDepth(2900).setVisible(false);
+      const bubbleBack = this.add.graphics().setDepth(2899).setVisible(false);
+      const inbox = this.add.text(0, 0, '', { fontFamily: 'system-ui', fontSize: '15px',
+        color: '#fffaf0', backgroundColor: '#273d32', padding: { x: 6, y: 3 },
+      }).setOrigin(0.5, 0).setDepth(2100).setVisible(false);
       this.people.set(role.name, {
+        inbox, bubbleBack, bubble, ambientAction: null, currentActivity: null,
         role,
         sprite,
         desk,
@@ -236,6 +250,7 @@ export class CafeScene extends Phaser.Scene {
       const bound = person.role.name === 'Human' || !!view.bindings[person.role.name]?.profile;
       const state = bound ? view.states[person.role.name] : 'unconfigured';
       if (person.state !== state) this.transition(person, state);
+      this.activities.step(person.role.name, state, view.activities?.[person.role.name], this.time.now, view.replay);
       person.ring.setVisible(view.selected === person.role.name);
       person.label.setVisible(view.selected === person.role.name);
       person.label.setText(
@@ -245,6 +260,10 @@ export class CafeScene extends Phaser.Scene {
     this.reportPositions();
   }
   transition(person, state) {
+    this.ambient.cancel(person.role.name);
+    person.ambientAction = null;
+    person.ambientTween?.stop();
+    person.ambientPose?.stop();
     person.state = state;
     person.tween?.stop();
     person.motion?.stop();
@@ -268,8 +287,10 @@ export class CafeScene extends Phaser.Scene {
       role.name === 'Human' && ['ready', 'waiting'].includes(state)
         ? 'work'
         : POSES[state] || 'idle';
+    person.home = destination;
     person.restFrame = pose;
-    person.pose = state === 'working' ? 'typing' : state === 'reviewing' ? 'reading' : pose;
+    person.semanticPose = state === 'working' ? 'typing' : state === 'reviewing' ? 'reading' : pose;
+    person.pose = person.semanticPose;
     const settle = () => {
       sprite
         .setPosition(destination.x, destination.y)
@@ -368,12 +389,39 @@ export class CafeScene extends Phaser.Scene {
         name: p.role.name,
         ...position(p.sprite.x, p.sprite.y - 150),
         state: p.state,
+        ambientAction: p.ambientAction,
+        currentActivity: p.currentActivity,
         pose: p.pose,
         worldX: p.sprite.x,
         worldY: p.sprite.y,
       })),
       position(965, 126),
     );
+  }
+  ambientPose(person, action) {
+    person.ambientTween?.stop();
+    person.ambientPose?.stop();
+    person.ambientAction = action;
+    const { sprite, role, home } = person;
+    const destination = action === 'board' ? { x: 1000, y: 475 }
+      : action === 'coffee' && role.name === 'Implementer' ? { x: 430, y: 485 } : home;
+    const frame = { coffee: 'coffee', tablet: 'think', board: 'think', monitor: 'think',
+      phone: 'work', stretch: 'idle', 'look-around': 'idle' }[action] || person.restFrame;
+    person.pose = action || person.semanticPose;
+    const settle = () => {
+      sprite.setFrame(frame).setAngle(0).setScale(person.baseScale);
+      if (action) person.ambientPose = this.tweens.add({
+        targets: sprite, angle: action === 'stretch' ? -3 : role.name === 'Reviewer' ? -1 : 1.5,
+        duration: role.name === 'Implementer' ? 1000 : 1800, yoyo: true, hold: 700,
+      });
+    };
+    if (Math.hypot(sprite.x - destination.x, sprite.y - destination.y) < 5) settle();
+    else person.ambientTween = this.tweens.add({
+      targets: sprite, x: destination.x, y: destination.y,
+      duration: role.name === 'Implementer' ? 1300 : 1750, ease: 'Sine.easeInOut',
+      onUpdate: t => sprite.setFrame(Math.floor(t.progress * 8) % 2 ? 'walk-a' : 'walk-b'),
+      onComplete: settle,
+    });
   }
   removeMessage(id) {
     const token = this.messages.get(id);
@@ -384,92 +432,140 @@ export class CafeScene extends Phaser.Scene {
     this.messages.delete(id);
   }
   resetMessages() {
-    this.lastMessage = 0;
+    this.messageVersions.clear();
     for (const id of [...this.messages.keys()]) this.removeMessage(id);
+    this.ambient.reset();
+    this.activities.reset();
     for (const person of this.people.values()) {
-      person.reaction?.stop();
-      person.restore?.remove();
-      person.receiving = false;
-      person.sprite.setScale(person.baseScale);
-      if (!person.tween?.isPlaying()) person.sprite.setFrame(person.restFrame || 'idle');
+      person.currentActivity = null;
+      person.bubble.setVisible(false);
+      person.bubbleBack.setVisible(false);
+      this.transition(person, person.state);
     }
   }
   message(message, { replay = false } = {}) {
-    if (!this.ready || !message || message.id <= this.lastMessage) return;
-    this.lastMessage = message.id;
-    if (replay) return;
-    const from = this.people.get(message.from),
-      to = this.people.get(message.to);
-    if (!from || !to) return;
-    const x = from.sprite.x + 30,
-      y = from.sprite.y - 180;
-    const token = this.add.container(x, y).setDepth(2000);
+    if (!this.ready || !message || this.messageVersions.get(message.id) === message.version) return;
+    this.messageVersions.set(message.id, message.version);
+    const from = this.people.get(message.from), to = this.people.get(message.to);
+    if (!from || !to || message.send_id == null) return;
+    let token = this.messages.get(message.id);
+    if (!message.control && message.receive_id != null && to.ambientAction) this.transition(to, to.state);
+    if (token) {
+      token.envelope = message;
+      if (token.arrived) this.settleMessage(token);
+      return;
+    }
+    // Restore pending inboxes, but never replay already consumed history.
+    if (replay && message.receive_id != null) return;
+    const cadence = this.activities.people.get(message.from);
+    if (cadence) cadence.current = cadence.pending = null;
+    const x = from.sprite.x + 60, y = from.sprite.y - 175;
+    token = this.add.container(x, y).setDepth(2000);
     token.recipient = to;
-    const sheet = this.add
-      .graphics()
-      .fillStyle(0xfff4dc)
-      .fillRoundedRect(-16, -21, 32, 42, 4)
-      .lineStyle(2, from.role.color)
-      .strokeRoundedRect(-16, -21, 32, 42, 4);
-    for (let i = 0; i < 3; i++) sheet.lineBetween(-9, -10 + i * 8, 9, -10 + i * 8);
-    token.add(sheet);
+    token.envelope = message;
+    const control = message.control;
+    const width = control ? 26 : 112, height = control ? 26 : 64;
+    const sheet = this.add.graphics().fillStyle(0xfff4dc)
+      .fillRoundedRect(-width / 2, -height / 2, width, height, 4)
+      .lineStyle(3, from.role.color).strokeRoundedRect(-width / 2, -height / 2, width, height, 4);
+    sheet.lineBetween(-width / 2 + 7, -height / 2 + 8, width / 2 - 7, -height / 2 + 8);
+    const title = this.add.text(0, -12, control ? '◇' : message.label, {
+      fontFamily: 'system-ui', fontSize: control ? '18px' : '17px', color: '#24372f',
+      wordWrap: { width: 104 }, align: 'center',
+    }).setOrigin(0.5, 0);
+    const receipt = this.add.text(0, 15, '', {
+      fontFamily: 'system-ui', fontSize: '11px', color: '#43574e',
+    }).setOrigin(0.5, 0);
+    token.receipt = receipt;
+    token.add([sheet, title, receipt]);
+    token.setSize(width + 10, height + 10).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.callbacks.onSelect({ message: message.id }));
     this.messages.set(message.id, token);
-    // Bound transient effects even if many sends arrive in one SSE snapshot.
-    if (this.messages.size > 6) this.removeMessage(this.messages.keys().next().value);
+    // Keep pending traffic available in the inspector; show only a small stack.
+    for (const t of this.messages.values()) {
+      if (t.envelope.receive_id != null && this.messages.size > 12) this.removeMessage(t.envelope.id);
+    }
     const arrive = () => {
       token.arrived = true;
-      token.setPosition(to.sprite.x + 30, to.sprite.y - 180);
-      if (!this.reducedMotion) {
-        to.reaction?.stop();
-        to.restore?.remove();
-        to.sprite.setScale(to.baseScale);
-        if (!to.tween?.isPlaying() && !['completed', 'failed', 'stopped'].includes(to.state)) {
-          to.receiving = true;
-          to.sprite.setFrame('receive');
-          to.restore = this.time.delayedCall(400, () => {
-            to.receiving = false;
-            to.sprite.setFrame(to.restFrame);
-          });
-        }
-        to.reaction = this.tweens.add({
-          targets: to.sprite,
-          scaleX: to.baseScale * 1.025,
-          scaleY: to.baseScale * 1.025,
-          duration: 180,
-          yoyo: true,
-        });
-        token.fade = this.tweens.add({
-          targets: token,
-          alpha: 0,
-          duration: 400,
-          delay: 600,
-          onComplete: () => this.removeMessage(message.id),
-        });
-      }
+      this.settleMessage(token);
     };
-    if (this.reducedMotion) {
-      for (const id of [...this.messages.keys()]) if (id !== message.id) this.removeMessage(id);
-      arrive();
-    } else
-      token.flight = this.tweens.addCounter({
-        from: 0,
-        to: 1,
-        duration: 1000,
-        onUpdate: (t) => {
-          const p = t.getValue();
-          token.setPosition(
-            x + (to.sprite.x + 30 - x) * p,
-            y + (to.sprite.y - 180 - y) * p - Math.sin(p * Math.PI) * 85,
-          );
-        },
-        onComplete: arrive,
-      });
+    if (this.reducedMotion || replay) arrive();
+    else token.flight = this.tweens.addCounter({
+      from: 0, to: 1, duration: 950,
+      onUpdate: t => {
+        const p = t.getValue();
+        const slot = this.inboxPosition(token);
+        token.setPosition(x + (slot.x - x) * p,
+          y + (slot.y - y) * p - Math.sin(p * Math.PI) * (control ? 35 : 75));
+      },
+      onComplete: arrive,
+    });
+  }
+  inboxPosition(token) {
+    const siblings = [...this.messages.values()].filter(t => t.recipient === token.recipient);
+    // Runtime channel seq, not arrival of SSE snapshots, determines stack order.
+    siblings.sort((a, b) => (a.envelope.seq ?? 0) - (b.envelope.seq ?? 0));
+    const index = siblings.indexOf(token);
+    token.setVisible(index < 3);
+    return { x: token.recipient.sprite.x + 90 + Math.min(index, 2) * 15,
+      y: token.recipient.sprite.y - 140 + Math.min(index, 2) * 20 };
+  }
+  settleMessage(token) {
+    const m = token.envelope;
+    // Cosmetic arrival is not runtime receive. An unreceived card stays pending.
+    token.receipt.setText(m.control ? '' : `${m.receive_id != null ? 'Received' : 'Awaiting receive'} · #${m.seq}`);
+    if (m.receive_id != null && !token.fade) token.fade = this.tweens.add({
+      targets: token, alpha: 0, duration: this.reducedMotion ? 0 : 350,
+      delay: m.control ? 1400 : 4500,
+      onComplete: () => this.removeMessage(m.id),
+    });
   }
   update() {
-    // A received document stays with its participant, including in reduced motion.
+    if (!this.ready) return;
+    const now = this.time.now;
+    for (const person of this.people.values()) {
+      if (!person.tween?.isPlaying()) {
+        const action = this.ambient.step(person.role.name, person.state, now, this.reducedMotion);
+        if (action !== person.ambientAction) this.ambientPose(person, action);
+      }
+      const sprite = person.sprite;
+      sprite.setDepth(sprite.y);
+      person.shadow.setPosition(sprite.x, sprite.y - 3).setDepth(sprite.y - 2);
+      person.ring.setPosition(sprite.x, sprite.y).setDepth(sprite.y - 1);
+      person.label.setPosition(sprite.x, sprite.y + 15);
+      const activity = this.activities.step(person.role.name, person.state,
+        this.pendingView?.activities?.[person.role.name], now, this.pendingView?.replay);
+      person.currentActivity = activity;
+      person.bubble.setVisible(!!activity).setPosition(sprite.x, sprite.y - person.role.size - 12);
+      person.bubbleBack.setVisible(!!activity).setPosition(person.bubble.x, person.bubble.y);
+      if (activity) {
+        if (person.bubble.text !== activity.text) {
+          person.bubble.setText(activity.text);
+          const w = person.bubble.width, h = person.bubble.height;
+          person.bubbleBack.clear().fillStyle(0xfffaf0)
+            .fillRoundedRect(-w / 2, -h, w, h, 10)
+            .fillTriangle(-6, 0, 8, 0, 0, 8);
+        }
+        const age = now - this.activities.people.get(person.role.name).shown;
+        person.bubble.setAlpha(this.reducedMotion ? 1 : Math.min(1, (6500 - age) / 700));
+        person.bubbleBack.setAlpha(person.bubble.alpha);
+      }
+    }
     for (const token of this.messages.values()) {
-      if (token.arrived)
-        token.setPosition(token.recipient.sprite.x + 30, token.recipient.sprite.y - 180);
+      if (token.arrived) {
+        const slot = this.inboxPosition(token);
+        token.setPosition(slot.x, slot.y);
+      }
+    }
+    for (const p of this.people.values()) {
+      const count = [...this.messages.values()].filter(t => t.recipient === p && t.envelope.receive_id == null).length;
+      p.inbox.setVisible(count > 0).setText(`${count} incoming`)
+        .setPosition(p.sprite.x + 95, p.sprite.y - 80);
+    }
+    // DOM accessibility overlays need not be rewritten at the canvas frame rate.
+    if (!this.lastPositionReport || now - this.lastPositionReport >= 100) {
+      this.reportPositions();
+      this.lastPositionReport = now;
     }
   }
   inspect() {
@@ -479,22 +575,31 @@ export class CafeScene extends Phaser.Scene {
       renderer: 'Phaser.Canvas',
       viewport: { width: this.scale.width, cameraWidth: this.cameras.main?.width },
       messages: [...this.messages.keys()],
+      envelopes: [...this.messages.values()].map(t => ({ ...t.envelope, arrived: !!t.arrived })),
       participants: [...this.people.values()].map((p) => ({
         role: p.role.name,
         state: p.state,
+        ambientAction: p.ambientAction,
+        currentActivity: p.currentActivity,
         pose: p.pose,
         frame: p.sprite.frame.name,
         texture: p.sprite.texture.key,
         x: p.sprite.x,
         y: p.sprite.y,
-        moving: !!p.tween?.isPlaying(),
+        moving: !!p.tween?.isPlaying() || !!p.ambientTween?.isPlaying(),
         visible: p.sprite.visible,
       })),
     };
   }
   setReducedMotion(value) {
     this.reducedMotion = value;
-    this.resetMessages();
+    if (!this.ready) return;
+    this.ambient.reset();
+    for (const token of this.messages.values()) {
+      token.flight?.stop();
+      token.arrived = true;
+      this.settleMessage(token);
+    }
     for (const p of this.people.values()) this.transition(p, p.state);
   }
 }

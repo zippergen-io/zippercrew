@@ -46,7 +46,8 @@ without replacing the scene. Participant and shared-brief inspectors serve both
 configuration and live inspection. `scene.js` is the boundary between snapshots,
 accessible DOM controls, and the renderer. `room-engine.js` owns a small entity
 registry, authored sprite poses, floor positions, depth sorting, and message
-effects. The role layout and café/character assets are separate from execution.
+effects. `presentation.js` isolates cosmetic ambient scheduling and bubble cadence
+from authoritative runtime state. The role layout and café/character assets are separate from execution.
 Phaser is pinned and served locally; no npm install, CDN request, or frontend
 build is needed to run the application. Canvas rendering avoids a WebGL dependency.
 The backend additions serve packaged assets within the static directory and allow
@@ -84,7 +85,7 @@ an in-flight CLI, so a service crash does not leave an unobserved agent working.
 | `room.started` | Worker launch | Running, all participants waiting |
 | `runtime` / `act_start` (assistant) | ZipperGen trace callback | Implementer working / Reviewer reviewing |
 | `runtime` / `act` (assistant) | Completed ZipperGen action | Waiting; append full turn to inspector |
-| `runtime` / `send`, `recv` | ZipperGen channels | Handoff feed and full trace |
+| `runtime` / `send`, `recv` | ZipperGen channels | Correlated message cards, inboxes, inspector and full trace |
 | `review.verdict` | Upstream `review_header` on completed review | APPROVE/REVISE display only |
 | `human.required` | Upstream human backend invocation | Pending task; Human active |
 | `human.responded` | Validated answer returned to runtime | Human waiting; append response |
@@ -115,3 +116,30 @@ inspector directions. The persisted process outputs remain verbatim.
   the protocol or visual state model.
 
 No database, workflow editor, remote service, or replacement agent framework.
+
+## Presentation layers
+
+The Room is a faithful, intentionally simplified visualization of execution.
+Semantic state comes only from ZipperGen/runtime. Ambient behaviour makes ready,
+waiting and completed participants feel alive but never changes or delays the
+process. New work, receive events and Human attention preempt cosmetic actions.
+
+The Room distinguishes local activity from protocol communication. Local activity
+is shown through participant animation and short activity bubbles. Every visible
+protocol handoff corresponds to a real ZipperGen message and is represented as a
+message object moving between participants. Bubbles never claim access to hidden
+reasoning or fabricate thoughts. Current native CLI observability supports action
+boundary bubbles, not live file/test summaries; see the upstream gap above.
+
+The reducer retains separate send/receive journal references, sender, receiver,
+channel and per-channel sequence; it tolerates receive-before-send callback order.
+Only actual receives mark consumption. Movement never invents receipts, failures,
+acknowledgements or session IDs. A bounded payload preview belongs to the inspector;
+complete information remains in the transcript/trace. The scene retains pending
+cards and a short consumed history, while the journal remains complete.
+
+Cosmetic scheduling has injected clock/random inputs for deterministic testing.
+It reserves shared destinations, favors stillness and cancels on semantic changes.
+The browser stores only the Full/Reduced motion preference; it never sends ambient
+choices back to the worker. Existing workflow execution, human endpoints and CLI
+permissions remain unchanged.

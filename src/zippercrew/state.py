@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 TERMINAL = {"completed", "failed", "stopped"}
@@ -24,6 +25,8 @@ def initial_state(room_id: str, config: dict[str, Any]) -> dict[str, Any]:
         "review": None,
         "transcript": [],
         "activity": [],
+        "local_activity": {},
+        "messages": [],
     }
 
 
@@ -54,6 +57,7 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         state["outcome"] = event.get("outcome")
         state["error"] = event.get("error")
         state["participants"] = {role: state["status"] for role in ROLES}
+        state["local_activity"] = {}
     elif kind == "runtime":
         raw = event["event"]
         role = raw.get("lifeline")
@@ -63,8 +67,18 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
                 state["round"] += 1
                 state["review"] = None
             state["participants"][role] = "reviewing" if role == "Reviewer" else "working"
+            # The native CLI backend currently exposes action boundaries, not
+            # live tool output. Never pretend a test or edit happened inside it.
+            state["local_activity"][role] = {
+                "id": event["id"],
+                "text": "Reviewing the proposal…" if role == "Reviewer" else "Working on the task…",
+                "source": "runtime.act_start",
+                "action": raw["action"],
+                "round": state["round"],
+            }
         elif raw["type"] == "act" and action_kind in {"assistant", "human"}:
             state["participants"][role] = "waiting"
+            state["local_activity"].pop(role, None)
             if action_kind == "assistant":
                 state["transcript"].append(
                     {
@@ -75,7 +89,8 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
                         "outputs": raw["outputs"],
                     }
                 )
-        if raw["type"] in {"send", "recv"} and not raw.get("control"):
+        if raw["type"] in {"send", "recv"}:
+            project_message(state, event)
             state["activity"].append(
                 {
                     "id": event["id"],
@@ -86,3 +101,58 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
                 }
             )
             state["activity"] = state["activity"][-20:]
+
+
+def project_message(state: dict[str, Any], event: dict[str, Any]) -> None:
+    """Correlate the runtime's channel sequence; tracing may report recv first.
+
+    A receive consumes a channel item. Animation arrival is never a receipt.
+    No workflow-specific routes or inferred recipients belong in this projection.
+    """
+    raw = event["event"]
+    key = json.dumps([raw["from"], raw["to"], raw.get("channel"), raw.get("seq")])
+    messages = state["messages"]
+    message = next((m for m in messages if m["id"] == key), None)
+    if message is None:
+        message = {
+            "id": key,
+            "from": raw["from"],
+            "to": raw["to"],
+            "channel": raw.get("channel"),
+            "seq": raw.get("seq"),
+            "send_id": None,
+            "receive_id": None,
+            "round": state["round"],
+        }
+        messages.append(message)
+    message["send_id" if raw["type"] == "send" else "receive_id"] = event["id"]
+    message["version"] = event["id"]
+    message["status"] = "received" if message["receive_id"] is not None else "sent"
+    # Sending names describe the envelope; receive binding names may differ.
+    if raw["type"] == "send" or message["send_id"] is None:
+        fields = list(raw.get("bindings", {}))
+        control = bool(raw.get("control") or raw.get("ctrl"))
+        titles = {
+            "task": "Task",
+            "proposal": "Proposal",
+            "critique": "Review",
+            "guidance": "Guidance",
+        }
+        message.update(
+            fields=fields,
+            control=control,
+            label="Control"
+            if control
+            else next(
+                (titles[f] for f in fields if f in titles),
+                ", ".join(fields)[:60] or "Message",
+            ),
+            # Only a bounded preview travels in snapshots, never a second full trace.
+            preview=""
+            if control
+            else json.dumps(raw.get("bindings", {}), ensure_ascii=False)[:800],
+        )
+    # Preserve all outstanding sends; bound only consumed history.
+    consumed = [m for m in messages if m["send_id"] and m["receive_id"]]
+    evicted = {m["id"] for m in consumed[:-80]}
+    state["messages"] = [m for m in messages if m["id"] not in evicted]
