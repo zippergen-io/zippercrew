@@ -1,0 +1,10 @@
+# Workstation orientation prompt
+
+Built-in imagegen, 2026-10-05. Edit/reference inputs: existing
+`furniture-v2.png` and `implementer-v2.png`. Output copied unchanged to
+`src/zippercrew/static/assets/corner-cafe/workstations-v3.png`.
+Transparent two-column atlas; frame bounds are measured by the existing loader.
+
+Exact prompt:
+
+> Use case: precise-object-edit. Production transparent sprite asset for existing ZipperCrew 2.5D scene. Image 1 is furniture material/style reference; image 2 is character reference ONLY to understand its seated typing pose looking diagonally toward lower right. Output a wide transparent 2-column 1-row atlas of TWO DESKS ONLY, with generous transparent gutters and no characters/chairs. Preserve furniture style: light oak rectangular slab worktop, dark charcoal metal slender sled legs, crisp grounded contemporary render, warm daylight from upper left. CRITICAL CHANGE: both desks face the user position at their UPPER LEFT / far edge, with monitor at LOWER RIGHT / near edge, so a character seated behind the desk on image-upper-left is facing the screen diagonally toward image-lower-right. Camera sees the BACK of monitor, NOT its screen. We see back panel, support stand, slight side edge. Viewing angle three-quarter downward same as reference. Desk left/far user edge remains clear to composite the existing character's hands over it. Left cell Implementer desk: slim charcoal monitor placed toward near-right edge; NO separate keyboard because character sprite already holds keyboard. Right cell Reviewer desk: matching desk and monitor with rear facing camera, single closed teal notebook near left edge. Desk diagonal long axis and monitor back make workstation ergonomics unmistakable. No keyboard on either desk, no chairs, no coffee, no decorative new objects, no text, no logos. Both full desks similar size fully contained in separate cells, legs visible and bottoms aligned, genuine transparent alpha background, no colored glow. Maintain same elegant wood/material art direction; only reorient workstation hardware coherently.

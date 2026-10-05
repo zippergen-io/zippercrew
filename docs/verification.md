@@ -47,3 +47,34 @@ The latter is deliberately outside this local transport; see architecture notes.
 
 Reproduce deterministic checks with the README commands. The live test uses
 authenticated external assistants and is intentionally not part of default tests.
+
+## Persistent Rooms and focused desktop layout — 2026-10-05
+
+The refinement suite passes **58 tests**. Ruff, mypy, JavaScript syntax checks and
+an offline wheel/source build pass. The wheel includes the Room catalog, the
+corrected workstation atlas and the canonical ZipperGen SVG; the SVG is byte-for-byte
+identical to both the upstream project asset and website favicon.
+
+New coverage exercises named setup persistence, rename, a second Run in the same
+Room, distinct worker processes, independent traces, restart/replay, read-only Run
+history, confirmation and active-run rejection for deletion, and retention of a
+source-workspace sentinel file. Legacy adoption is tested twice for idempotence
+and unchanged journal bytes. Native Codex/Claude command tests now resolve actual
+Room overrides through upstream profile settings, verify model/effort flags on
+initial/resumed turns, confirm shared profiles are unchanged, and start a second
+execution with fresh session IDs.
+
+Chromium checks the permanent non-overlapping inspector and visible/clickable
+bottom controls at 1024×600, 1280×720, 1366×768, 1440×900 and 1536×864, plus no
+horizontal overflow at 390×844. The same canvas survives two-round execution and
+Run again. Screenshots of setup, working, reviewing, Human attention, completion
+and the desktop layout were inspected. The corrected monitor backs face the viewer;
+the characters use the clear working side of their stations.
+
+The three existing ANR-GLOVE journals were hashed before migration and after
+read-only inspection: all remain identical. The actual two-round Reviewer view
+shows Completed review, Round 2 of 4, Claude/read-only, REVISE with 2 findings,
+proposal/review cards and readable expanded Markdown, with no browser errors.
+This refinement did not launch another paid CLI task against ANR-GLOVE. New-run
+browser validation uses the real ZipperGen process with scripted participants;
+native assistant invocation assertions use controlled subprocess responses.

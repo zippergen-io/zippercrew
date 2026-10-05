@@ -25,21 +25,26 @@ DOM inspectors. No game mechanic controls the workflow.
 Phaser mouse input is restricted to its canvas; keyboard handling and window
 mouse listeners are disabled. This is necessary for ordinary web inspectors to
 work independently of objects behind them. A ResizeObserver resizes the canvas;
-the camera fills laptop viewports and fits the whole scene on narrow screens.
+the camera fits the inhabited floor and board without clipping a station when the
+inspector opens. Desktop uses a two-column grid (scene plus a 300–390px inspector).
+The shell has automatic header/footer rows and a `minmax(0, 1fr)` middle row;
+`min-height: 0` and one scrolling inspector body keep all bottom actions reachable.
+Narrow layouts stack the inspector below the scene with a sticky action dock.
 
 ## Art and identity
 
 The environment, furniture and three character atlases are original generated
 bitmap assets, not code-drawn figures. See [art provenance](art/README.md) and
-[generation prompts](art/prompts.md). Transparent character sheets contain nine
+[generation prompts](art/production-v2-prompts.md). Transparent character sheets contain nine
 poses. Runtime alpha bounds become frame metadata without modifying the images.
 Each pose is anchored at the feet. Furniture has its own atlas and explicit
 regions, allowing desks and chairs to overlap characters independently.
 
-Implementer has a swept auburn silhouette, coral headphones and a short maker's
-jacket. Reviewer has a silver bob, glasses, a broad teal cardigan and a tablet.
-Human has an asymmetric indigo curl silhouette, plum sweater and phone. Their
-silhouettes, accessories, seated poses and working gestures differ. Role colors
+The grounded modern café is deliberately less stylized than its cast. Implementer
+is a compact coral/ivory robot with a swept wedge head, antenna and side hubs.
+Reviewer is a taller teal robot with a shield head, long neck, tablet and stylus.
+Human has an asymmetric indigo curl silhouette, plum overshirt, ivory trousers and
+phone. Their silhouettes, accessories, work poses and gestures differ. Role colors
 continue into selection rings, documents, inspectors and transcript entries.
 
 ## State and animation contract
@@ -183,3 +188,26 @@ documents, and selected objects with the inspector open. Browser tests can
 capture the real process states with `ZIPPERCREW_SCREENSHOTS=/tmp/crew-shots`.
 They inspect the actual canvas state, scene continuity, input isolation,
 reconnects, motion preferences, canceled transfers and asset failures.
+
+
+## Room refinement
+
+A Room is the persistent crew/workspace/process context. A Run is one task executed
+inside it. The inline Room name and compact actions menu support rename, history,
+and confirmed deletion; Run again returns to an editable brief in the same scene.
+The latest Run opens by default. Earlier Runs display a history indicator and a
+Latest run shortcut, and cannot be edited or resumed through their inspectors.
+
+Setup inspectors show profile/runtime, supported native model/effort overrides,
+access and instructions. They contain no empty conversation or activity sections.
+Running inspectors lead with state, round, current local activity and conversation.
+Completed participants lead with the semantic result, including review verdict and
+findings. Technical information remains collapsed.
+
+Workstations use a dedicated two-desk atlas: monitors face the participants, with
+backs visible to the viewer. Chairs, working anchors and approach targets align
+with the clear working edge of the desk. Hands/reading poses remain visible above
+the surface, while furniture depth hides the lower body naturally. This changes
+spatial composition, not semantic states, ambient scheduling or message events.
+The ZipperCrew wordmark stays distinct from the unchanged canonical ZipperGen
+mark in the powered-by attribution.

@@ -100,13 +100,21 @@ def test_native_cli_sessions_remain_separate_and_resume_with_permissions(
     backend,
     tmp_path: Path,
 ):
+    from zippergen.workspace import Workspace
+
+    from zippercrew.rooms import validate_config
+
+    Workspace(tmp_path).save_assistant_configuration("coding", backend, model="profile-model")
     for role, binding in config["agents"].items():
         binding.update(
             backend=backend,
             instructions="Pay attention to zero.",
-            model=f"{role.lower()}-model",
-            reasoning_effort="high" if role == "Implementer" else "low",
+            settings={
+                "model": f"{role.lower()}-model",
+                "reasoning_effort": "high" if role == "Implementer" else "low",
+            },
         )
+    config = validate_config(config)
     calls = []
     monkeypatch.setattr("zippergen.assistant_backends.shutil.which", lambda name: f"/tools/{name}")
 
@@ -173,6 +181,11 @@ def test_native_cli_sessions_remain_separate_and_resume_with_permissions(
             assert "plan" in cmd and "--safe-mode" in cmd
             assert cmd[cmd.index("--tools") + 1] == "Read,Glob,Grep"
         assert "Read,Glob,Grep,Edit,Write,Bash" in calls[0][0]
+
+    # A second execution of the same resolved Room configuration starts new sessions.
+    execute(config, lambda e: None, lambda r: "Ship it", assistant_backend(config))
+    assert [call[2] for call in calls[4:]] == ["s4", "s5"]
+    assert Workspace(tmp_path).assistant_configurations()["coding"]["model"] == "profile-model"
 
 
 def test_backend_failure_is_not_an_approval(config):

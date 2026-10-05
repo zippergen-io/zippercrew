@@ -37,3 +37,14 @@ or fabricated thoughts. No output means no new bubble, not a semantic idle state
 The trace remains the complete source of truth; the Room is a faithful,
 intentionally simplified visualization. See [scene notes](room-experience.md) for
 current observability limits and deterministic presentation tests.
+
+## Room and Run lifecycle
+
+A **Room** is a persistent named process, crew and workspace context. It retains
+bindings, native model/effort overrides, role instructions, Human mode, maximum
+rounds and display settings. A **Run** is one task performed inside that Room,
+with its own execution state, rounds, timestamps, messages, result and full trace.
+Native Implementer and Reviewer conversations persist within a Run. **Run again**
+reviews/edits the next brief, then starts fresh sessions without changing prior
+Runs. Inspecting history never resumes it. Deleting a Room requires confirmation
+and removes only its ZipperCrew records/artifacts, never the working repository.

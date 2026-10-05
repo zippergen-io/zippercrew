@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from zippercrew.rooms import Room
+from zippercrew.rooms import Run
 
 
 def test_duplicate_launch_reports_existing_instance_without_traceback(tmp_path):
@@ -61,7 +61,7 @@ def test_launch_failure_is_visible_in_room_and_trace(config, tmp_path, monkeypat
         raise OSError("Cannot start interpreter")
 
     monkeypatch.setattr("zippercrew.rooms.subprocess.Popen", fail)
-    room = Room(tmp_path / "room", config, "test")
+    room = Run(tmp_path / "room", config, "test")
     room.start()
     assert room.state["status"] == "failed"
     assert "Cannot start interpreter" in room.state["error"]

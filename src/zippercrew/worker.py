@@ -93,7 +93,9 @@ def main() -> None:
 
     def demo(action: Any, inputs: dict[str, object]) -> dict[str, object]:
         nonlocal round_number
-        time.sleep(0.6)
+        # Keep scripted phases legible in the demo/browser walkthrough.
+        # Real CLI actions have no artificial delay.
+        time.sleep(float(os.environ.get("ZIPPERCREW_DEMO_TURN_SECONDS", "1.5")))
         if action.name == "implement":
             round_number += 1
             value = f"Demo proposal, round {round_number}.\n\nNo files were changed."

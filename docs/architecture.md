@@ -6,7 +6,7 @@ ZipperCrew makes that process easy to instantiate, use, observe, and enjoy.
 ## The boundary
 
 One local Python HTTP service serves a browser frontend and
-streams room state over SSE. Each Room has a worker process running ZipperGen's
+streams room state over SSE. Each Run has a worker process running ZipperGen's
 existing `examples/pair_programming.py:pair_programming`. The source is loaded
 from the editable sibling checkout, never copied or rewritten. Workers isolate
 ZipperGen's module loading and CLI lifetimes between executions. These are local
@@ -20,7 +20,7 @@ event presentation, local execution lifecycle, and the café Environment.
 
 The adapter only replaces assistant action workspace and appends optional role
 instructions. Separate upstream CLI backend instances per role retain separate
-native conversations throughout a Room. Access remains write for Implementer
+native conversations throughout one Run. Access remains write for Implementer
 and read-only for Reviewer. External tools remain disabled. Claude's Reviewer
 uses restricted shell (no Bash) because its plan permission mode alone is not
 an OS filesystem sandbox. Codex retains sandboxed shell for verification.
@@ -33,15 +33,20 @@ project, using the same profile API and file format. An explicit `--project`
 or browser directory selection can reuse a repository's existing configuration.
 Existing project profiles are never moved automatically. No credentials are
 read or stored by the UI.
-Crew bindings are execution data, not a second assistant profile registry.
-Each binding snapshots its profile's backend, optional model, and reasoning
-effort at room creation. Those settings go unchanged to ZipperGen's native
-backend factory, which applies them to initial and resumed CLI turns. Browser
-configuration cannot override the saved profile's pins. Role instructions are
-per-Room additions. Profiles can change without altering an existing execution.
+Room bindings reference shared profiles and may carry `settings` overrides using
+ZipperGen's existing `model` / `reasoning_effort` keys. Empty overrides inherit
+profile/CLI defaults. `validate_config` resolves the profile plus these overrides
+through upstream `assistant_settings`, and snapshots the effective selection into
+the Run. The native backend factory receives that selection on every turn. The
+upstream adapter's `setting_options` declares which setup controls are supported;
+no private model catalog, new CLI command builder or upstream extension is needed.
+The service checks pinned-setting CLI flags before launch. Native CLIs validate
+actual model/effort availability. Shared profiles are never modified by Room edits.
+Role instructions are per-Room additions. Configuration changes never rewrite a
+previous Run's effective configuration or transcript.
 
-The frontend creates one Phaser Canvas scene before loading configuration. Setup edits a
-local draft; starting replaces that draft's presentation with server snapshots
+The frontend creates one Phaser Canvas scene before loading configuration. Setup autosaves a
+persistent Room draft; starting replaces that draft's presentation with server snapshots
 without replacing the scene. Participant and shared-brief inspectors serve both
 configuration and live inspection. `scene.js` is the boundary between snapshots,
 accessible DOM controls, and the renderer. `room-engine.js` owns a small entity
@@ -72,10 +77,10 @@ ZipperGen does not request guidance it would discard.
 
 The service binds only to loopback, validates Host/Origin, and requires a
 same-origin custom header for mutations. This is a local tool, without accounts.
-One active Room may own a workspace at a time (including overlapping directories).
+One active Run may own a workspace at a time (including overlapping directories).
 Stopping terminates the worker process group, including active assistant CLIs.
 Abandoning/stopping never reverts files. History survives service restarts;
-interrupted rooms are marked stopped, never silently rerun. v0.1 does not resume
+interrupted Runs are marked stopped, never silently rerun. v0.1 does not resume
 interrupted executions. Native conversations persist across rounds while running.
 The worker watches its service pipe: EOF terminates its process group, including
 an in-flight CLI, so a service crash does not leave an unobserved agent working.
@@ -143,7 +148,7 @@ cards and a short consumed history, while the journal remains complete.
 
 Cosmetic scheduling has injected clock/random inputs for deterministic testing.
 It reserves shared destinations, favors stillness and cancels on semantic changes.
-The browser stores only the Full/Reduced motion preference; it never sends ambient
+The Room retains its Full/Reduced motion preference, with a browser fallback; it never sends ambient
 choices back to the worker. Existing workflow execution, human endpoints and CLI
 permissions remain unchanged.
 
@@ -179,5 +184,44 @@ Live snapshots update the current-activity summary. Equivalent recent activities
 are deduplicated, with the last five distinct observations in a closed activity log;
 the full journal is still downloadable. Expanded messages and keyboard focus persist
 across local activity updates. A newly advanced round becomes the default focus.
-There are no inspector writes to workflow state, no new API, and no renderer or
-animation changes; the service only adds a static route for the inspector module.
+Inspector configuration edits affect the next Run only; protocol decisions still
+use the existing authoritative Human endpoint.
+
+
+## Persistent Rooms and Runs
+
+`catalog.py:Catalog` stores one atomic JSON record per named Room in
+`<data-dir>/catalog/<room-id>.json`. It owns name, process, participant profile
+references and overrides, workspace, Human mode, round limit, environment/motion,
+a next-run brief, timestamps and an ordered list of Run IDs. Incomplete setup is
+valid; full workspace/profile/task validation occurs before execution.
+
+`rooms.py:Run` and `Runs` own workers and append-only journals. The historical
+storage path `<data-dir>/rooms/<run-id>/` is retained to avoid moving existing
+traces. A Run snapshots its task/configuration and has its own worker, state,
+rounds, messages, timestamps, outcome and trace. Each worker creates fresh native
+sessions; the two roles keep separate sessions across rounds within that Run.
+Legacy `room.started` / `room.completed` event names remain unchanged for trace
+compatibility. They describe execution lifecycle, not creation/deletion of a
+persistent Room.
+
+On first launch, each unowned legacy execution is adopted as a separate Room,
+named after its workspace. Completed journals stay byte-for-byte intact. Migration
+is idempotent. A Run's persisted `room_id` repairs ownership if a crash occurs
+between worker creation and the catalog update. Interrupted Runs are stopped,
+never resumed by inspecting history. The catalog and execution registry share a
+lock for starts, edits and deletions; overlapping active workspaces remain blocked.
+
+API: `GET /api/rooms` lists Rooms; `POST /api/rooms` with `{name, config, brief}`
+saves setup. `/api/rooms/<id>/context` returns configuration; `/save` updates it;
+`GET /runs` lists history and `POST /runs` starts a fresh execution.
+`/api/runs/<id>` and its `/events`, `/trace`, `/answer`, `/stop` resources serve
+executions. Old `/api/rooms/<run-id>` execution URLs and the old flat start request
+remain compatible. Browser URLs contain both Room and Run IDs; `setup=1` restores
+an editable next brief. A prior Run's brief and configuration are read-only.
+
+Deletion requires confirmation matching the current Room name, refuses active
+Runs, and removes only known run directories under ZipperCrew storage plus the
+Room record. It never traverses workspace/profile config paths. A persisted
+deletion marker lets startup finish an interrupted deletion rather than re-adopt
+orphaned execution directories. Symlinked run directories are refused.

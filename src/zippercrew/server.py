@@ -15,11 +15,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from zippergen.assistant_backends import check_cli_assistant
+from zippergen.assistant_backends import ASSISTANT_BACKEND_SPECS, check_cli_assistant
 from zippergen.workspace import Workspace, WorkspaceError
 
 from zippercrew.adapter import source_root
-from zippercrew.rooms import Conflict, Rooms, directory, text_field, validate_config
+from zippercrew.catalog import Catalog
+from zippercrew.rooms import Conflict, Runs, directory, text_field, validate_config
 from zippercrew.state import TERMINAL
 
 STATIC = Path(__file__).parent / "static"
@@ -45,7 +46,8 @@ class Application(ThreadingHTTPServer):
                 "Open the existing instance in your browser, or stop it in its terminal "
                 "with Ctrl-C before starting again."
             ) from exc
-        self.rooms = Rooms(data_dir / "rooms")
+        self.runs = Runs(data_dir / "rooms")
+        self.rooms = Catalog(data_dir / "catalog", self.runs)
         self.project = str(project.resolve())
         self.demo = demo
         self.checks: dict[str, dict[str, Any]] = {}
@@ -56,7 +58,7 @@ class Application(ThreadingHTTPServer):
         super().__init__(("127.0.0.1", port), Handler)
 
     def server_close(self) -> None:
-        self.rooms.close()
+        self.runs.close()
         super().server_close()
         self.data_lock.close()
 
@@ -143,16 +145,25 @@ class Handler(BaseHTTPRequestHandler):
                         "project": self.server.project,
                         "demo": self.server.demo,
                         "checks": self.server.checks,
+                        "capabilities": {
+                            s.name: list(s.setting_options) for s in ASSISTANT_BACKEND_SPECS
+                        },
                     },
                 )
             elif path == "/api/profiles":
                 project = directory(parse_qs(url.query).get("project", [self.server.project])[0])
                 self.reply(200, {"profiles": Workspace(project).assistant_configurations()})
             elif path == "/api/rooms":
-                self.reply(200, self.server.rooms.history())
-            elif path.startswith("/api/rooms/"):
+                self.reply(200, self.server.rooms.list())
+            elif path.startswith(("/api/rooms/", "/api/runs/")):
                 parts = path.strip("/").split("/")
-                room = self.server.rooms.get(parts[2])
+                if parts[1] == "rooms" and parts[3:] == ["context"]:
+                    self.reply(200, self.server.rooms.get(parts[2]))
+                    return
+                if parts[1] == "rooms" and parts[3:] == ["runs"]:
+                    self.reply(200, self.server.rooms.history(parts[2]))
+                    return
+                room = self.server.runs.get(parts[2])
                 if len(parts) == 3:
                     self.reply(200, room.snapshot())
                 elif parts[3:] == ["events"]:
@@ -228,20 +239,38 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 self.reply(201, {"profiles": workspace.assistant_configurations()})
             elif path == "/api/rooms":
-                config = validate_config(data, demo=self.server.demo)
-                for binding in config["agents"].values():
-                    if not self.server.demo:
-                        check = self.server.checks[binding["backend"]]
-                        if not check["supported"]:
-                            raise ValueError(check["detail"])
-                room = self.server.rooms.create(config)
-                self.reply(201, room.snapshot())
-            elif path.startswith("/api/rooms/"):
+                if "config" in data:
+                    self.reply(201, self.server.rooms.create(data))
+                else:
+                    # Compatibility for existing clients that start a single run.
+                    config = self.execution_config(data)
+                    record = self.server.rooms.create(
+                        {"config": data, "brief": data.get("task", "")}
+                    )
+                    self.reply(201, self.server.rooms.start(record["id"], config))
+            elif path.startswith(("/api/rooms/", "/api/runs/")):
                 parts = path.strip("/").split("/")
-                room = self.server.rooms.get(parts[2])
-                if parts[3:] == ["answer"]:
+                room_id, action = parts[2], parts[3:]
+                if parts[1] == "rooms" and action == ["save"]:
+                    self.reply(200, self.server.rooms.update(room_id, data))
+                    return
+                if parts[1] == "rooms" and action == ["delete"]:
+                    self.server.rooms.delete(room_id, data.get("confirmation"))
+                    self.reply(200, {"deleted": room_id})
+                    return
+                if parts[1] == "rooms" and action == ["runs"]:
+                    # Read, validate and launch against one stable Room revision.
+                    with self.server.runs.lock:
+                        record = self.server.rooms.get(room_id)
+                        config = self.execution_config(
+                            {**record["config"], "task": record["brief"]}
+                        )
+                        self.reply(201, self.server.rooms.start(room_id, config))
+                    return
+                room = self.server.runs.get(room_id)
+                if action == ["answer"]:
                     room.respond(data.get("request_id", ""), data.get("value"))
-                elif parts[3:] == ["stop"]:
+                elif action == ["stop"]:
                     room.stop()
                 else:
                     self.reply(404, {"error": "Not found."})
@@ -255,6 +284,18 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(404, {"error": str(exc)})
         except (ValueError, TypeError, AttributeError, OSError, WorkspaceError) as exc:
             self.reply(400, {"error": str(exc)})
+
+    def execution_config(self, data: dict[str, Any]) -> dict[str, Any]:
+        config = validate_config(data, demo=self.server.demo)
+        if not self.server.demo:
+            for binding in config["agents"].values():
+                settings = {
+                    key: binding[key] for key in ("model", "reasoning_effort") if key in binding
+                }
+                check = check_cli_assistant(binding["backend"], settings=settings)
+                if not check.supported:
+                    raise ValueError(check.detail)
+        return config
 
 
 def main() -> None:

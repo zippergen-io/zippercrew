@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from conftest import request, wait_state
 
-from zippercrew.rooms import Rooms, validate_config
+from zippercrew.rooms import Runs, validate_config
 
 
 def create(service, config, **overrides):
@@ -56,7 +56,7 @@ def test_web_another_round_guidance_reconnect_trace_and_completion(service, conf
     assert [e["id"] for e in events] == list(range(1, len(events) + 1))
     assert events[-1]["type"] == "room.completed"
     assert any(e["type"] == "runtime" and e["event"]["type"] == "send" for e in events)
-    restored = Rooms(app.rooms.root).get(room_id).snapshot()
+    restored = Runs(app.runs.root).get(room_id).snapshot()
     assert restored == ended
 
 
@@ -78,7 +78,7 @@ def test_stop_clears_human_request_and_worker_and_blocks_workspace_overlap(servi
     assert request(base, "/api/rooms", {**config, "workspace": str(child)})[0] == 409
     code, stopped = request(base, f"/api/rooms/{room_id}/stop", {})
     assert code == 200 and stopped["status"] == "stopped" and stopped["pending"] is None
-    assert app.rooms.get(room_id).process.poll() is not None
+    assert app.runs.get(room_id).process.poll() is not None
     assert (
         request(
             base,
@@ -95,8 +95,8 @@ def test_stop_during_assistant_turn(service, config):
     wait_state(base, room_id, lambda s: s["participants"]["Implementer"] == "working")
     code, state = request(base, f"/api/rooms/{room_id}/stop", {})
     assert code == 200 and state["status"] == "stopped"
-    app.rooms.get(room_id).thread.join(timeout=5)
-    assert not app.rooms.get(room_id).thread.is_alive()
+    app.runs.get(room_id).thread.join(timeout=5)
+    assert not app.runs.get(room_id).thread.is_alive()
 
 
 def test_only_one_response_wins(service, config):
@@ -186,8 +186,8 @@ def test_local_origin_protection(service, config):
 def test_local_renderer_assets_and_path_boundary(service):
     _, base, _ = service
     for path, mime in [
-        ("/assets/characters/reviewer.png", "image/png"),
-        ("/assets/corner-cafe/background.png", "image/png"),
+        ("/assets/characters/reviewer-v2.png", "image/png"),
+        ("/assets/corner-cafe/background-v2.png", "image/png"),
         ("/vendor/phaser-3.90.0.min.js", "text/javascript"),
         ("/room-engine.js", "text/javascript"),
     ]:
@@ -205,5 +205,5 @@ def test_restart_marks_interrupted_room_stopped(tmp_path, config):
     room.mkdir(parents=True)
     (room / "config.json").write_text(json.dumps(config))
     (room / "events.jsonl").write_text(json.dumps({"id": 1, "type": "room.started"}) + "\n")
-    state = Rooms(root).get("test").snapshot()
+    state = Runs(root).get("test").snapshot()
     assert state["status"] == "stopped" and "interrupted" in state["error"]

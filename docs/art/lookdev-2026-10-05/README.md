@@ -1,7 +1,8 @@
 # Grounded room + designed personas
 
-Art-direction study, 2026-10-05. No production assets, renderer, runtime, events,
-ZipperGen integration or workflow semantics have changed.
+Art-direction study, 2026-10-05. These concept images are preserved as approved
+references. The direction is now integrated through separate
+[production assets](../README.md); these study PNGs are not sprite atlases.
 
 Open the [review page](index.html) directly in a browser. It works offline and
 includes comparisons with the production room and yesterday's human-cast study.
@@ -69,9 +70,9 @@ not a new runtime state or a process change.
   The comparison page keeps both the production frame and prior 3D study available
   to judge this change directly.
 
-This is the proposed art target for review, not a claim that the asset pipeline
-is ready. Before replacing production artwork, lock the cast design, then verify
-one character/station pair at actual scene scale and in a small set of poses.
+This study established the approved art target. Production integration retains
+these identities and verifies character/station pairs at actual scene scale and
+across the existing runtime poses. See the production asset notes for the shipped files.
 
 ## Production constraints to retain if selected
 

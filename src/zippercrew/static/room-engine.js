@@ -2,15 +2,35 @@ import { AmbientDirector, ActivityCadence } from '/presentation.js';
 
 /* Phaser owns drawing and animation, never protocol decisions. */
 export const WORLD = { width: 1536, height: 1024 };
+// Production art metadata is separate from semantic states and animation policy.
+export const ART = {
+  revision: 'grounded-cafe-agent-cast-v2',
+  background: '/assets/corner-cafe/background-v2.png',
+  furniture: '/assets/corner-cafe/furniture-v2.png',
+  workstations: '/assets/corner-cafe/workstations-v3.png',
+  board: { x: 1080, y: 160, width: 265, height: 175 },
+  furnitureCuts: [[0, 520, 1049, 1536], [0, 513, 1024]],
+  characterCuts: {
+    implementer: [[0, 449, 836, 1254], [0, 418, 818, 1254]],
+    reviewer: [[0, 418, 836, 1254], [0, 418, 820, 1254]],
+    human: [[0, 418, 836, 1254], [0, 418, 829, 1254]],
+  },
+};
+function atlasRegions([xs, ys]) {
+  return ys.slice(0, -1).flatMap((y, row) => xs.slice(0, -1).map((x, col) =>
+    [x, y, xs[col + 1] - x, ys[row + 1] - y]));
+}
 export const ROLES = [
   {
     name: 'Implementer',
     key: 'implementer',
-    color: 0xd68a61,
-    seat: { x: 410, y: 670 },
+    color: 0xeb7954,
+    seat: { x: 440, y: 660 },
     rest: { x: 260, y: 520 },
-    desk: { x: 530, y: 735 },
-    size: 342,
+    desk: { x: 515, y: 805 },
+    size: 330,
+    deskWidth: 370,
+    chairWidth: 205,
     furniture: 0,
     chair: 3,
     access: 'Write access',
@@ -19,11 +39,13 @@ export const ROLES = [
   {
     name: 'Reviewer',
     key: 'reviewer',
-    color: 0x78b6aa,
-    seat: { x: 1060, y: 665 },
+    color: 0x35a8b0,
+    seat: { x: 1040, y: 675 },
     rest: { x: 1240, y: 525 },
-    desk: { x: 1230, y: 745 },
-    size: 346,
+    desk: { x: 1135, y: 805 },
+    size: 385,
+    deskWidth: 370,
+    chairWidth: 205,
     furniture: 1,
     chair: 4,
     access: 'Read-only access',
@@ -32,11 +54,13 @@ export const ROLES = [
   {
     name: 'Human',
     key: 'human',
-    color: 0xc9a1d5,
+    color: 0xa37ab5,
     seat: { x: 730, y: 845 },
     rest: { x: 730, y: 845 },
     desk: { x: 875, y: 885 },
-    size: 350,
+    size: 375,
+    deskWidth: 290,
+    chairWidth: 155,
     furniture: 2,
     chair: 5,
     access: 'Process decisions',
@@ -126,9 +150,10 @@ export class CafeScene extends Phaser.Scene {
     this.pendingView = null;
   }
   preload() {
-    this.load.image('cafe', '/assets/corner-cafe/background.png');
-    this.load.image('furniture', '/assets/corner-cafe/furniture.png');
-    for (const role of ROLES) this.load.image(role.key, `/assets/characters/${role.key}.png`);
+    this.load.image('cafe', ART.background);
+    this.load.image('furniture', ART.furniture);
+    this.load.image('workstations', ART.workstations);
+    for (const role of ROLES) this.load.image(role.key, `/assets/characters/${role.key}-v2.png`);
     this.load.on('loaderror', (file) => {
       this.loadFailed = true;
       this.callbacks.onError(new Error(`Room asset could not load: ${file.key}`));
@@ -136,21 +161,16 @@ export class CafeScene extends Phaser.Scene {
   }
   create() {
     if (this.loadFailed) return;
-    this.add.image(768, 512, 'cafe').setDepth(-1000);
-    addAtlas(this.textures.get('furniture'), 3, 2, null, [
-      [35, 25, 505, 451],
-      [572, 85, 490, 390],
-      [1118, 60, 380, 415],
-      [40, 480, 490, 510],
-      [562, 478, 490, 510],
-      [1120, 505, 380, 450],
-    ]);
+    this.add.image(WORLD.width / 2, WORLD.height / 2, 'cafe')
+      .setDisplaySize(WORLD.width, WORLD.height).setDepth(-1000);
+    addAtlas(this.textures.get('furniture'), 3, 2, null, atlasRegions(ART.furnitureCuts));
+    addAtlas(this.textures.get('workstations'), 2, 1);
     for (const role of ROLES) {
-      addAtlas(this.textures.get(role.key), 3, 3, FRAMES);
+      addAtlas(this.textures.get(role.key), 3, 3, FRAMES, atlasRegions(ART.characterCuts[role.key]));
       const chair = this.add
         .image(role.seat.x - 10, role.seat.y + 4, 'furniture', String(role.chair))
         .setOrigin(0.5, 1);
-      chair.setDisplaySize(240, 280).setDepth(role.seat.y - 4);
+      chair.setScale(role.chairWidth / chair.width).setDepth(role.seat.y - 4);
       const shadow = this.add
         .ellipse(role.seat.x, role.seat.y - 4, 125, 28, 0x172819, 0.22)
         .setDepth(role.seat.y - 2);
@@ -158,9 +178,11 @@ export class CafeScene extends Phaser.Scene {
       const baseScale = role.size / this.textures.get(role.key).get('idle').height;
       sprite.setScale(baseScale).setDepth(role.seat.y);
       const desk = this.add
-        .image(role.desk.x, role.desk.y, 'furniture', String(role.furniture))
+        .image(role.desk.x, role.desk.y, role.name === 'Human' ? 'furniture' : 'workstations', String(role.furniture))
         .setOrigin(0.5, 1);
-      desk.setScale((role.name === 'Human' ? 260 : 350) / desk.width).setDepth(role.desk.y);
+      desk.setScale(role.deskWidth / desk.width).setDepth(role.desk.y);
+      this.add.ellipse(role.desk.x + 10, role.desk.y - 8, role.deskWidth * 0.9, 28, 0x40342d, 0.12)
+        .setDepth(role.desk.y - 8);
       const ring = this.add
         .ellipse(role.seat.x, role.seat.y, 133, 36)
         .setStrokeStyle(2, role.color, 0.85)
@@ -209,16 +231,16 @@ export class CafeScene extends Phaser.Scene {
       });
     }
     this.board = this.add
-      .zone(965, 126, 242, 165)
+      .zone(ART.board.x, ART.board.y, ART.board.width, ART.board.height)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.callbacks.onSelect('brief'));
     this.brief = this.add
-      .text(880, 95, 'What are we\nworking on?', {
+      .text(ART.board.x - 100, ART.board.y - 52, 'What are we\nworking on?', {
         fontFamily: 'system-ui',
         fontSize: '20px',
         fontStyle: 'bold',
-        color: '#f9e5b2',
-        wordWrap: { width: 175 },
+        color: '#f6efe2',
+        wordWrap: { width: 205 },
       })
       .setDepth(2);
     this.resize();
@@ -229,13 +251,9 @@ export class CafeScene extends Phaser.Scene {
   }
   resize() {
     const { width, height } = this.scale;
-    const zoom =
-      width < 650
-        ? Math.min(width / WORLD.width, height / WORLD.height)
-        : Math.max(width / WORLD.width, height / WORLD.height);
-    this.cameras.main
-      .setZoom(zoom)
-      .centerOn(WORLD.width / 2, Math.min(512, 470 + (height / zoom - 740) * 0.2));
+    // Fit the inhabited floor and board; never crop stations to fill a column.
+    const zoom = Math.min(width / 1440, height / 920);
+    this.cameras.main.setZoom(zoom).centerOn(WORLD.width / 2, 500);
     this.reportPositions();
   }
   present(view) {
@@ -395,7 +413,7 @@ export class CafeScene extends Phaser.Scene {
         worldX: p.sprite.x,
         worldY: p.sprite.y,
       })),
-      position(965, 126),
+      position(ART.board.x, ART.board.y),
     );
   }
   ambientPose(person, action) {
@@ -573,6 +591,7 @@ export class CafeScene extends Phaser.Scene {
       ready: !!this.ready,
       reducedMotion: this.reducedMotion,
       renderer: 'Phaser.Canvas',
+      art: ART.revision,
       viewport: { width: this.scale.width, cameraWidth: this.cameras.main?.width },
       messages: [...this.messages.keys()],
       envelopes: [...this.messages.values()].map(t => ({ ...t.envelope, arrived: !!t.arrived })),

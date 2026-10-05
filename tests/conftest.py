@@ -66,3 +66,14 @@ def wait_state(base: str, room_id: str, predicate: Any, timeout: float = 12) -> 
             pytest.fail(state["error"])
         time.sleep(0.03)
     pytest.fail(f"Room did not reach expected state: {state}")
+
+
+@pytest.fixture(autouse=True)
+def browser_timing(request, monkeypatch):
+    if request.node.get_closest_marker("browser"):
+        from playwright.sync_api import expect
+
+        # Keep transient scripted phases observable on busy development machines.
+        # This affects only fake participants; real CLI execution is never delayed.
+        monkeypatch.setenv("ZIPPERCREW_DEMO_TURN_SECONDS", "3")
+        expect.set_options(timeout=20000)

@@ -1,4 +1,4 @@
-"""Local worker lifecycle, append-only room history, and human transport."""
+"""Run worker lifecycle, append-only execution history, and human transport."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from zippergen.assistant_backends import assistant_backend_spec, assistant_settings
 from zippergen.human_tasks import human_task_result_from_value
 from zippergen.workspace import Workspace
 
@@ -69,7 +70,16 @@ def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, An
             "instructions": text_field(binding.get("instructions", ""), role),
         }
         if not demo:
-            agents[role].update(profiles[name])
+            selection = dict(profiles[name])
+            overrides = binding.get("settings", {})
+            if not isinstance(overrides, dict):
+                raise ValueError("Participant settings must be an object.")
+            spec = assistant_backend_spec(backend)
+            if spec is None or set(overrides) - set(spec.setting_options):
+                raise ValueError(f"Unsupported settings for {backend}.")
+            # Empty values inherit the named profile; native CLIs validate IDs.
+            selection.update({key: value for key, value in overrides.items() if value})
+            agents[role].update(assistant_settings(selection))
     return {
         "workspace": str(workspace),
         "project": str(project),
@@ -81,11 +91,13 @@ def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, An
     }
 
 
-class Room:
+class Run:
     def __init__(self, root: Path, config: dict[str, Any], room_id: str) -> None:
         self.root = root
         self.config = config
         self.state = initial_state(room_id, config)
+        self.started_at: float | None = None
+        self.ended_at: float | None = None
         self.condition = threading.Condition(threading.RLock())
         self.process: subprocess.Popen[str] | None = None
         self.thread: threading.Thread | None = None
@@ -95,6 +107,13 @@ class Room:
         with self.condition:
             return copy.deepcopy(self.state)
 
+    def reduce(self, event: dict[str, Any]) -> None:
+        apply_event(self.state, event)
+        if event["type"] == "room.started":
+            self.started_at = event.get("time")
+        if self.state["status"] in TERMINAL:
+            self.ended_at = event.get("time")
+
     def record(self, event: dict[str, Any]) -> None:
         with self.condition:
             if self.state["status"] in TERMINAL:
@@ -103,7 +122,7 @@ class Room:
             with (self.root / "events.jsonl").open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(event) + "\n")
                 stream.flush()
-            apply_event(self.state, event)
+            self.reduce(event)
             if event["type"] == "human.responded":
                 self.answer_in_flight = None
             self.condition.notify_all()
@@ -202,21 +221,21 @@ class Room:
             self.record({"type": "room.failed" if failed else "room.stopped", "error": reason})
 
 
-class Rooms:
+class Runs:
     def __init__(self, root: Path) -> None:
         self.root = root
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.lock = threading.RLock()
-        self.items: dict[str, Room] = {}
+        self.items: dict[str, Run] = {}
         for path in sorted(root.glob("*/config.json")):
             config = json.loads(path.read_text(encoding="utf-8"))
-            room = Room(path.parent, config, path.parent.name)
+            room = Run(path.parent, config, path.parent.name)
             journal = path.parent / "events.jsonl"
             if journal.exists():
                 lines = journal.read_text(encoding="utf-8").splitlines()
                 for i, line in enumerate(lines):
                     try:
-                        apply_event(room.state, json.loads(line))
+                        room.reduce(json.loads(line))
                     except ValueError:
                         if i != len(lines) - 1:
                             raise
@@ -227,12 +246,12 @@ class Rooms:
                     {
                         "type": "room.stopped",
                         "error": "Service interrupted. "
-                        "History retained; start a new Room to continue. Edits remain.",
+                        "History retained; use Run again to continue. Edits remain.",
                     }
                 )
             self.items[path.parent.name] = room
 
-    def create(self, config: dict[str, Any]) -> Room:
+    def create(self, config: dict[str, Any]) -> Run:
         with self.lock:
             workspace = Path(config["workspace"])
             for existing in self.items.values():
@@ -240,14 +259,14 @@ class Rooms:
                 if existing.state["status"] not in TERMINAL and (
                     workspace.is_relative_to(other) or other.is_relative_to(workspace)
                 ):
-                    raise Conflict("A Room is already using this workspace. Stop it first.")
+                    raise Conflict("A run is already using this workspace. Stop it first.")
             room_id = uuid.uuid4().hex
-            room = Room(self.root / room_id, config, room_id)
+            room = Run(self.root / room_id, config, room_id)
             self.items[room_id] = room
             room.start()
             return room
 
-    def get(self, room_id: str) -> Room:
+    def get(self, room_id: str) -> Run:
         with self.lock:
             if room_id not in self.items:
                 raise KeyError("Room not found.")

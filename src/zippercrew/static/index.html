@@ -7,20 +7,21 @@
 </head>
 <body>
   <header class="app-header">
-    <a class="brand" href="/" aria-label="ZipperCrew home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><path d="M9 11h12l-10 10h12M13 8v5m6 6v5" fill="none" stroke="#fff8e8" stroke-width="2.4" stroke-linecap="round"/></svg>ZipperCrew</a>
+    <a class="brand" href="/" aria-label="ZipperCrew home">ZipperCrew</a>
+    <input id="room-name" aria-label="Room name" maxlength="120" value="Pair programming" title="Rename this Room">
     <button id="process-control" class="process-control">Pair Programming <span aria-hidden="true">⌄</span></button>
     <button id="workspace-control" class="workspace-control"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h6l2 2h8v10H2Z"/></svg><span id="workspace-label">Choose repository</span></button>
-    <nav aria-label="Room controls"><span id="connection" class="connection">Local workspace</span><button id="rooms-control" class="text-button">Rooms</button><button id="settings-control" class="text-button">Settings</button><button id="new-room" class="outline-button">＋ New room</button></nav>
+    <nav aria-label="Room controls"><button id="run-again" class="outline-button" hidden>Run again</button><details class="room-menu" id="room-menu"><summary aria-label="Room actions">⋯</summary><div><button id="rename-room">Rename room</button><button id="run-history">Run history</button><button id="save-room">Save room</button><button id="delete-room" class="danger">Delete room</button></div></details><span id="connection" class="connection">Local workspace</span><button id="rooms-control" class="text-button">Rooms</button><button id="settings-control" class="text-button">Settings</button><button id="new-room" class="outline-button">＋ New room</button></nav>
   </header>
   <main>
     <div class="notices"><div id="demo-banner" class="banner" hidden>Demo · scripted agents, real process</div><div id="error" class="error" role="alert" hidden></div></div>
     <div id="room-layout" class="room-layout">
       <section class="room-stage" aria-label="Crew room">
-        <div class="room-toolbar"><span id="room-status" class="status-pill" role="status">Setting up</span><span class="environment-name">Corner Café</span></div>
+        <div class="room-toolbar"><span id="room-status" class="status-pill" role="status">Setting up</span><span class="environment-name">Corner Café</span><span id="run-context" class="environment-name"></span><button id="latest-run" class="secondary" hidden>Latest run →</button></div>
         <div id="scene" class="scene"></div>
         <div class="scene-caption"><span id="scene-hint">Select a station to choose an agent.</span></div>
       </section>
-      <aside id="inspector" class="inspector" aria-label="Room inspector" hidden>
+      <aside id="inspector" class="inspector" aria-label="Room inspector">
         <header class="inspector-header"><div><p id="inspector-eyebrow" class="small-caps">AT THE TABLE</p><h2 id="inspector-title">Implementer</h2></div><button id="close-inspector" class="icon-button" aria-label="Close inspector">×</button></header>
         <div id="inspector-body">
           <section id="role-panel" hidden>
@@ -28,11 +29,14 @@
             <div id="role-configuration">
               <label for="role-profile">Assistant profile</label><select id="role-profile"></select>
               <div id="profile-summary" class="profile-summary"></div>
+              <div id="role-model-field"><label for="role-model">Model</label><input id="role-model" placeholder="Default" autocomplete="off"></div>
+              <div id="role-effort-field"><label for="role-effort">Effort</label><input id="role-effort" placeholder="Default" autocomplete="off"></div>
+              <p id="role-settings-help" class="hint">Leave blank for the profile/CLI default. Use exact identifiers supported by your CLI.</p>
               <button id="create-profile" class="text-button inline-link">＋ Create a profile</button>
               <label for="role-instructions">Role instructions <span>optional</span></label><textarea id="role-instructions" rows="4" maxlength="30000" placeholder="Extra context or focus areas for this participant…"></textarea>
               <p class="hint">Each role keeps its own conversation, even when both use the same profile.</p>
             </div>
-            <div id="participant-info"></div><div id="transcript"></div><div id="participant-details"></div>
+            <div id="participant-info" hidden></div><div id="transcript" hidden></div><div id="participant-details" hidden></div>
           </section>
           <section id="human-settings" hidden>
             <div id="human-overview"></div>
@@ -66,7 +70,8 @@
             </form></details>
             <div id="cli-checks"></div>
           </section>
-          <section id="history-panel" hidden><p class="hint">Return to a live conversation or revisit its work.</p><div id="history"></div></section>
+          <section id="history-panel" hidden><p class="hint">Your configured rooms and their latest runs.</p><div id="history"></div></section>
+          <section id="runs-panel" hidden><p class="hint">Each run has fresh assistant sessions. Previous conversations and traces remain inspectable.</p><div id="runs"></div></section>
           <section id="process-panel" hidden><div id="process-strip" class="process-strip" aria-label="Communication process"></div><span class="permission">Selected process</span><h3>Pair Programming</h3><p>Human shares the task with both roles. Implementer works in the repository and passes a proposal to Reviewer. Reviewer inspects the files and returns APPROVE or REVISE with findings.</p><p>Your involvement mode determines who decides whether to ship or request another round. The full review goes back to the same Implementer conversation.</p><p class="hint">Pair Programming is the available process in this version. Executed by ZipperGen.</p></section>
           <section id="outcome-panel" class="outcome-panel" hidden><h2 id="outcome-title"></h2><pre id="outcome"></pre></section>
           <section id="activity-panel" hidden><p id="review-verdict"></p><div id="activity"></div></section>
@@ -78,9 +83,9 @@
   <footer class="control-dock">
     <section class="task-dock" aria-label="Room task and execution">
       <button id="task-control" class="task-control"><span class="task-symbol" aria-hidden="true">▤</span><span><span class="small-caps">Shared brief</span><span id="task-preview">What are we working on?</span></span><span class="edit-label">Edit ↗</span></button>
-      <div class="run-controls"><span id="readiness" class="readiness">Choose your crew and task</span><span id="round-label" hidden></span><button id="start" class="primary" disabled>Start working →</button><button id="human-return" class="primary" hidden>Your decision →</button><button id="result-control" class="secondary" hidden>Result ↗</button><button id="stop-room" class="danger" hidden>Stop room</button></div>
+      <div class="run-controls"><span id="readiness" class="readiness">Choose your crew and task</span><span id="round-label" hidden></span><button id="start" class="primary" disabled>Start working →</button><button id="human-return" class="primary" hidden>Your decision →</button><button id="result-control" class="secondary" hidden>Result ↗</button><button id="stop-room" class="danger" hidden>Stop run</button></div>
     </section>
-    <div class="room-footer"><span id="handoff-label">Human → Implementer → Reviewer → Human</span><button id="activity-control" class="text-button">Handoffs ↗</button></div>
+    <div class="room-footer"><a class="powered-by" href="https://zippergen.io" target="_blank" rel="noreferrer"><img src="/assets/brand/zippergen.svg" alt="">Powered by ZipperGen</a><span id="handoff-label">Human → Implementer → Reviewer → Human</span><button id="activity-control" class="text-button">Handoffs ↗</button></div>
   </footer>
 </body>
 </html>

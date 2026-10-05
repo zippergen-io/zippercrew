@@ -19,7 +19,9 @@ uv sync
 uv run zippercrew
 ```
 
-Open http://127.0.0.1:8765. You are already in the room:
+Open http://127.0.0.1:8765. The production Corner Café uses the approved grounded
+interior, coral Implementer robot, teal Reviewer robot, and plum-accented Human
+([art and pose sheets](docs/art/README.md)). You are already in the room:
 
 1. Click the **Implementer** and **Reviewer** stations to choose saved assistant
    profiles, or **Create a profile**. Each seat has its own persistent conversation.
@@ -30,8 +32,16 @@ Open http://127.0.0.1:8765. You are already in the room:
    Waiting agents walk away with coffee;
    proposals travel between workstations as the process advances.
 
-**Settings** contains profile management and Full/Reduced room animation; **Rooms** reopens previous executions.
-**Result** reopens the final outcome. Escape closes an inspector.
+Name your Room in the header. Setup changes save automatically. **Run again** keeps
+its crew, workspace and process settings, then opens the brief for editing before
+starting a fresh execution. Every Run starts fresh assistant sessions; sessions
+continue across rounds within that Run. **⋯ → Run history** opens earlier Runs
+read-only, without replacing their traces. **⋯ → Delete room** asks for confirmation
+and deletes only ZipperCrew records, never the source repository or shared profiles.
+
+**Settings** contains profile management and Full/Reduced animation; **Rooms** reopens
+configured Rooms. The inspector stays beside the scene on desktop and moves below it
+on narrow screens. **Result** reopens the final outcome.
 Profiles are saved by default
 in `~/.config/zippercrew/zippergen.toml`, outside your source repositories. If
 `XDG_CONFIG_HOME` is set, they live in `$XDG_CONFIG_HOME/zippercrew/zippergen.toml`.
@@ -60,9 +70,12 @@ label. Bubbles never expose reasoning, invent thoughts, or infer state from sile
 
 CLI/model failures appear in the Room with their error. Compatibility checks
 verify safety flags, not authentication. Profiles select Codex or Claude and
-optionally pin an exact model ID and reasoning effort. Create separate profiles
-to use different pins for each role. ZipperGen applies them on every turn,
-including resumed sessions; empty fields use the CLI defaults.
+optionally pin an exact model ID and reasoning effort. A participant's setup inspector
+can override those settings for that Room without changing the shared profile.
+Blank **Model** / **Effort** fields use the profile's value, or the CLI default if
+unconfigured. These are exact native identifiers, not a hard-coded model catalog;
+the CLI validates availability. ZipperGen applies them on every turn, including
+resumed sessions. Unsupported adapter settings are hidden.
 Claude Reviewers have no Bash tool to preserve the read-only boundary. Codex
 Reviewers can run verification commands within the CLI's read-only sandbox.
 
@@ -92,11 +105,15 @@ assistant turns, and never edits workspace files. Normal mode never substitutes
 a fake assistant. Integration tests also exercise the real native backend with
 fake CLI subprocess results to verify session resumption and permission flags.
 
-Room journals live in `.zippercrew/rooms/` by default; use `--data-dir PATH` to
+Room configuration lives in `.zippercrew/catalog/`; Run journals remain in
+`.zippercrew/rooms/` for compatibility with existing history. By default, both are
+relative to the launch directory; use `--data-dir PATH` to
 change it. They contain tasks, prompts, outputs, and paths: keep them private.
 History and transcripts survive a restart. Interrupted executions are stopped,
 not automatically retried; restart/resume of a live process is outside v0.1.
-Closing a browser does not stop a Room; Stop or Ctrl-C in the service does.
+Closing a browser does not stop a Run; Stop run or Ctrl-C in the service does.
+Existing execution folders are adopted as named Rooms on first launch, without
+moving or rewriting completed traces.
 
 The local service binds to `127.0.0.1` only. Do not expose it through a public
 proxy. No remote, account system, database, or cloud service is configured.

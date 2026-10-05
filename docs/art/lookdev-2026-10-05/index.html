@@ -34,7 +34,7 @@
 <body>
   <header>
     <h1>ZipperCrew · Grounded room, designed cast</h1>
-    <p>Art-direction study · 5 October 2026. Production remains unchanged.</p>
+    <p>Approved art-direction study · 5 October 2026. See the production asset notes for the integrated room.</p>
   </header>
   <div class="controls">
     <label for="study">Study <select id="study">
@@ -45,7 +45,7 @@
     </select></label>
     <label><input type="checkbox" id="compare"> Compare</label>
     <label id="reference-label" for="reference" hidden>With <select id="reference">
-      <option value="current">Current production room</option>
+      <option value="current">Previous production room</option>
       <option value="previous">Previous 3D human-cast study</option>
       <option value="personas">Persona sheet</option>
       <option value="silhouettes">Silhouette test</option>
@@ -79,7 +79,7 @@
       environment: { file: 'environment.png', title: 'Corner Café without personas', caption: 'Believable furniture, edited materials, two single-user desks, clear walking space and one shared lighting direction.' },
       personas: { file: 'personas.png', title: 'Human, Implementer and Reviewer concept sheet', caption: 'Top: neutral poses. Bottom: characteristic role poses. Human stays human; the two AI roles have deliberately different robot silhouettes.' },
       silhouettes: { file: 'silhouettes.png', title: 'Black silhouette study', caption: 'Hair and broad cuffs; swept wedge and antenna; upright shield and long neck. Generated contour study of the same six poses, with role colors and interior details suppressed.' },
-      current: { file: '../lookdev-2026-10-04/current-production-reference.png', title: 'Current production room', caption: 'Existing Phaser room, including application chrome. These production assets have not been replaced.' },
+      current: { file: '../lookdev-2026-10-04/current-production-reference.png', title: 'Previous production room', caption: 'Previous all-human Phaser room, preserved for comparison with the approved direction.' },
       previous: { file: '../lookdev-2026-10-04/direction-a-modern-3d.png', title: 'Previous modern 3D human-cast study', caption: 'Yesterday’s all-human cast, shown here to evaluate the shift toward distinct agent personas.' },
     };
     const $ = id => document.getElementById(id);

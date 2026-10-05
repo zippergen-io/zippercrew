@@ -1,0 +1,75 @@
+"""Named Rooms own runs; source repositories and shared profiles stay external."""
+
+import json
+
+from conftest import request, wait_state
+
+from zippercrew.catalog import Catalog
+from zippercrew.rooms import Runs
+
+
+def test_room_rerun_history_restart_rename_and_safe_delete(service, config):
+    app, base, project = service
+    config.update(project=str(project), human_mode="auto", max_rounds=1)
+    source = project / "keep.txt"
+    source.write_text("source repository stays intact")
+    code, room = request(
+        base, "/api/rooms", {"name": "GLOVE review", "config": config, "brief": config["task"]}
+    )
+    assert code == 201 and room["runs"] == []
+    path = f"/api/rooms/{room['id']}"
+    code, first = request(base, path + "/runs", {})
+    assert code == 201
+    assert request(base, path + "/delete", {"confirmation": room["name"]})[0] == 409
+    wait_state(base, first["id"], lambda s: s["status"] == "completed")
+    first_trace = (app.runs.get(first["id"]).root / "events.jsonl").read_bytes()
+    assert (
+        request(
+            base, path + "/save", {"name": "GLOVE revisions", "brief": "Review the next change"}
+        )[0]
+        == 200
+    )
+    code, second = request(base, path + "/runs", {})
+    assert code == 201 and second["id"] != first["id"]
+    end = wait_state(base, second["id"], lambda s: s["status"] == "completed")
+    assert end["round"] == 1 and end["config"]["task"] == "Review the next change"
+    assert end["config"]["room_id"] == room["id"]
+    assert app.runs.get(first["id"]).process.pid != app.runs.get(second["id"]).process.pid
+    assert first_trace == (app.runs.get(first["id"]).root / "events.jsonl").read_bytes()
+    history = request(base, path + "/runs")[1]
+    assert [r["number"] for r in history] == [2, 1]
+    assert all(r["started_at"] and r["ended_at"] for r in history)
+    restored = Catalog(app.rooms.root, Runs(app.runs.root))
+    assert restored.get(room["id"])["runs"] == [first["id"], second["id"]]
+    assert restored.get(room["id"])["name"] == "GLOVE revisions"
+    assert request(base, path + "/delete", {"confirmation": "wrong name"})[0] == 400
+    assert request(base, path + "/delete", {"confirmation": "GLOVE revisions"})[0] == 200
+    assert request(base, "/api/runs/" + first["id"])[0] == 404
+    assert request(base, path + "/context")[0] == 404
+    assert source.read_text() == "source repository stays intact"
+    assert Catalog(app.rooms.root, Runs(app.runs.root)).list() == []
+
+
+def test_legacy_migration_is_idempotent_and_keeps_journal_bytes(tmp_path, config):
+    root = tmp_path / "runs"
+    path = root / "legacy"
+    path.mkdir(parents=True)
+    (path / "config.json").write_text(json.dumps(config))
+    journal = json.dumps({"id": 1, "type": "room.completed", "outcome": "Shipped"}) + "\n"
+    (path / "events.jsonl").write_text(journal)
+    for _ in range(2):
+        catalog = Catalog(tmp_path / "catalog", Runs(root))
+        record = catalog.get("legacy")
+        assert record["runs"] == ["legacy"]
+        assert len(catalog.list()) == 1
+        assert (path / "events.jsonl").read_text() == journal
+
+
+def test_drafts_persist_before_workspace_exists_and_validate_at_start(service):
+    _, base, project = service
+    code, room = request(
+        base, "/api/rooms", {"name": "Next task", "config": {"project": str(project)}}
+    )
+    assert code == 201
+    assert request(base, f"/api/rooms/{room['id']}/runs", {})[0] == 400
+    assert request(base, f"/api/rooms/{room['id']}/context")[1]["runs"] == []

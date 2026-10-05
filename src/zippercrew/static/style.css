@@ -253,3 +253,63 @@ main { background:#24372e; }
 #human-overview:not(:empty)::before { content:"Your decisions guide the crew."; display:block; font-size:12px; color:var(--muted); margin:0 0 12px; }
 @media(max-width:1200px) { .inspector { width:340px; } .room-layout.with-inspector .room-stage { margin-right:362px; } }
 @media(max-width:850px) { .inspector { width:auto; } .room-layout.with-inspector .room-stage { margin-right:0; } }
+
+/* Persistent Room shell. Only the inspector body scrolls on desktop. */
+body { height:100dvh; grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; }
+.app-header { min-height:60px; padding:10px 18px; gap:14px; flex-wrap:wrap; }
+.brand { font-size:17px; flex:none; }
+#room-name { width:clamp(150px,19vw,290px); min-width:0; padding:6px 8px; border-color:transparent; background:transparent; font-weight:650; }
+#room-name:hover,#room-name:focus { border-color:var(--line); background:white; }
+.process-control { padding-left:14px; }
+.app-header nav { gap:13px; }
+.app-header .connection { display:none; }
+.workspace-control { max-width:180px; }
+.room-menu { position:relative; }
+.room-menu>summary { list-style:none; cursor:pointer; font-size:23px; padding:0 7px; }
+.room-menu>div { position:absolute; right:0; top:35px; width:170px; padding:7px; background:var(--surface); box-shadow:0 5px 25px #18291c30; border:1px solid var(--line); border-radius:8px; }
+.room-menu button { display:block; width:100%; text-align:left; font-size:12px; padding:10px; }
+.room-menu button:hover { background:#e9eee6; }
+main { min-width:0; min-height:0; }
+.room-layout { display:grid; grid-template-columns:minmax(0,1fr) clamp(300px,25vw,390px); height:100%; min-height:0; }
+.room-stage,.room-layout.with-inspector .room-stage { margin:0; min-width:0; min-height:0; height:100%; transition:none; overflow:hidden; }
+.inspector { position:relative; inset:auto; width:auto; min-width:0; min-height:0; max-height:none; margin:0; border:0; border-left:1px solid var(--line); border-radius:0; box-shadow:none; background:#fcfcf8; }
+.inspector-header,#inspector-footer { flex:none; }
+#inspector-body { min-height:0; overflow:auto; }
+#close-inspector { font-size:18px; }
+.control-dock { min-width:0; padding:10px 18px max(7px,env(safe-area-inset-bottom)); }
+.task-dock { min-width:0; gap:14px; }
+.task-control { min-width:0; }
+.run-controls { flex-shrink:0; gap:10px; }
+.room-footer { min-width:0; }
+.powered-by { display:flex; align-items:center; gap:5px; text-decoration:none; white-space:nowrap; flex:none; color:var(--muted); }
+.powered-by img { width:22px; height:22px; }
+#handoff-label { margin-left:auto; }
+@media(min-width:901px) {
+  .inspector[hidden] { display:flex !important; }
+}
+@media(max-width:1100px) {
+  .workspace-control { display:none; }
+  .app-header { gap:10px; }
+  #room-name { width:165px; }
+  .process-control { font-size:11px; padding-left:10px; }
+}
+@media(max-width:900px) {
+  body { height:auto; min-height:100dvh; overflow:auto; grid-template-rows:auto auto auto; }
+  .room-layout { display:flex; flex-direction:column; height:auto; }
+  .room-stage,.room-layout.with-inspector .room-stage { height:60dvh; min-height:360px; }
+  .inspector { width:100%; height:480px; max-height:65dvh; border-top:1px solid var(--line); }
+  .app-header nav { margin-left:auto; gap:12px; }
+  .app-header { padding:10px 14px; }
+  #room-name { flex:1; }
+  .control-dock { position:sticky; bottom:0; z-index:4; }
+  .room-footer .powered-by { font-size:9px; }
+}
+@media(max-width:570px) {
+  .app-header nav { flex-basis:100%; justify-content:flex-end; }
+  #room-name { width:130px; }
+  .task-dock { flex-wrap:wrap; }
+  .task-control { flex-basis:100%; }
+  .room-footer { gap:8px; }
+  #handoff-label { display:none; }
+  .room-footer .text-button { margin-left:auto; }
+}

@@ -23,7 +23,7 @@ zippergen = { path = "../zippergen", editable = true }
 where = ["src"]
 
 [tool.setuptools.package-data]
-zippercrew = ["static/*", "static/vendor/*", "static/assets/characters/*", "static/assets/corner-cafe/*"]
+zippercrew = ["static/*", "static/vendor/*", "static/assets/brand/*", "static/assets/characters/*", "static/assets/corner-cafe/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

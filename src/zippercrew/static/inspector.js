@@ -151,7 +151,9 @@ export function renderParticipant({ state, role, events, loading, error, overvie
   const activity = state.local_activity?.[role.name];
   preserve(overview, JSON.stringify([semantic, state.round, activity, sent?.id, response, loading]), () => {
     const stateRow = node('div', undefined, 'participant-state');
-    const badge = node('span', states[semantic] || semantic, 'state-badge'); badge.dataset.state = semantic;
+    const completed = semantic === 'completed' && sent;
+    const resultLabel = completed && sent.label === 'Review' ? 'Completed review' : completed && sent.label === 'Proposal' ? 'Completed implementation' : states[semantic] || semantic;
+    const badge = node('span', resultLabel, 'state-badge'); badge.dataset.state = semantic;
     stateRow.append(badge, node('span', `Round ${state.round} of ${state.config.max_rounds}`));
     const identity = node('p', role.kind === 'agent' ? `${cli(binding.backend)} · ${role.access}` : 'Human participant · You', 'participant-runtime');
     const section = node('section', undefined, 'current-activity');
@@ -164,12 +166,13 @@ export function renderParticipant({ state, role, events, loading, error, overvie
     }
     else if (sent) {
       const title = sent.label === 'Review' ? 'Completed review' : sent.label === 'Proposal' ? 'Completed implementation' : `Sent ${sent.label.toLowerCase()}`;
-      section.append(node('p', title, 'activity-title'));
+      if (title !== resultLabel) section.append(node('p', title, 'activity-title'));
       if (sent.review) {
         section.append(node('p', reviewLabel(sent.review), `review-badge ${sent.review.verdict.toLowerCase()}`));
         section.append(node('p', preview(sent.review.headline, 160), 'activity-headline'));
       }
-      section.append(node('small', `${sent.label} sent to ${sent.to}`, 'activity-consequence'));
+      const recipients = [...new Set(messages.filter(m => m.from === role.name && m.label === sent.label && m.round === sent.round && m.send_id).map(m => m.to))];
+      section.append(node('small', `${sent.label} sent to ${recipients.join(' and ')}`, 'activity-consequence'));
     } else section.append(node('p', loading ? 'Loading conversation…' : 'No protocol message sent yet.', 'hint'));
     return [stateRow, identity, section];
   });

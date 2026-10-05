@@ -1,29 +1,64 @@
-# Corner Café assets
+# Corner Café production assets
 
-Original assets generated for ZipperCrew on 2026-10-04 with the built-in image
-generation tool. No stock art, third-party character art, logos or externally
-supplied visual references were used. The user brief supplied design principles
-for strong silhouettes and expressive poses; the resulting crew is original.
+The production room now uses the approved **grounded café + stylized agent cast**
+direction. Original assets were derived with the built-in image-generation tool on
+2026-10-05 from the approved [environment and persona studies](lookdev-2026-10-05/README.md).
+The Human remains human; Implementer and Reviewer are distinct robot personas.
+No external character art, stock assets, franchise imagery or logos were supplied.
+
+[Production screenshot](production-v2-preview.png) shows the configured crew in
+the running application, not a composited concept image.
 
 Files live under `src/zippercrew/static/assets/`:
 
 | File | Content | Layout |
 | --- | --- | --- |
-| `corner-cafe/background.png` | Café, windows, coffee bar, board, floor, lighting | 1536 × 1024 opaque background |
-| `corner-cafe/furniture.png` | Three desks and three chairs | 1536 × 1024 alpha atlas; explicit regions in renderer |
-| `characters/implementer.png` | Coral headphones, swept hair, maker's jacket | 1254 × 1254 alpha atlas, 3 × 3 cells |
-| `characters/reviewer.png` | Silver bob, glasses, teal cardigan, tablet | Same character layout |
-| `characters/human.png` | Indigo curls, plum sweater, phone | Same character layout |
+| `corner-cafe/background-v2.png` | Grounded café, window, coffee counter, blank board and floor; no portable furniture or cast | 1536 × 1024 opaque plate |
+| `corner-cafe/furniture-v2.png` | Oak/steel workstations, café table, two task chairs and stool | 1536 × 1024 alpha atlas, three columns × two rows |
+| `characters/implementer-v2.png` | Compact coral/ivory robot, swept wedge head, antenna and side hubs | 1254 × 1254 alpha atlas, three columns × three rows |
+| `characters/reviewer-v2.png` | Tall teal robot, shield head, long neck, tablet and stylus | Same pose layout |
+| `characters/human-v2.png` | Indigo curls, plum overshirt, ivory trousers, phone | Same pose layout |
 
-Character frame order: idle, work, coffee, walk-a, walk-b, think, receive,
-success, stopped. These are compact pose sheets, not full skeletal animation.
-Small Phaser movements and pose changes provide the loops and transitions.
+Character frame order: **idle, work, coffee, walk-a, walk-b, think, receive,
+success, stopped**. Implementer work is typing; Reviewer work is tablet reading
+and annotation; Human work is observing via phone. Completion is a relaxed pose.
+These are authored pose sheets with the existing small Phaser movements and pose
+transitions, not skeletal or frame-by-frame character animation.
 
-The final assets are shipped unchanged. Runtime trimming only calculates atlas
-frame bounds and aligns feet. Artwork and UI text remain separate; the shared
-brief is real editable application text over the board.
+`ART` in `room-engine.js` holds the asset revision, background, board location,
+and measured atlas gutters. The renderer trims alpha bounds inside those regions
+and anchors each pose at its feet. Explicit regions prevent the extended hand in
+Implementer's receive pose, or a neighbouring row's head, being clipped by a
+uniform grid. Furniture and characters remain separate depth-sorted entities.
+Desk and chair scales are role metadata. UI labels and the shared brief are live
+text, never baked into the imagery.
 
-[Exact generation prompts](prompts.md) are retained for iteration. A first
-background study was replaced by the closer, softer final scene before
-integration. Furniture and character designs were visually checked together
-in the standalone art fixture, then against live application states.
+The assets are copied unchanged from generation output; no chroma-keying, painted
+alpha replacement, or destructive bitmap cleanup is applied. Corner transparency,
+frame occupancy and atlas gutters are checked in the browser. New versioned URLs
+avoid reusing an older cached production texture. Previous art remains in Git
+history and the look-development comparison page.
+
+The existing semantic states, ambient scheduler, bubble cadence, protocol message
+objects, permissions, and ZipperGen integration are unchanged. Production frames
+are checked during the actual Pair Programming workflow with scripted assistants:
+setup, implementation, review, Human attention, another round and completion.
+This is deterministic execution of the real workflow, without paid CLI/model calls.
+
+[Exact production prompts](production-v2-prompts.md) include the furniture cleanup
+pass. The [original prompts](prompts.md) document the retired all-human production art.
+
+
+## Workstation orientation refinement
+
+`corner-cafe/workstations-v3.png` is a transparent two-column desk atlas created
+with the built-in imagegen tool using the existing furniture and Implementer pose
+sheet as references. It preserves oak/charcoal materials and lighting, but rotates
+the physical monitor arrangement so the screen faces the seated agent and its
+back faces the camera. `furniture-v2.png` still supplies chairs and the Human table.
+Room/persona designs and all character sheets remain unchanged in this refinement.
+See [exact workstation prompt](workstations-v3-prompt.md).
+
+`brand/zippergen.svg` is copied **unchanged** from the canonical sibling asset
+`zippergen/assets/zippergen-favicon.svg`, also used as the ZipperGen website favicon.
+It is not generated or recreated, and is used only for powered-by attribution.

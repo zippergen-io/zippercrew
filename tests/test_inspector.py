@@ -75,12 +75,24 @@ def test_round_conversation_markdown_and_quiet_activity(service, config):
         page = browser.new_page(viewport={"width": 1440, "height": 900})
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
-        page.route(f"**/api/rooms/{state['id']}", lambda route: route.fulfill(json=state))
+        page.route(f"**/api/runs/{state['id']}", lambda route: route.fulfill(json=state))
         page.route(
-            f"**/api/rooms/{state['id']}/trace",
+            f"**/api/runs/{state['id']}/trace",
             lambda route: route.fulfill(
                 body="\n".join(json.dumps(event) for event in events),
                 content_type="application/x-ndjson",
+            ),
+        )
+        page.route(
+            f"**/api/rooms/{state['id']}/context",
+            lambda route: route.fulfill(
+                json={
+                    "id": state["id"],
+                    "name": "ANR review",
+                    "config": config,
+                    "brief": config["task"],
+                    "runs": [state["id"]],
+                }
             ),
         )
         page.goto(base + "/#room=" + state["id"])

@@ -5,12 +5,13 @@ import { renderParticipant, resetInspector } from "/inspector.js";
 
 const $ = (id) => document.getElementById(id);
 const terminal = new Set(["completed", "failed", "stopped"]);
-const panelIds = ["role-panel", "human-settings", "brief-panel", "settings-panel", "history-panel", "process-panel", "outcome-panel", "activity-panel"];
+const panelIds = ["role-panel", "human-settings", "brief-panel", "settings-panel", "history-panel", "process-panel", "outcome-panel", "activity-panel", "runs-panel"];
 const modes = {
   full: "See the full proposal and review. You decide whether to ship, continue, or abandon.",
   brief: "Get a concise briefing each round, then choose what happens next.",
   auto: "APPROVE finishes the process. REVISE continues within the round limit.",
 };
+let room = null, saveTimer, draftDirty = false, draftRevision = 0, renameSave = Promise.resolve(), saveChain = Promise.resolve();
 let bootstrap, stream, current = null, selected = null, pendingId;
 let profiles = {}, starting = false, navigation = 0, profileReturnRole = null;
 const draft = { project: "", workspace: "", task: "", human_mode: "brief", max_rounds: 4,
@@ -28,7 +29,7 @@ async function api(path, data) {
     method: "POST", headers: { "Content-Type": "application/json", "X-ZipperCrew": "1" }, body: JSON.stringify(data),
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+  if (!response.ok) { const error = new Error(result.error || `Request failed (${response.status})`); error.status = response.status; throw error; }
   return result;
 }
 function presentation(text) {
@@ -53,7 +54,19 @@ function roomStatus() {
   return "Waiting";
 }
 function renderRoom(replay = false) {
+  $('run-again').hidden = !room || !current || !terminal.has(current.status);
+  const runNumber = current && room ? room.runs.indexOf(current.id) + 1 : 0;
+  const historical = !!current && !!room && current.id !== room.runs.at(-1);
+  $('run-context').textContent = runNumber ? `Run ${runNumber}${historical ? ' · History' : ''}` : '';
+  $('latest-run').hidden = !historical;
+  $('run-history').disabled = !room?.runs.length;
+  $('delete-room').disabled = !room || (!!current && !terminal.has(current.status));
+  $('save-room').disabled = !!current;
+  $('room-name').title = room ? `Room: ${room.name}` : 'Name this Room';
   const config = configuration(), status = roomStatus();
+  const desktop = matchMedia('(min-width: 901px)').matches;
+  $('close-inspector').textContent = desktop ? '↩' : '×';
+  $('close-inspector').setAttribute('aria-label', desktop ? 'Room overview' : 'Close inspector');
   const states = current?.participants || Object.fromEntries(PROCESS.roles.map(role => [role.name, "ready"]));
   paintScene({ states, bindings: config.agents, task: config.task, workspace: config.workspace, selected, activities: current?.local_activity || {}, replay });
   $("room-status").textContent = status;
@@ -79,7 +92,7 @@ function renderRoom(replay = false) {
     button.classList.toggle("active", ["working", "reviewing", "needs human"].includes(states[button.dataset.role]));
   }
   $("inspector-footer").hidden = !current;
-  if (current) $("trace-link").href = `/api/rooms/${current.id}/trace`;
+  if (current) $("trace-link").href = `/api/runs/${current.id}/trace`;
 }
 
 function setProfiles(data) {
@@ -114,10 +127,12 @@ async function loadHistory() {
   const rooms = await api("/api/rooms");
   $("history").replaceChildren();
   if (!rooms.length) $("history").append(element("p", "No conversations yet. Your first crew is waiting at the table.", "hint"));
-  for (const room of rooms) {
+  for (const record of rooms) {
     const button = element("button", undefined, "history-item");
-    button.append(element("span", room.task), element("small", `${room.status} · round ${room.round} ↗`));
-    button.onclick = () => openRoom(room.id);
+    const last = record.latest;
+    button.append(element("span", record.name), element("small", last ? `Run ${last.number} · ${last.status} · ${last.round} rounds` : 'Setting up'));
+    if (last?.started_at) button.append(element('small', new Date(last.started_at * 1000).toLocaleString()));
+    button.onclick = () => openContext(record.id);
     $("history").append(button);
   }
 }
@@ -133,7 +148,7 @@ function showInspector(which) {
   resetParticipantInspector();
   panelIds.forEach(id => { $(id).hidden = true; });
   const role = PROCESS.roles.find(role => role.name === which);
-  const names = { brief: "The shared brief", settings: "Room settings", history: "Recent rooms", process: PROCESS.name, outcome: "Room result", activity: "Handoffs" };
+  const names = { brief: "The shared brief", settings: "Room settings", history: "Recent rooms", process: PROCESS.name, outcome: "Run result", activity: "Handoffs", runs: "Run history" };
   $("inspector-title").textContent = role?.name || names[which];
   $("inspector-eyebrow").textContent = role ? "Participant" : "Room";
   $("inspector").dataset.role = role?.name || "";
@@ -156,12 +171,19 @@ function showInspector(which) {
     $("workspace").readOnly = !!current;
     $("task").readOnly = !!current;
   } else {
-    $({ settings: "settings-panel", history: "history-panel", process: "process-panel", outcome: "outcome-panel", activity: "activity-panel" }[which]).hidden = false;
+    $({ settings: "settings-panel", history: "history-panel", process: "process-panel", outcome: "outcome-panel", activity: "activity-panel", runs: "runs-panel" }[which]).hidden = false;
     if (which === "history") loadHistory().catch(showError);
+    if (which === "runs") loadRuns().catch(showError);
   }
   renderRoom();
 }
 function closeInspector() {
+  if (matchMedia('(min-width: 901px)').matches) {
+    const previous = selected;
+    showInspector(current ? 'Implementer' : 'brief');
+    document.getElementById(`actor-${previous}`)?.focus({ preventScroll: true });
+    return;
+  }
   $("inspector").hidden = true;
   $("room-layout").classList.remove("with-inspector");
   const previous = selected;
@@ -180,13 +202,21 @@ function renderRole() {
   $("role-access").dataset.role = role.name;
   $("role-description").textContent = role.description;
   $("role-configuration").hidden = !!current;
-  $("participant-info").hidden = !current;
+  for (const id of ['participant-info', 'transcript', 'participant-details']) $(id).hidden = !current;
   if (!current) {
     const select = $("role-profile");
     select.replaceChildren(new Option("Choose an agent profile…", ""));
     for (const [name, profile] of Object.entries(profiles)) select.add(new Option(`${name} · ${profile.backend}`, name));
     select.value = binding.profile;
-    $("profile-summary").textContent = profiles[binding.profile] ? profileDescription(profiles[binding.profile]) : "Select a saved profile to take this seat.";
+    const profile = profiles[binding.profile];
+    $('profile-summary').textContent = profile ? `Runtime · ${profile.backend}` : 'Select a saved profile to take this seat.';
+    const supported = bootstrap?.capabilities?.[profile?.backend] || [];
+    for (const [key, id] of [['model', 'model'], ['reasoning_effort', 'effort']]) {
+      $(`role-${id}-field`).hidden = !supported.includes(key);
+      $(`role-${id}`).value = binding.settings?.[key] || '';
+      $(`role-${id}`).placeholder = profile?.[key] ? `Default · ${profile[key]} (profile)` : 'Default · CLI default';
+    }
+    $('role-settings-help').hidden = !supported.length;
     $("role-instructions").value = binding.instructions;
     $("create-profile").hidden = bootstrap?.demo || false;
   }
@@ -200,6 +230,7 @@ function resetParticipantInspector() {
     $("human-overview"), $("human-transcript"), $("human-details")]);
 }
 function renderHuman() {
+  for (const id of ['human-overview', 'human-transcript', 'human-details']) $(id).hidden = !current;
   $("human-preferences").hidden = !!current;
   renderParticipantView(PROCESS.roles.find(role => role.name === "Human"));
 }
@@ -211,7 +242,7 @@ function renderParticipantView(role) {
   if (journal.key !== key && !journal.loading) {
     const request = journal;
     request.loading = true; request.error = null;
-    fetch(`/api/rooms/${current.id}/trace`).then(async response => {
+    fetch(`/api/runs/${current.id}/trace`).then(async response => {
       if (!response.ok) throw new Error('Unable to load conversation');
       request.events = (await response.text()).split('\n').filter(Boolean).map(line => JSON.parse(line));
       request.key = key;
@@ -232,7 +263,7 @@ async function answer(value) {
   if (!request) return;
   const buttons = $("human-panel").querySelectorAll("button");
   buttons.forEach(button => { button.disabled = true; });
-  try { await api(`/api/rooms/${current.id}/answer`, { request_id: request.id, value }); }
+  try { await api(`/api/runs/${current.id}/answer`, { request_id: request.id, value }); }
   catch (error) { showError(error); buttons.forEach(button => { button.disabled = false; }); }
 }
 function humanPanel() {
@@ -276,7 +307,7 @@ function render(state, { replay = false } = {}) {
   if (PROCESS.roles.some(role => role.name === selected && role.kind === "agent")) renderRole();
   if (selected === "Human") renderHuman();
   const ended = terminal.has(state.status);
-  if (newlyEnded) showInspector("outcome");
+  if (newlyEnded && !PROCESS.roles.some(role => role.name === selected)) showInspector("Reviewer");
   $("outcome-title").textContent = state.status === "completed" ? "Completed" : state.status === "failed" ? "Execution failed" : "Stopped";
   $("outcome").textContent = presentation(state.outcome || state.error || "");
   $("review-verdict").textContent = state.review ? `${state.review.verdict} · ${state.review.findings} finding(s). ${state.review.headline}` : "Every handoff below is a real process message.";
@@ -305,11 +336,11 @@ function render(state, { replay = false } = {}) {
 }
 function connectRoom(state, { replay = false } = {}) {
   stream?.close(); pendingId = undefined; resetParticipantInspector(); resetMessages();
-  window.history.replaceState(null, "", `/#room=${state.id}`);
+  window.history.replaceState(null, "", room ? `/#room=${room.id}&run=${state.id}` : `/#room=${state.id}`);
   render(state, { replay });
   if (selected && !["settings", "history", "process"].includes(selected)) showInspector(selected);
-  if (terminal.has(state.status)) { showInspector("outcome"); return; }
-  const id = state.id, source = new EventSource(`/api/rooms/${id}/events`);
+  if (terminal.has(state.status)) { if (!PROCESS.roles.some(role => role.name === selected)) showInspector("Reviewer"); return; }
+  const id = state.id, source = new EventSource(`/api/runs/${id}/events`);
   stream = source;
   source.onopen = () => { if (stream === source) $("connection").textContent = "Live · connected"; };
   source.addEventListener("state", event => { if (stream === source) render(JSON.parse(event.data)); });
@@ -318,21 +349,36 @@ function connectRoom(state, { replay = false } = {}) {
 async function openRoom(id) {
   const request = ++navigation;
   try {
-    const state = await api(`/api/rooms/${id}`);
+    const state = await api(`/api/runs/${id}`);
     if (request !== navigation) return;
-    closeInspector(); connectRoom(state, { replay: true }); $("error").hidden = true;
+    connectRoom(state, { replay: true }); $("error").hidden = true;
   } catch (error) { showError(error); }
 }
 
 $("start").onclick = async () => {
   if (starting || !ready() || current) return;
+  const generation = navigation;
   starting = true; $("error").hidden = true; renderRoom();
-  try { connectRoom(await api("/api/rooms", draft)); }
+  try {
+    await saveDraft();
+    if (generation !== navigation) return;
+    const state = await api(`/api/rooms/${room.id}/runs`, {});
+    if (generation !== navigation) return;
+    room.runs.push(state.id);
+    connectRoom(state);
+    showInspector("Implementer");
+  }
   catch (error) { showError(error); }
   finally { starting = false; renderRoom(); }
 };
-$("role-profile").onchange = () => { draft.agents[selected].profile = $("role-profile").value; renderRole(); renderRoom(); };
+$("role-profile").onchange = () => { draft.agents[selected].profile = $("role-profile").value; draft.agents[selected].settings = {}; renderRole(); renderRoom(); };
 $("role-instructions").oninput = () => { draft.agents[selected].instructions = $("role-instructions").value; };
+$('workspace').addEventListener('change', () => {
+  if (!current && $('room-name').value === 'Pair programming' && draft.workspace.trim()) {
+    $('room-name').value = draft.workspace.split('/').filter(Boolean).at(-1);
+    scheduleSave();
+  }
+});
 $("workspace").oninput = () => { if (!current) { draft.workspace = $("workspace").value; renderRoom(); } };
 $("task").oninput = () => { if (!current) { draft.task = $("task").value; renderRoom(); } };
 $("human-mode").onchange = () => { draft.human_mode = $("human-mode").value; $("mode-help").textContent = modes[draft.human_mode]; renderRoom(); };
@@ -363,29 +409,154 @@ $("profile-form").onsubmit = async event => {
     draft.project = project; setProfiles(data); $("error").hidden = true; $("add-profile").open = false;
     if (profileReturnRole && !current) {
       draft.agents[profileReturnRole].profile = name;
-      const role = profileReturnRole; profileReturnRole = null; showInspector(role);
+      const role = profileReturnRole; profileReturnRole = null; showInspector(role); scheduleSave();
     }
   } catch (error) { showError(error); }
   finally { button.disabled = false; }
 };
 $("stop-room").onclick = async () => {
-  try { render(await api(`/api/rooms/${current.id}/stop`, {})); }
+  try { render(await api(`/api/runs/${current.id}/stop`, {})); }
   catch (error) { showError(error); }
 };
-$("new-room").onclick = () => {
+function setupRoom(record) {
+  clearTimeout(saveTimer); ++navigation; stream?.close(); stream = null;
+  room = record; draftDirty = false; current = null; pendingId = undefined;
+  Object.assign(draft, structuredClone(record.config), { task: record.brief });
+  $('room-name').value = record.name;
+  $('project').value = draft.project;
+  roomMotion(draft.motion || 'full'); $('room-motion').value = draft.motion || 'full';
+  resetParticipantInspector(); resetMessages(); humanPanel();
+  $('connection').textContent = 'Room saved locally';
+  $('handoff-label').textContent = 'Human → Implementer → Reviewer → Human';
+  $('error').hidden = true;
+  localStorage.setItem('zippercrew.lastRoom', record.id);
+  window.history.replaceState(null, '', `/#room=${record.id}&setup=1`);
+  showInspector('brief');
+}
+async function openContext(id, runId, setup = false) {
+  await renameSave.catch(() => {});
+  if (!current && draftDirty) await saveDraft();
+  const request = ++navigation;
+  try {
+    const record = await api(`/api/rooms/${id}/context`);
+    if (request !== navigation) return;
+    if (runId && !record.runs.includes(runId)) throw new Error("This Run does not belong to the selected Room.");
+    setupRoom(record);
+    await loadProfiles();
+    if (!setup && (runId || record.runs.length)) await openRoom(runId || record.runs.at(-1));
+  } catch (error) {
+    if (error.status === 404) {
+      localStorage.removeItem('zippercrew.lastRoom');
+      showInspector('brief');
+    }
+    showError(error);
+  }
+}
+function saveDraft() {
+  clearTimeout(saveTimer);
+  if (current) return Promise.resolve();
+  const generation = navigation, revision = draftRevision;
+  const data = { name: $('room-name').value.trim() || 'Pair programming', config: structuredClone(draft), brief: draft.task };
+  delete data.config.task;
+  const operation = saveChain.catch(() => {}).then(async () => {
+    if (generation !== navigation) return;
+    const saved = room ? await api(`/api/rooms/${room.id}/save`, data) : await api('/api/rooms', data);
+    if (generation !== navigation) return;
+    room = saved; draftDirty = draftRevision !== revision;
+    $('connection').textContent = 'Room saved locally';
+    localStorage.setItem('zippercrew.lastRoom', room.id);
+    window.history.replaceState(null, '', `/#room=${room.id}&setup=1`);
+    renderRoom();
+  });
+  saveChain = operation;
+  return operation;
+}
+function scheduleSave() {
+  if (current) return;
+  draftDirty = true; ++draftRevision;
+  clearTimeout(saveTimer);
+  $('connection').textContent = 'Unsaved changes';
+  saveTimer = setTimeout(() => saveDraft().catch(showError), 700);
+}
+async function loadRuns() {
+  $('runs').replaceChildren();
+  if (!room) return;
+  const id = room.id, runs = await api(`/api/rooms/${id}/runs`);
+  if (room?.id !== id) return;
+  for (const run of runs) {
+    const button = element('button', undefined, 'history-item');
+    const date = run.started_at ? new Date(run.started_at * 1000).toLocaleString() : 'Imported run';
+    button.append(element('span', `Run ${run.number} · ${run.status}`), element('small', `${date} · ${run.round} rounds`), element('small', run.task));
+    if (run.outcome) button.append(element('small', String(run.outcome).slice(0, 150)));
+    button.onclick = () => openRoom(run.id);
+    $('runs').append(button);
+  }
+}
+$('new-room').onclick = async () => {
   if (starting) return;
-  ++navigation; stream?.close(); stream = null; current = null; pendingId = undefined; resetParticipantInspector();
-  resetMessages(); closeInspector(); humanPanel(); $("outcome-panel").hidden = true; $("activity-panel").hidden = true;
-  $("activity").replaceChildren(); $("review-verdict").textContent = ""; $("error").hidden = true;
-  $("connection").textContent = "Local workspace";
-  $("handoff-label").textContent = "Human → Implementer → Reviewer → Human";
-  window.history.replaceState(null, "", "/");
+  try {
+    if (!current && draftDirty) await saveDraft();
+    const record = await api('/api/rooms', { name: 'Pair programming', config: { project: draft.project } });
+    setupRoom(record); await loadProfiles();
+  } catch (error) { showError(error); }
 };
+$('run-again').onclick = async () => {
+  try {
+    await renameSave;
+    const record = await api(`/api/rooms/${room.id}/context`);
+    setupRoom(record); await loadProfiles();
+    $('task').focus();
+  } catch (error) { showError(error); }
+};
+$('latest-run').onclick = () => openRoom(room.runs.at(-1));
+$('run-history').onclick = () => { $('room-menu').open = false; showInspector('runs'); };
+$('rename-room').onclick = () => { $('room-menu').open = false; $('room-name').focus(); $('room-name').select(); };
+$('room-name').onchange = () => {
+  const id = room?.id, name = $('room-name').value;
+  renameSave = (async () => {
+    if (current && id) {
+      const saved = await api(`/api/rooms/${id}/save`, { name });
+      if (room?.id === id) room = saved;
+    } else await saveDraft();
+  })();
+  renameSave.catch(showError);
+};
+$('save-room').onclick = () => { $('room-menu').open = false; saveDraft().catch(showError); };
+$('delete-room').onclick = async () => {
+  $('room-menu').open = false;
+  try { await renameSave; } catch (error) { showError(error); return; }
+  if (!room || !confirm(`Delete “${room.name}” and all ${room.runs.length} runs, transcripts and traces? This deletes only ZipperCrew records and artifacts. Your source repository and shared profiles will not be deleted.`)) return;
+  try {
+    clearTimeout(saveTimer); await saveChain.catch(() => {});
+    await api(`/api/rooms/${room.id}/delete`, { confirmation: room.name });
+    stream?.close(); current = null; room = null;
+    const record = await api('/api/rooms', { name: 'Pair programming', config: { project: draft.project } });
+    setupRoom(record); await loadProfiles();
+  } catch (error) { showError(error); }
+};
+for (const [id, key] of [['role-model', 'model'], ['role-effort', 'reasoning_effort']]) {
+  $(id).oninput = () => {
+    if (current || !draft.agents[selected]) return;
+    draft.agents[selected].settings ||= {};
+    draft.agents[selected].settings[key] = $(id).value.trim();
+    scheduleSave();
+  };
+}
+for (const id of ['role-profile', 'role-instructions', 'workspace', 'task', 'human-mode', 'max-rounds']) {
+  $(id).addEventListener('input', scheduleSave);
+  $(id).addEventListener('change', scheduleSave);
+}
+$('room-motion').addEventListener('change', () => {
+  draft.motion = $('room-motion').value;
+  if (!current) scheduleSave();
+  else if (room) api(`/api/rooms/${room.id}/save`, { motion: draft.motion }).then(saved => { if (room?.id === saved.id) room = saved; }).catch(showError);
+});
 
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && selected) closeInspector();
 });
 
+window.addEventListener("resize", renderRoom);
 document.addEventListener("room-renderer-ready", renderRoom);
 document.addEventListener("room-renderer-error", event => showError(event.detail));
 
@@ -403,7 +574,12 @@ async function init() {
   $("add-profile").hidden = bootstrap.demo;
   for (const check of Object.values(bootstrap.checks)) $("cli-checks").append(element("p", `${check.supported ? "✓" : "!"} ${check.backend} · ${check.supported ? "CLI compatible" : check.detail}`, `check${check.supported ? "" : " unavailable"}`));
   await loadProfiles();
-  const match = window.location.hash.match(/^#room=([a-f0-9]{32})$/);
-  if (match) await openRoom(match[1]);
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  if (params.has('room')) await openContext(params.get('room'), params.get('run'), params.has('setup'));
+  else {
+    const last = localStorage.getItem('zippercrew.lastRoom');
+    if (last) await openContext(last);
+    else showInspector('brief');
+  }
 }
 init().catch(showError);
