@@ -8,44 +8,45 @@ DOM inspectors. No game mechanic controls the workflow.
 
 ## Rendering
 
-* `room-engine.js` owns a single Phaser Canvas scene. `ROLES` supplies identity,
-  seat/rest/desk positions, sizes, access labels and assets. Characters, chairs,
-  desks, shadows, selection rings, the brief board and messages are separate
-  objects. Floor Y determines overlap order, including while walking.
-* `scene.js` adapts runtime snapshots into the renderer and keeps accessible DOM
-  controls aligned with scene entities. `PROCESS` declares Pair Programming's
-  roles. Message routes come exclusively from runtime envelopes; it deduplicates SSE updates.
-* `app.js` retains the existing draft, API/SSE, profile, inspector and human-task
-  logic. Before starting, bindings determine whether a seat is occupied. Once
-  running, server snapshots exclusively determine participant semantic states.
-* Phaser 3.90.0 is vendored with its MIT license. Assets are served locally and
-  packaged in the Python wheel. No frontend build or remote asset host is needed.
-  Renderer initialization errors are visible and prevent starting a hidden run.
+* `babylon-room.js` owns one Babylon scene, with `room-engine.js` as its stable
+  entry point. Role data declares seat, approach and rest positions in metres.
+  Desks, chairs, people and handoffs occupy the same right-handed, Y-up world.
+* `scene.js` adapts runtime snapshots and deduplicated message envelopes, and
+  projects accessible DOM controls onto the scene. Inspectors remain normal HTML.
+* The renderer imports the local GLB kit. Each persona has an articulated skin
+  and the same animation-channel vocabulary, with role-specific geometry/poses.
+  Clips crossfade; movement follows authored aisles, with a turn and seated pose
+  at the workstation. Semantic state changes cancel cosmetic routes immediately.
+* Babylon 9.15.0 and its glTF loader are vendored. There is no CDN, npm install, or
+  frontend build requirement. WebGL/asset failures remain explicit.
+* One window key light casts real shadows; a sky fill keeps silhouettes readable.
+  Characters and environment receive shadows through the same rendering path.
+* A ResizeObserver updates the drawing buffer and perspective camera. Activity
+  bubbles remain crisp DOM elements anchored above the actual 3D heads. Pointer
+  picking selects geometry; accessible buttons retain keyboard navigation.
 
-Phaser mouse input is restricted to its canvas; keyboard handling and window
-mouse listeners are disabled. This is necessary for ordinary web inspectors to
-work independently of objects behind them. A ResizeObserver resizes the canvas;
-the camera fits the inhabited floor and board without clipping a station when the
-inspector opens. Desktop uses a two-column grid (scene plus a 300–390px inspector).
-The shell has automatic header/footer rows and a `minmax(0, 1fr)` middle row;
-`min-height: 0` and one scrolling inspector body keep all bottom actions reachable.
-Narrow layouts stack the inspector below the scene with a sticky action dock.
+The permanent desktop inspector and responsive shell are unchanged: bounded
+inspector, flexible scene, normal-flow action footer, internal inspector scrolling.
+Short windows shrink the scene, then scroll. Narrow windows stack the two surfaces.
 
 ## Art and identity
 
-The environment, furniture and three character atlases are original generated
-bitmap assets, not code-drawn figures. See [art provenance](art/README.md) and
-[generation prompts](art/production-v2-prompts.md). Transparent character sheets contain nine
-poses. Runtime alpha bounds become frame metadata without modifying the images.
-Each pose is anchored at the feet. Furniture has its own atlas and explicit
-regions, allowing desks and chairs to overlap characters independently.
+Corner Café is now an original stylized game level: broad coral and slate walls,
+chunky trestle desks, large monitors, iconic coffee equipment, and a few oversized
+leaves. The floor extends beyond the foreground instead of framing a miniature
+architectural display. Clean rough materials replace photographic textures.
 
-The grounded modern café is deliberately less stylized than its cast. Implementer
-is a compact coral/ivory robot with a swept wedge head, antenna and side hubs.
-Reviewer is a taller teal robot with a shield head, long neck, tablet and stylus.
-Human has an asymmetric indigo curl silhouette, plum overshirt, ivory trousers and
-phone. Their silhouettes, accessories, work poses and gestures differ. Role colors
-continue into selection rings, documents, inspectors and transcript entries.
+Implementer is a compact coral robot with a wide headset and antenna; Reviewer
+has a taller teal silhouette, asymmetric scanner and review pad. Human has swept
+graphic hair, a plum jacket and exaggerated shoes/hands. All use the same game
+proportions. These are first-pass articulated models, not realistic people.
+
+`tools/build_cafe.py` authors the original mesh profiles, rigid skin weights,
+materials and clips into self-contained GLBs. Run it with Python's standard
+library to regenerate the asset kit. The source is editable; no proprietary
+modeling tool, generated bitmap or third-party character license is required.
+See [3D direction and validation](art/babylon-cafe.md). Earlier bitmap studies
+remain in the art history but are not loaded by the current Room.
 
 ## State and animation contract
 
@@ -55,32 +56,33 @@ continue into selection rings, documents, inspectors and transcript entries.
 | Ready | Profile selected, execution not started | Agent stands beside the station; Human observes at the table |
 | Working | Implementer `act_start` | Walk to chair, sit forward, type; occasional thinking pose during the same action |
 | Reviewing | Reviewer `act_start` | Return to desk, read the tablet, pause to think/annotate |
-| Waiting | Runtime lifecycle / action completion | Agent walks to a nearby coffee position; Human observes |
+| Waiting | Runtime lifecycle / action completion | Agent relaxes near its station; occasional ambient actions follow |
 | Needs human | Pending upstream Human request | Human stands with the lit phone and attention expression; inspector opens |
 | Completed | Upstream process returned | Crew stands relaxed with a restrained success gesture |
 | Failed / stopped | Runtime exception / service lifecycle | Concerned pose, subdued color, explicit result |
 
-Two authored walking frames interpolate short predetermined routes. Implementer
-moves faster than Reviewer. Small posture loops distinguish typing from reading.
-Timers only animate a pose inside an existing semantic state; they never infer
-work, completion, testing, silence or review results. A new state cancels its
-predecessor's movement, reaction and posture callbacks. Semantic state always
-wins, including during an ambient walk. Animation never gates a runtime action.
+Skinned walk clips blend into seated work/review poses. Timers only animate an
+existing semantic state; they never infer work, testing, silence or results. A new
+state cancels its predecessor's movement and temporary gestures. Semantic state
+always wins, including during an ambient walk. Animation never gates a runtime
+action. Reduced motion uses stationary poses, disables ambient travel, and places
+message cards directly at their visual destination without inventing receipts.
 
 ### Ambient life
 
 `presentation.js` owns a small, pure `AmbientDirector` with injected time and
 randomness. `semanticState`, `ambientAction`, and `currentActivity` are separate.
 Only ready, waiting and completed participants are eligible. Initial pauses are
-25–55 seconds; later attempts are 35–90 seconds apart. 65% of attempts do nothing.
-An action lasts 6.5–11 seconds followed by 45–120 seconds of rest. Consecutive
+18–44 seconds; later attempts are 25–65 seconds apart. 65% of attempts do nothing
+until the 100-second anti-starvation bound. An in-place action lasts 6.5–11 seconds;
+a destination interaction holds for 8.5 seconds after arrival, then returns home.
+Rest periods are 30–80 seconds. Small authored idle loops continue between trips. Consecutive
 actions differ. Human attention, active work, unconfigured and error states
 never allow ambient behaviour.
 
 Implementer stretches, glances at the monitor or visits the coffee counter.
 Reviewer reads the tablet, checks the shared board or holds coffee. Human checks
-the phone, looks around or has coffee at the table. The existing authored poses
-are reused; no art assets change. Short authored destinations stay behind the
+the phone, looks around, visits the window or sits at the laptop. The corresponding rigged clips supply these poses. Short authored destinations stay behind the
 workstations; an exclusive back-aisle reservation avoids simultaneous visits.
 A new semantic state cancels ambient movement and releases its reservation
 immediately. A real incoming message also interrupts an ambient action.
@@ -172,13 +174,13 @@ outcome, and running/historical inspectors retain the full trace download.
 
 ## Visual development
 
-`static/art-preview.html` is an isolated art fixture with explicit example states;
+`static/assets/3d/prototype.html` is an isolated art fixture with explicit example states;
 it is not linked or served by the application and never drives a real run.
 To compare poses without launching agents:
 
 ```sh
 uv run python -m http.server 8767 --bind 127.0.0.1 --directory src/zippercrew/static
-# Open http://127.0.0.1:8767/art-preview.html
+# Open http://127.0.0.1:8767/assets/3d/prototype.html
 ```
 
 The prototype was inspected before application integration. Review setup,
@@ -204,10 +206,66 @@ Running inspectors lead with state, round, current local activity and conversati
 Completed participants lead with the semantic result, including review verdict and
 findings. Technical information remains collapsed.
 
-Workstations use a dedicated two-desk atlas: monitors face the participants, with
-backs visible to the viewer. Chairs, working anchors and approach targets align
-with the clear working edge of the desk. Hands/reading poses remain visible above
-the surface, while furniture depth hides the lower body naturally. This changes
-spatial composition, not semantic states, ambient scheduling or message events.
+Workstations use actual GLB desk/chair/screen geometry. The role's approach point,
+chair point, seated transform and monitor direction share the same world. The
+keyboard is positioned under the forward-reaching work pose; short legs use the
+chair footrest. Perspective and depth are handled by Babylon, not sprite ordering.
 The ZipperCrew wordmark stays distinct from the unchanged canonical ZipperGen
 mark in the powered-by attribution.
+
+### Character performance, separate from process state
+
+`tools/cafe_motion.py` authors 24 clips shared across the three articulated rigs,
+with different timing and gesture amplitudes by role. Idle and active clips include
+body shifts, glances, breathing and brief blink windows. Independent brow and
+mouth joints, eye openness and small gaze shifts make the cast readable at room
+scale. These expressions are authored animation, not inferred model emotions. Implementer types in bursts
+and pauses to inspect the monitor; Reviewer tilts its head and taps the pad; Human
+observes or attends to a phone. These are expressive poses, never claims about an
+agent's hidden reasoning. They do not emit activity summaries or messages.
+
+Large ambient actions remain scheduled and reserved independently of those clips.
+The coffee trip has an arrival/reach phase followed by a drinking phase. Seated
+actions use actual chair/table transforms. Standing precedes departure; sitting
+blends into working/reading. Semantic transitions discard pending cosmetic stages
+and reservations immediately; no clip completion gates a ZipperGen action.
+
+Reduced motion retains representative still poses. Returning to Full explicitly
+restarts paused Babylon animation groups: `start()` on an already-started paused
+group does not resume it. Browser tests measure actual joint changes over time
+for all three personas so pose metadata cannot disguise a frozen rig.
+
+Activity summaries recognize single observed test, formatting, lint, type-check
+and build commands (including simple `uv run` / `poetry run` launchers). Bounded
+pytest/unittest/Jest totals, Ruff/Mypy counts and `git diff --check` success become
+secondary result lines. Simple `sed` reads expose only a safe basename and line
+range. Compound commands and unknown tools keep generic descriptions; arbitrary
+output, paths, command arguments and reasoning are never copied into bubbles.
+
+### Furniture-aware navigation and chair interactions
+
+`tools/cafe_layout.json` is the shared source for station position/orientation,
+interaction points, room bounds and fixed furniture. Asset authoring emits
+`assets/3d/layout.js`; `navigation.js` builds a small visibility graph around
+expanded, rotated furniture footprints. Each walking segment is checked against
+current footprints, including moving chairs. An unreachable goal stops/retries
+safely; there is no direct-line fallback. This is floor navigation, not crowd AI.
+
+Chairs are separate movable GLB groups. A seat request pulls the chair out, routes
+the participant to its open front, blends a sit/back-step, then moves chair and
+seated persona to the work transform together. Departure reverses those stages.
+Swept chair space is reserved while it moves; an empty chair returns only when
+participants are clear. Incoming semantic state replaces the destination at once.
+A partially seated persona completes a safe exit/re-entry instead of snapping
+through a chair; the runtime never waits for that cosmetic transition. Reduced
+motion uses the final stationary transforms.
+
+The Human starts seated at the shared café table; Reviewer usually checks a tablet
+while waiting. Neither is arranged as a front-facing standing display. Human
+attention uses a seated phone pose. A newly configured agent joins at a clear
+waiting position, not inside the unconfigured chair's placeholder coordinates.
+
+The navigation tests cover every role/destination pair, unreachable goals, actual
+per-frame walking clearance, chair entry/exit and attention during departure. A
+separate test compares imported GLB vertices with collision footprints. Planters
+and stems are solid; soft foliage can overhang the walkable floor.

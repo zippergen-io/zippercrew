@@ -45,19 +45,21 @@ actual model/effort availability. Shared profiles are never modified by Room edi
 Role instructions are per-Room additions. Configuration changes never rewrite a
 previous Run's effective configuration or transcript.
 
-The frontend creates one Phaser Canvas scene before loading configuration. Setup autosaves a
-persistent Room draft; starting replaces that draft's presentation with server snapshots
-without replacing the scene. Participant and shared-brief inspectors serve both
-configuration and live inspection. `scene.js` is the boundary between snapshots,
-accessible DOM controls, and the renderer. `room-engine.js` owns a small entity
-registry, authored sprite poses, floor positions, depth sorting, and message
-effects. `presentation.js` isolates cosmetic ambient scheduling and bubble cadence
-from authoritative runtime state. The role layout and café/character assets are separate from execution.
-Phaser is pinned and served locally; no npm install, CDN request, or frontend
-build is needed to run the application. Canvas rendering avoids a WebGL dependency.
-The backend additions serve packaged assets within the static directory and allow
-the loader's local blob image URLs in CSP. See
-[room experience](room-experience.md) for the visual contract.
+The frontend creates one Babylon.js scene before loading configuration. Setup
+autosaves a persistent Room draft; starting supplies server snapshots to that same
+scene. `scene.js` remains the boundary between snapshots, accessible DOM controls,
+and the renderer. `room-engine.js` re-exports the implementation in
+`babylon-room.js`. Babylon owns geometry, skeletal clip blending, real shadow maps,
+world-space movement and protocol cards. `presentation.js` retains the existing
+ambient scheduling and observed activity cadence; neither can change execution.
+
+Babylon 9.15.0 and its matching glTF loader are pinned and served locally with their
+Apache license. The original café and cast are GLBs with simplified PBR materials,
+not rendered background planes. WebGL is required. A failed asset/context produces
+an explicit error. The Python application needs no npm install, frontend build,
+CDN, extra service, or upstream ZipperGen change. The existing static asset handler
+serves the kit; the only additional API surface is a renderer JavaScript route.
+See [room experience](room-experience.md) and [3D art direction](art/babylon-cafe.md).
 
 ## Events and human endpoint
 
@@ -241,11 +243,11 @@ result summaries. Public command output is available in the trace (bounded at
 bodies are excluded. As with existing full action payloads, traces are local debug
 artifacts and may contain workspace content.
 
-The Corner Café uses fixed scene-space received-shadow polygons, independent of
-soft floor-contact and directional cast shadows. Per-sprite alpha masks allow
-partial-body shading; the counter has a matching depth-sorted foreground layer.
-The shared brief is a textured Canvas surface projected into the board quadrilateral
-inside Phaser. These surfaces and ambient movement cannot enable or delay work.
+The café now uses actual geometric shadows: a directional window light and a
+hemispheric fill illuminate the same furniture and skinned meshes. Character
+meshes both cast and receive the shadow map, including partial environmental
+occlusion. The former sprite shadow polygons are retired. The brief uses a dynamic
+texture on a real board plane; perspective follows the camera automatically.
 
 Lightweight Room edits autosave after 700 ms, with a persistent Saving / Saved /
 Not saved indicator and a Retry action. Switching or closing an inspector flushes
@@ -273,8 +275,8 @@ of hiding overflow. At widths of 900px or less, Room and inspector stack, with t
 footer in normal flow; it cannot cover either surface. Header and footer controls
 wrap, and long brief/path content cannot impose a minimum page width.
 
-The existing Phaser ResizeObserver remains the sizing authority. Canvas backing
-size follows its container; CSS does not stretch the rendered canvas. The camera
-continues fitting the existing world and preserving its aspect ratio, including
-intentional letterboxing at extreme aspect ratios. No rendering or process
-behavior changes are required for this shell layout.
+A ResizeObserver resizes Babylon's drawing buffer to the host dimensions. The
+perspective camera adjusts its distance for narrow aspect ratios. DOM hit targets
+and activity bubbles use projected world positions, never hard-coded screen
+coordinates. Resizing redraws the scene immediately so a changed backing buffer
+cannot leave the room blank between layout and the next animation frame.

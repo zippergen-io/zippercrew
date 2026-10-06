@@ -117,8 +117,8 @@ class Handler(BaseHTTPRequestHandler):
                 "/app.js",
                 "/scene.js",
                 "/room-engine.js",
+                "/babylon-room.js",
                 "/presentation.js",
-                "/surfaces.js",
                 "/inspector.js",
                 "/style.css",
             }:
@@ -127,7 +127,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                     "/scene.js": ("scene.js", "text/javascript; charset=utf-8"),
                     "/room-engine.js": ("room-engine.js", "text/javascript; charset=utf-8"),
-                    "/surfaces.js": ("surfaces.js", "text/javascript; charset=utf-8"),
+                    "/babylon-room.js": ("babylon-room.js", "text/javascript; charset=utf-8"),
                     "/presentation.js": ("presentation.js", "text/javascript; charset=utf-8"),
                     "/inspector.js": ("inspector.js", "text/javascript; charset=utf-8"),
                     "/style.css": ("style.css", "text/css; charset=utf-8"),
@@ -138,7 +138,11 @@ class Handler(BaseHTTPRequestHandler):
                 if not target.is_relative_to(STATIC.resolve()) or not target.is_file():
                     self.reply(404, {"error": "Asset not found"})
                     return
-                mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                mime = (
+                    "model/gltf-binary"
+                    if target.suffix == ".glb"
+                    else mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                )
                 self.reply(200, target.read_bytes(), mime)
             elif path == "/api/bootstrap":
                 self.reply(

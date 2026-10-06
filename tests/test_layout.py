@@ -17,7 +17,7 @@ def resize(page, width, height):
     page.set_viewport_size({"width": width, "height": height})
     page.evaluate("window.scrollTo(0, 0)")
     page.wait_for_function("""async () => {
-        const host=document.getElementById('phaser-host'), canvas=host.querySelector('canvas');
+        const host=document.getElementById('room-host'), canvas=host.querySelector('canvas');
         const view=(await import('/scene.js')).inspectScene();
         return canvas.width===host.clientWidth && canvas.height===host.clientHeight &&
             view.viewport.width===host.clientWidth;
@@ -39,7 +39,7 @@ def shell_bounds(page, desktop=True, fits=True):
     data = page.evaluate("""() => {
         const rect=selector=>document.querySelector(selector).getBoundingClientRect().toJSON();
         return {stage:rect('.room-stage'), inspector:rect('#inspector'),
-            workspace:rect('main'), dock:rect('.control-dock'), canvas:rect('#phaser-host canvas'),
+            workspace:rect('main'), dock:rect('.control-dock'), canvas:rect('#room-host canvas'),
             body:getComputedStyle(document.body).overflowY,
             scrollWidth:document.documentElement.scrollWidth,
             scrollHeight:document.documentElement.scrollHeight,
@@ -99,7 +99,7 @@ def test_shell_across_heights_widths_and_real_human_decision(service):
         page.goto(f"{base}/#room={room['id']}&setup=1")
         expect(page.locator("#room-art")).to_have_attribute("data-ready", "true")
         expect(page.locator("#start")).to_be_enabled()
-        canvas = page.locator("#phaser-host canvas").element_handle()
+        canvas = page.locator("#room-host canvas").element_handle()
         sizes = {}
         for width, height in LAPTOPS + [(1920, 900), (2560, 900), (1280, 720)]:
             resize(page, width, height)
@@ -153,6 +153,6 @@ def test_shell_across_heights_widths_and_real_human_decision(service):
                 reachable(page, selector)
         page.locator("#run-again").click()
         expect(page.locator("#start")).to_be_enabled()
-        assert canvas.evaluate("el=>el===document.querySelector('#phaser-host canvas')")
+        assert canvas.evaluate("el=>el===document.querySelector('#room-host canvas')")
         assert not errors
         browser.close()

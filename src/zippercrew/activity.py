@@ -8,9 +8,10 @@ from pathlib import PurePosixPath
 from typing import Any
 
 
-def command_kind(command: object) -> str:
+def command_words(command: object) -> list[str]:
+    """Parse only a single observed command, never infer a pipeline's execution."""
     if not isinstance(command, str):
-        return "shell"
+        return []
     try:
         words = shlex.split(command)
         if (
@@ -20,12 +21,18 @@ def command_kind(command: object) -> str:
         ):
             words = shlex.split(words[2])
     except ValueError:
-        return "shell"
-    if not words:
-        return "shell"
-    # Compound commands, substitutions and pipelines aren't parsed as a made-up
-    # execution plan. We can truthfully report their enclosing shell invocation.
+        return []
     if any(any(c in word for c in ";&|`$<>()\n") for word in words):
+        return []
+    if len(words) > 2 and words[:2] in (["uv", "run"], ["poetry", "run"]):
+        # Known transparent launchers; flags/options remain deliberately unsupported.
+        words = words[2:]
+    return words
+
+
+def command_kind(command: object) -> str:
+    words = command_words(command)
+    if not words:
         return "shell"
     name = PurePosixPath(words[0]).name
     if (
@@ -38,10 +45,45 @@ def command_kind(command: object) -> str:
     ):
         return "tests"
     if name == "git" and words[1:2] == ["diff"]:
-        return "diff"
-    if name in {"cat", "head", "tail", "rg", "grep", "ls", "pwd"}:
+        return "format" if "--check" in words else "diff"
+    if (name == "ruff" and words[1:2] == ["format"] and "--check" in words) or (
+        name in {"black", "prettier"} and "--check" in words
+    ):
+        return "format"
+    if name == "ruff" and words[1:2] == ["check"]:
+        return "lint"
+    if name in {"mypy", "tsc"}:
+        return "types"
+    if name in {"npm", "pnpm", "yarn"} and words[1:2] == ["run"]:
+        return {"lint": "lint", "typecheck": "types", "build": "build"}.get(
+            words[2] if len(words) > 2 else "", "shell"
+        )
+    if name in {"cat", "head", "tail", "rg", "grep", "ls", "pwd", "sed"}:
         return "files"
     return "shell"
+
+
+def command_read(command: object) -> tuple[str, str | None] | None:
+    words = command_words(command)
+    if not words:
+        return None
+    name = PurePosixPath(words[0]).name
+    lines = None
+    if name == "sed" and len(words) == 4 and words[1] == "-n":
+        match = re.fullmatch(r"(\d{1,6}),(\d{1,6})p", words[2])
+        if not match or int(match[1]) <= 0 or int(match[2]) < int(match[1]):
+            return None
+        lines = f"lines {match[1]}–{match[2]}"
+    elif name == "cat" and len(words) == 2 and not words[1].startswith("-"):
+        pass
+    else:
+        return None
+    filename = PurePosixPath(words[-1]).name
+    if not re.fullmatch(r"[\w.-]{1,60}", filename):
+        return None
+    if re.search(r"env|secret|credential|token|password|private", filename, re.I):
+        return None
+    return filename, lines
 
 
 def summarize(event: dict[str, Any]) -> dict[str, Any] | None:
@@ -61,10 +103,20 @@ def summarize(event: dict[str, Any]) -> dict[str, Any] | None:
                 "tests": "Running tests…",
                 "diff": "Checking the diff…",
                 "files": "Inspecting repository files…",
+                "format": "Checking formatting…",
+                "lint": "Checking code quality…",
+                "types": "Checking types…",
+                "build": "Building the project…",
                 "shell": "Running a shell command…",
             }[category]
         elif "exit_code" in detail and exit_code != 0:
-            text = "Test command failed." if category == "tests" else "Shell command failed."
+            text = {
+                "tests": "Test command failed.",
+                "format": "Formatting check failed.",
+                "lint": "Code check failed.",
+                "types": "Type check failed.",
+                "build": "Build failed.",
+            }.get(category, "Shell command failed.")
         elif category == "tests" and exit_code == 0:
             text = "Test command succeeded."
         else:
@@ -73,7 +125,14 @@ def summarize(event: dict[str, Any]) -> dict[str, Any] | None:
                 "diff": "Diff checked.",
                 "files": "Repository inspection finished.",
                 "shell": "Command finished.",
+                "format": "Formatting checked.",
+                "lint": "Code checks finished.",
+                "types": "Type check finished.",
+                "build": "Build finished.",
             }[category]
+        reading = command_read(event.get("command"))
+        if reading and (phase == "started" or exit_code == 0):
+            text = f"Reading {reading[0]}…" if phase == "started" else f"Read {reading[0]}."
     elif event.get("kind") == "file":
         operation = event.get("operation")
         name = PurePosixPath(str(event.get("path") or "").replace("\\", "/")).name
@@ -116,6 +175,10 @@ def result_detail(event: dict[str, Any]) -> str | None:
             if type(limit) is int and 0 < limit <= 100000:
                 return f"lines {offset}–{offset + limit - 1}"
             return f"from line {offset}"
+    if event.get("kind") == "command":
+        reading = command_read(event.get("command"))
+        if reading and reading[1]:
+            return reading[1]
     if event.get("kind") != "command" or event.get("phase") != "completed":
         return None
     category = command_kind(event.get("command"))
@@ -138,15 +201,54 @@ def result_detail(event: dict[str, Any]) -> str | None:
                 if pairs:
                     return " · ".join(f"{n} {label}" for n, label in pairs[:3])[:80]
     command = event.get("command")
-    if category == "diff" and isinstance(command, str):
-        try:
-            words = shlex.split(command)
-            if len(words) == 3 and words[1] in {"-c", "-lc"}:
-                words = shlex.split(words[2])
-        except ValueError:
-            words = []
-        if "--check" in words and event.get("exit_code") == 0:
+    if category == "format" and isinstance(command, str):
+        words = command_words(command)
+        if (
+            words
+            and PurePosixPath(words[0]).name == "git"
+            and "--check" in words
+            and event.get("exit_code") == 0
+        ):
             return "No whitespace errors"
+    if isinstance(output, str):
+        lines = [
+            re.sub(r"\x1b\[[0-9;]*m", "", line).strip() for line in output[-16000:].splitlines()
+        ]
+        if category == "tests":
+            for line in reversed(lines):
+                match = re.fullmatch(
+                    r"Tests:\s+((?:\d+ (?:passed|failed|skipped|todo|total)(?:, )?)+)(?:\s*)", line
+                )
+                if match:
+                    return (
+                        " · ".join(
+                            f"{n} {label}"
+                            for n, label in re.findall(r"(\d+) (passed|failed|skipped)", match[1])
+                        )
+                        or None
+                    )
+            ran = next(
+                (
+                    re.fullmatch(r"Ran (\d+) tests? in [\d.]+s", line)
+                    for line in lines
+                    if re.fullmatch(r"Ran (\d+) tests? in [\d.]+s", line)
+                ),
+                None,
+            )
+            if ran and lines[-1:] == ["OK"] and event.get("exit_code") == 0:
+                return f"{ran[1]} tests passed"
+        if category == "lint" and "All checks passed!" in lines and event.get("exit_code") == 0:
+            return "All checks passed"
+        if category == "types":
+            for line in reversed(lines):
+                match = re.fullmatch(r"Success: no issues found in (\d+) source files?", line)
+                if match and event.get("exit_code") == 0:
+                    return f"{match[1]} files · no type errors"
+        if category == "format":
+            for line in reversed(lines):
+                match = re.fullmatch(r"(\d+) files? already formatted", line)
+                if match:
+                    return f"{match[1]} files already formatted"
     code = event.get("exit_code")
     if type(code) is int:
         return f"Exit status {code}"

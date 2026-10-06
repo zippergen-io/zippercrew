@@ -1,19 +1,20 @@
-# Phaser
+# Babylon.js
 
-Pinned upstream distribution: Phaser 3.90.0, unmodified minified browser build.
+Pinned official npm distributions, unmodified, served locally:
 
-Source: https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js
+- Babylon.js 9.15.0: `babylonjs@9.15.0/babylon.js`
+- glTF loader 9.15.0: `babylonjs-loaders@9.15.0/babylonjs.loaders.min.js`
+- Apache 2.0 license: `BABYLON-LICENSE.txt`
 
-SHA-256: `e92ddef111ba42e92d316979c732311757093688ea1810591cb7aa2858eba7a7`
+Package sources: https://registry.npmjs.org/babylonjs/-/babylonjs-9.15.0.tgz
+and https://registry.npmjs.org/babylonjs-loaders/-/babylonjs-loaders-9.15.0.tgz.
+SHA-256:
 
-License: MIT, retained in `PHASER-LICENSE.txt` from
-https://cdn.jsdelivr.net/npm/phaser@3.90.0/LICENSE.md
+- Engine: `9fa39c6e3f66c714f3b52b5e0b3b19059bb8e0c7dadd65b6db48fd8e297d00bf`
+- Loader: `72b44c1ee61cf6eaf7825f6cf07ca2af70dafe1a86f743215cf4d32a7328a0a9`
 
-Served locally so the Python application needs no JavaScript build toolchain or
-runtime CDN access. Canvas mode is selected explicitly. This dependency only
-renders the room; DOM controls and ZipperGen execution remain outside Phaser.
-
-Upstream documentation: https://docs.phaser.io/phaser/getting-started/installation
+No runtime network requests or dynamic loader modules are needed for our GLBs.
+The previous Phaser distribution is retired from the Room.
 
 # Message Markdown
 

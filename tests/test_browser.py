@@ -63,39 +63,37 @@ def test_continuous_room_through_two_rounds_and_history(service):
         assert page.get_by_text("Open the room", exact=False).count() == 0
         screenshot(page, "first-frame")
         configure(page, project)
-        assert inspect_scene(page)["art"] == "grounded-cafe-agent-cast-v2"
+        assert inspect_scene(page)["art"] == "stylized-cafe-3d-v3"
         screenshot(page, "ready")
-        reviewer_seat = page.locator("#actor-Reviewer").get_attribute("data-x")
         scene = page.locator("#room-art canvas").element_handle()
         page.get_by_role("button", name="Start working").click()
         expect(page.locator("#actor-Implementer")).to_have_class(re.compile("working"))
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("waiting"))
-        expect(page.locator("#actor-Implementer")).to_have_attribute("data-pose", "typing")
-        expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "coffee")
-        assert page.locator("#actor-Reviewer").get_attribute("data-x") != reviewer_seat
+        expect(page.locator("#actor-Implementer")).to_have_attribute("data-pose", "working")
+        expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "tablet")
         screenshot(page, "implementing")
         assert scene.evaluate("node => node === document.querySelector('#room-art canvas')")
         expect(page.locator("#actor-Reviewer")).to_have_class(re.compile("reviewing"))
-        expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "reading")
-        assert inspect_scene(page)["participants"][1]["frame"] == "work"
+        expect(page.locator("#actor-Reviewer")).to_have_attribute("data-pose", "reviewing")
+        assert inspect_scene(page)["participants"][1]["frame"] == "reviewing"
         screenshot(page, "reviewing")
         expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible(
-            timeout=15000
+            timeout=45000
         )
         expect(page.locator("#actor-Human")).to_have_class(re.compile("needs-human"))
         assert inspect_scene(page)["messages"]
         screenshot(page, "human-turn")
         page.reload()
         expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible(
-            timeout=15000
+            timeout=45000
         )
         # Historical messages do not pretend to be new transfers on reconnect.
         assert not inspect_scene(page)["messages"]
         page.get_by_role("button", name="Another round", exact=True).click()
         page.get_by_label("Guidance for the Implementer").fill("Check zero as well.")
         page.get_by_role("button", name="Continue the conversation").click()
-        expect(page.locator("#round-label")).to_have_text("ROUND 2 / 3", timeout=15000)
-        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=15000)
+        expect(page.locator("#round-label")).to_have_text("ROUND 2 / 3", timeout=45000)
+        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=45000)
         page.locator("#actor-Implementer").click()
         previous_round = page.locator('#transcript .conversation-round[data-round="1"]')
         previous_round.locator("summary").first.click()
@@ -105,13 +103,13 @@ def test_continuous_room_through_two_rounds_and_history(service):
         screenshot(page, "inspector")
         page.locator("#human-return").click()
         page.get_by_role("button", name="Ship it", exact=True).click()
-        expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)", timeout=15000)
+        expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)", timeout=45000)
         expect(page.locator("#room-status")).to_have_text("Completed")
         assert page.locator("#trace-link").get_attribute("href").endswith("/trace")
         page.locator("#close-inspector").click()
         page.wait_for_function("""async () => {
             const view = (await import('/scene.js')).inspectScene().viewport;
-            const width = document.getElementById('phaser-host').clientWidth;
+            const width = document.getElementById('room-host').clientWidth;
             return view.width === width && view.cameraWidth === width;
         }""")
         screenshot(page, "completed")
@@ -196,14 +194,14 @@ def test_autonomous_review_same_room_and_motion_preference(service, motion):
         }""")
         scene = page.locator("#room-art canvas").element_handle()
         page.get_by_role("button", name="Start working").click()
-        expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)", timeout=15000)
+        expect(page.locator("#outcome")).to_contain_text("Shipped after 2 round(s)", timeout=45000)
         expect(page.locator("#human-panel")).to_be_hidden()
         transfers = page.evaluate("window.transfers")
         assert any(t["from"] == "Implementer" and t["to"] == "Reviewer" for t in transfers)
         assert len({t["id"] for t in transfers}) == len(transfers)
         assert scene.evaluate("node => node === document.querySelector('#room-art canvas')")
         assert inspect_scene(page)["reducedMotion"] == (motion == "reduce")
-        assert inspect_scene(page)["renderer"] == "Phaser.Canvas"
+        assert inspect_scene(page)["renderer"] == "Babylon.WebGL"
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         browser.close()
 
@@ -237,10 +235,16 @@ def test_canvas_selection_and_keyboard_inspector_coexist(service):
         page = browser.new_page(viewport={"width": 1440, "height": 900})
         page.goto(base)
         expect(page.locator("#room-art")).to_have_attribute("data-ready", "true")
-        # Click the illustrated Human's face above the DOM keyboard target.
+        # Test actual Babylon picking without the accessible DOM target catching it.
         target = page.locator("#actor-Human").bounding_box()
-        page.mouse.click(target["x"] + target["width"] / 2, target["y"] - 75)
+        page.locator(".scene-controls button").evaluate_all(
+            "nodes => nodes.forEach(n=>n.style.pointerEvents='none')"
+        )
+        page.mouse.click(target["x"] + target["width"] / 2, target["y"] + target["height"] / 2)
         expect(page.locator("#inspector-title")).to_have_text("Human")
+        page.locator(".scene-controls button").evaluate_all(
+            "nodes => nodes.forEach(n=>n.style.pointerEvents='')"
+        )
         page.get_by_label("Maximum rounds").fill("12")
         page.keyboard.press("Escape")
         expect(page.locator("#inspector")).to_be_visible()
@@ -255,7 +259,7 @@ def test_asset_failure_is_explicit_and_does_not_allow_start(service):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page()
-        page.route("**/assets/characters/reviewer-v*.png", lambda route: route.abort())
+        page.route("**/assets/3d/reviewer.glb", lambda route: route.abort())
         page.goto(base)
         expect(page.locator("#error")).to_contain_text("Room asset could not load")
         expect(page.locator(".scene-loading")).to_contain_text("Reload to retry")
@@ -303,7 +307,7 @@ def test_cosmetic_policy_is_calm_interruptible_and_observable(service):
             let rolls = [];
             const d = new AmbientDirector(() => rolls.shift() ?? 0.99);
             check(d.step('Implementer', 'waiting', 0) === null, 'initial pause');
-            rolls = [0, 0.9, 0.4, 0]; // cadence, do action, coffee, duration
+            rolls = [0, 0.9, 0.3, 0]; // cadence, do action, coffee, duration
             check(d.step('Implementer', 'waiting', 60000) === 'coffee', 'coffee');
             check(d.reservations.get('back-aisle') === 'Implementer', 'reserve shared aisle');
             d.step('Reviewer', 'waiting', 0);
@@ -369,10 +373,11 @@ def test_scene_preempts_ambient_and_does_not_invent_message_receipts(service):
         page.evaluate("""() => {
             const s = window.roomTest;
             s.ambient.random = () => 0.99;
-            s.ambient.step('Reviewer', 'waiting', s.time.now);
+            for(const role of ['Implementer','Reviewer','Human'])
+                s.ambient.step(role,'waiting',performance.now());
             const p = s.ambient.people.get('Reviewer');
             p.due = -1;
-            let rolls = [0, .9, .4, 0];
+            let rolls = [0, .9, .3, 0];
             s.ambient.random = () => rolls.shift() ?? .99;
         }""")
         page.wait_for_function("() => roomTest.inspect().participants[1].ambientAction === 'board'")
@@ -384,8 +389,11 @@ def test_scene_preempts_ambient_and_does_not_invent_message_receipts(service):
         }""")
         assert page.evaluate("roomTest.inspect().participants[1].ambientAction") is None
         page.wait_for_function("() => roomTest.inspect().participants[1].currentActivity !== null")
-        assert page.evaluate("roomTest.people.get('Reviewer').bubbleDetail.text") == "lines 70–140"
-        assert page.evaluate("roomTest.people.get('Reviewer').bubbleDetail.visible")
+        assert (
+            page.evaluate("roomTest.people.get('Reviewer').bubbleDetail.textContent")
+            == "lines 70–140"
+        )
+        assert page.evaluate("!roomTest.people.get('Reviewer').bubble.hidden")
         page.evaluate("""() => {
             window.envelopeTest = {id:'test-send', version:1, from:'Implementer', to:'Reviewer',
                 send_id:5, receive_id:null, seq:12, channel:'work',
@@ -396,9 +404,14 @@ def test_scene_preempts_ambient_and_does_not_invent_message_receipts(service):
         envelope = page.evaluate("roomTest.inspect().envelopes[0]")
         assert envelope["status"] == "sent" and envelope["receive_id"] is None
         page.evaluate("""() => {
+            const p=roomTest.people.get('Reviewer');
+            roomTest.transition(p,'waiting');
+            roomTest.ambientAction(p,'coffee');
             roomTest.message({...envelopeTest, version:2, receive_id:7, status:'received'});
         }""")
         assert page.evaluate("roomTest.inspect().envelopes[0].status") == "received"
+        assert page.evaluate("roomTest.people.get('Reviewer').ambientAction") is None
+        assert page.evaluate("roomTest.people.get('Reviewer').state") == "waiting"
         page.evaluate("""() => {
             viewTest.states.Human = 'needs human';
             roomTest.present(viewTest);
@@ -406,7 +419,7 @@ def test_scene_preempts_ambient_and_does_not_invent_message_receipts(service):
         }""")
         people = page.evaluate("roomTest.inspect().participants")
         assert not any(p["ambientAction"] or p["moving"] for p in people)
-        assert people[2]["frame"] == "receive"
+        assert people[2]["frame"] == "attention-seated"
         page.evaluate("roomTest.resetMessages()")
         assert page.evaluate("roomTest.inspect().messages") == []
         assert not errors
@@ -426,7 +439,7 @@ def test_motion_setting_and_inspectable_protocol_history(service):
         page.locator("#close-inspector").click()
         page.locator("#start").click()
         expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible(
-            timeout=15000
+            timeout=45000
         )
         page.locator("#activity-control").click()
         row = page.locator("#activity details").filter(has_text="Implementer → Reviewer · Proposal")
@@ -503,7 +516,7 @@ def test_permanent_inspector_and_bottom_controls_at_laptop_sizes(service):
             page.locator("#actor-Reviewer").click()
             page.wait_for_function("""async () => {
                 const view = (await import('/scene.js')).inspectScene().viewport;
-                return view.width === document.getElementById('phaser-host').clientWidth;
+                return view.width === document.getElementById('room-host').clientWidth;
             }""")
             scene = page.locator(".room-stage").bounding_box()
             inspector = page.locator("#inspector").bounding_box()

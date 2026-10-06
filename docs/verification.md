@@ -133,3 +133,224 @@ It checks setup, Human decision, completion and Run again at 1440×900, 1366×76
 
 Both responsive browser checks passed (including the full lifecycle/resize matrix).
 Screenshots and final measurements are in `/tmp/zippercrew-layout/`.
+
+
+## Babylon migration (2026-10-05)
+
+The Room now loads four original GLBs in Babylon.js. The ZipperGen checkout and
+orchestration are unchanged. The isolated spatial study is available at
+`/assets/3d/prototype.html`; [the live preview](art/babylon-live-preview.png) shows
+the integrated Human decision phase.
+
+- Full-suite run: 63 passed; one screenshot-heavy browser test missed a transient
+  review phase on software WebGL. Reduced motion now redraws only when required,
+  and that complete two-round test passed twice after the fix. Scripted turn
+  duration is extended only when collecting screenshots, never for real CLIs.
+- Final non-browser suite: **46 passed**. Final GLB/geometry/rig/browser regressions:
+  **3 passed**. The two-round live test passed again after the last rig/card fixes.
+- Actual joint rotations verify seated work/review and Human attention even with
+  motion reduced. A new card's asynchronous material compilation finishes before
+  repainting stops; displaying the card does not invent a semantic receipt.
+- Geometry checks cover indexed meshes, real skins and compatible animation
+  channels. Every role walks toward coffee, is interrupted by actual work/attention,
+  and is inspected at desk, counter and window locations with cast/received shadows.
+- Existing browser coverage passed for Room naming/history/rerun, native profile
+  overrides, Markdown inspection, autosave failures, explicit asset failures,
+  autonomous review, message send/receive distinction and the full responsive
+  width/height matrix documented above. Final live frames cover setup, implementation,
+  review, Human decision and completion.
+- Ruff, mypy, JavaScript syntax and diff whitespace checks pass. Wheel inspection
+  confirms all four GLBs and local engine/loader, with no retired Phaser or sprite
+  assets (about 2.49 MiB compressed).
+
+The workflow tests use the real ZipperGen process with scripted assistants; this
+pass did not spend model credits or modify ANR-GLOVE. The artwork and expressive
+animation are an original first-pass kit, not final artist polish. The provided
+reference video's thumbnail/description were available, but full playback was not.
+
+
+## Babylon art and ambient-life refinement (2026-10-05)
+
+Kept the renderer, event model and ZipperGen integration. Refined the original
+asset kit and added `tools/cafe_motion.py` as its editable performance source.
+The shared vocabulary now has 23 clips and a blink/expression joint.
+
+Validation for this pass:
+
+- **48 non-browser tests passed**, including bounded tool-result summaries,
+  unsafe/unknown command fallback and exact protocol projection tests.
+- **6 Babylon/workflow/layout tests passed** in the final group: GLB structure,
+  geometry/shadows/workstations, reduced-motion poses/card rendering, actual
+  idle motion and coffee interruption for every role, two-round workflow/history,
+  and the desktop/narrow/short-window matrix.
+- Cosmetic-policy and send/receive-preemption browser checks also passed.
+- Ruff, mypy and JavaScript syntax checks passed. The wheel includes four updated
+  GLBs; no retired Phaser or raster room assets are loaded/shipped.
+
+The first new motion test found a real paused-group bug: `start()` did not resume
+a Babylon group that had already started and then paused. Resetting that group
+before starting fixes Full motion after Reduced. The regression measures head
+rotation over real elapsed time for Human, Implementer and Reviewer, checks the
+standing phone pose, walks each role to coffee, and interrupts the interaction
+with Working / Reviewing / Needs human. Active clip samples additionally verify
+actual skeletal micro-motion rather than relying on pose names.
+
+Screenshots in `/tmp/zippercrew-polish/` cover setup, implementation, review, Human
+attention, completion and responsive sizes. Visual inspection led to moving the
+right pendant out of the shared board's sightline. The demo preview on port 8766
+was refreshed; the normal user server was left untouched. Workflow acceptance
+uses scripted assistants with the real ZipperGen process, without a paid CLI run.
+
+
+## Furniture navigation, Human and café staging (2026-10-05)
+
+The GLB authoring tool and Babylon navigation share `tools/cafe_layout.json`.
+Furniture footprints, participant clearance and visibility-graph routes replace
+straight-line walking. Empty chairs pull out for a front approach, then roll the
+seated participant into the workstation. Departure reverses that interaction.
+Chair movement reserves its swept region only after passing participants clear it.
+There is no unsafe straight-line fallback for blocked destinations.
+
+Validation for this pass:
+
+- All named destinations are reachable around furniture; every routed segment is
+  checked against inflated solid footprints and room bounds. Blocked goals fail closed.
+- Actual imported GLB vertices were checked against the navigation volumes (about
+  91,800 vertices). Solid desks, chairs, table, counter and planters are covered;
+  soft overhanging foliage is excluded above the planter/stem region.
+- Each role walked to coffee, board and window, then entered its own chair from
+  the front. Per-render-frame assertions detect furniture crossing; none occurred.
+- Human attention interrupts an ambient departure. Joining previously empty roles
+  spawns at clear positions. A passing Reviewer can leave a future chair sweep
+  before the Implementer pulls that chair out: no reservation deadlock.
+- The combined navigation, Babylon, two-round workflow/history and responsive
+  browser group passed nine tests. A tenth test initially missed its deterministic
+  ambient action because another idle role consumed its random seed; explicitly
+  initializing all role clocks fixed the harness. That preemption test and the
+  added chair-reservation regression both passed on the final rerun.
+- Final non-browser regression suite: **48 passed**. Its temporary HTTP servers
+  require local socket access; the sandbox-only attempt could not bind them.
+- Ruff, mypy, JavaScript syntax and diff whitespace checks pass. Wheel inspection
+  confirms navigation/layout modules and four GLBs, without retired Phaser assets.
+
+The final [spatial preview](art/babylon-polish-preview.png) shows the adult female
+Human at the round table, the Implementer at its angled desk, and the Reviewer
+checking a tablet. The smaller clipped-paper brief and staggered workstations
+replace the classroom-style staging. The [live preview](art/babylon-live-preview.png)
+shows a Human decision in the actual application shell.
+
+Workflow acceptance uses the real ZipperGen process with scripted assistants;
+no paid CLI run or source-workspace modification was needed. ZipperGen remains
+unchanged. Full-motion navigation is tested separately from reduced-motion poses.
+
+
+## Cast personality and creative orchestrator (2026-10-05)
+
+Kept Babylon, furniture transforms/navigation, runtime states and protocol semantics.
+Refined original character GLBs with larger readable faces, independent brows and
+mouth joints, warm display colors, differentiated head silhouettes and materials.
+Human is an original adult female creative orchestrator with sculpted curls, layered
+plum clothing, restrained bright accents, a listening earpiece and expressive hands.
+The performer reference informs energy only; no likeness or specific costume is used.
+
+Environment changes are limited to closer/lower aspect-aware framing, gentle portrait
+fill, café signage and lowering the near plant canopy to clear Implementer's face.
+Solid collision footprints and workstation geometry are unchanged.
+
+The first combined browser group passed ten checks: navigation/routes/chair entry,
+geometry/skins, expressions/shadows, the two-round workflow and responsive shell.
+Its all-role idle-motion check caught a real regression: the new Human head had a
+flat opening interval. Added continuous nod/tilt underneath occasional glances,
+then reran the all-role motion/coffee-preemption test on the final GLBs.
+The final targeted group passed **5 tests**: shipped GLBs, all-role live motion
+and interruption, facial/hand expression and shadows, cosmetic policy, and the
+complete two-round workflow/history.
+
+Visual review includes neutral cast, silhouettes, setup, work, review, Human
+attention and completion. Captures are in `/tmp/zippercrew-cast-final/`; current
+[cast](art/babylon-cast.png), [silhouettes](art/babylon-cast-silhouettes.png) and
+[live room](art/babylon-live-preview.png) are kept in the repository. The wheel's
+four GLBs match the current production files. Ruff, mypy, JavaScript syntax and
+whitespace checks pass. ZipperGen is unchanged. Workflow tests use scripted
+assistants with the real Pair Programming process; no paid CLI run was performed.
+
+
+## Human playful-orchestrator refinement (2026-10-05)
+
+Human-only artwork/performance pass: swept soft locks with an orchid strand,
+asymmetric expression, woven neck-wrap, rolled trousers and softer shoes.
+Quiet listening nods, brow/hand cues and seated posture retain existing clip/state
+semantics. No new runtime behaviour or communication is introduced.
+
+Three targeted checks passed: shipped GLB geometry/rigs, all-role elapsed-time
+motion with coffee interruption, and facial/hand animation with shared shadows.
+After softening the initially sharp hair geometry, the GLB check passed again
+and the actual Babylon render was visually inspected in neutral and directing
+poses. Environment, Implementer and Reviewer GLBs are byte-for-byte unchanged.
+Ruff, mypy and whitespace checks pass.
+
+Updated [cast](art/babylon-cast.png), [poses](art/babylon-cast-poses.png) and
+[silhouettes](art/babylon-cast-silhouettes.png) show the shipped models.
+The earlier integrated room screenshots remain records of the previous cast pass.
+
+## Young male-presenting Human (2026-10-06)
+
+Replaced the previous Human face, hair and outfit with an original young creative
+orchestrator: longer face/smaller eyes, crooked expression, shaggy falling forelock,
+loose plum overshirt and teal tee. Updated authored listening/attention curves;
+no renderer, navigation or workflow logic changed.
+
+Three focused checks passed: GLB geometry/skins, real elapsed-time movement with
+ambient interruption, and facial/hand gestures with seated attention and shadows.
+Ruff, mypy and whitespace checks pass. Environment and both robot GLBs are verified
+byte-for-byte identical to the previous kit. Cast, directing-pose and silhouette
+captures were refreshed from the actual Babylon renderer. The existing two-round
+workflow result is from the preceding cast pass; this Human-only change did not
+repeat a paid or scripted workflow run.
+# Window Studio production acceptance — 2026-10-06
+
+Implemented the approved Window Studio atmosphere, Open Triangle relationships,
+and Spark Human in the production Babylon GLBs. The existing robot GLBs remain
+byte-identical. Environment authoring is now in `tools/cafe_environment.py`;
+layout, fixed-bench interaction, and collision footprints share
+`tools/cafe_layout.json`. No workflow/backend changes were needed.
+
+Real CLI acceptance used the existing `coding-agent-codex` and
+`reviewer-agent-claude` profiles on an isolated repository at
+`/tmp/zippercrew-window-task`. Codex corrected a clamp function and added six
+tests. Claude inspected the actual files and returned APPROVE with zero findings.
+The browser selected Another round, supplied equal-bounds coverage guidance,
+observed the second implementation/review, and selected Ship it. The final seven
+unittests were independently executed successfully.
+
+Claude's existing read-only adapter intentionally disallows shell execution.
+Its review explicitly disclosed that it had inspected, but not executed, the
+tests. This permission boundary was retained.
+
+Run `6e3cc56a6d214967a995301f2fdb9553` in Room
+`9244c43081ff465897fcb6ae2d466d35` completed after two rounds, with four real
+assistant invocations, 30 observable progress events, 14 protocol sends and 14
+receives. Full local records remain in
+`/tmp/zippercrew-window-live-data/rooms/6e3cc56a6d214967a995301f2fdb9553/`.
+They are not copied into the source repository.
+
+The real browser run produced no page errors, retained the inspector and trace,
+and was inspected at 1440×900, 1366×768, 1280×720, 1200×650 and 1000×600.
+[Production screenshots](art/window-studio-production/completed-real-run.png)
+come from that completed execution, not a visual demo.
+
+Automated verification:
+
+- Non-browser regression suite: 48 passed.
+- Babylon/navigation suite: 9 passed (includes the GLB test also counted above).
+- Two-round production UI/history workflow with scripted participants: passed.
+- Responsive shell, actual canvas picking and Human decision controls: passed.
+- Ruff, mypy and whitespace checks: passed.
+- Every role walked to coffee, brief and window, then returned to the correct
+  seated transform. Frame-by-frame checks found no furniture intersection.
+- Imported furniture vertices are checked against every navigation footprint.
+  Coverage is based on obstacle IDs, not the old decorative scene's vertex count.
+- The fixed bench has a front-entry sit/stand interaction and must never slide.
+  Real work interrupts ambient goals; the workflow never waits for animation.
+- Real cast/received shadow participation, active/idle joint motion, reduced
+  motion and protocol send/receive separation remain covered.

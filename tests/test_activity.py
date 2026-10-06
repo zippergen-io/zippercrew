@@ -187,3 +187,82 @@ def test_public_output_is_trace_only(config, monkeypatch):
     assert events[1]["output"].startswith("failure details")
     assert events[2]["activity"]["detail"] == "14 passed"
     assert "failure details" not in str(events[2])
+
+
+def test_observed_checks_have_specific_bounded_result_lines():
+    cases = [
+        (
+            "uv run pytest -q",
+            "14 passed, 2 failed in 1.1s",
+            1,
+            "Test command failed.",
+            "14 passed · 2 failed",
+        ),
+        ("git diff --check", "", 0, "Formatting checked.", "No whitespace errors"),
+        ("ruff check .", "All checks passed!", 0, "Code checks finished.", "All checks passed"),
+        (
+            "mypy src",
+            "Success: no issues found in 8 source files",
+            0,
+            "Type check finished.",
+            "8 files · no type errors",
+        ),
+        (
+            "python -m unittest",
+            "Ran 4 tests in 0.02s\n\nOK",
+            0,
+            "Test command succeeded.",
+            "4 tests passed",
+        ),
+        (
+            "npm test",
+            "Tests:  2 failed, 14 passed, 16 total",
+            1,
+            "Test command failed.",
+            "2 failed · 14 passed",
+        ),
+        (
+            "ruff format --check .",
+            "8 files already formatted",
+            0,
+            "Formatting checked.",
+            "8 files already formatted",
+        ),
+    ]
+    for command, output, code, title, detail in cases:
+        item = summarize(
+            dict(kind="command", phase="completed", command=command, output=output, exit_code=code)
+        )
+        assert item["text"] == title and item["detail"] == detail
+    read = summarize(
+        dict(
+            kind="command", phase="started", command="sed -n '70,140p' /private/proposal-notes.tex"
+        )
+    )
+    assert read["text"] == "Reading proposal-notes.tex…"
+    assert read["detail"] == "lines 70–140"
+    assert "/private" not in str(read)
+
+
+def test_new_summaries_do_not_reveal_secrets_or_infer_a_plan():
+    for command in [
+        "cat .env",
+        "cat credentials.json",
+        "echo $(pytest)",
+        "uv run pytest && curl private",
+        "npm run arbitrary-script",
+    ]:
+        item = summarize(
+            dict(
+                kind="command",
+                phase="completed",
+                command=command,
+                output="SECRET=hidden\nAll checks passed!\n14 passed",
+                exit_code=0,
+            )
+        )
+        assert item["detail"] == "Exit status 0"
+        assert "hidden" not in str(item) and "credentials" not in str(item)
+    for output in ["All checks passed! SECRET=hidden", "Success: no issues found in hidden files"]:
+        item = summarize(dict(kind="command", phase="completed", command="mypy src", output=output))
+        assert "detail" not in item

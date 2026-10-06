@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZipperCrew · A quieter Corner Café</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f3f1ee; color: #302b32; font-family: system-ui,sans-serif; }
+  main { max-width: 1640px; margin: auto; padding: clamp(20px,4vw,64px); }
+  h1 { font-size: clamp(28px,4vw,48px); margin: 12px 0; }
+  h2 { margin-top: 40px; }
+  p, figcaption { line-height: 1.65; max-width: 90ch; }
+  a { color: #753e77; }
+  nav { display: flex; gap: 12px 24px; flex-wrap: wrap; margin: 28px 0; }
+  .quiet { font-size: 14px; color: #6b616b; }
+  .grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+  img { display: block; width: 100%; height: auto; border-radius: 8px; }
+  figure { margin: 0 0 32px; }
+  figcaption { padding-top: 12px; }
+  section { scroll-margin-top: 20px; }
+  @media(max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <div class="quiet">ZipperCrew · Environment exploration · 6 October 2026</div>
+  <h1>A quieter Corner Café</h1>
+  <p>A clean stage for the cast: no rugs, quiet continuous floors, light desks, compact coffee stations, restrained brief surfaces, and open circulation. Warmth comes from wood, proportion and daylight.</p>
+  <p>The Human uses the approved <strong>B · The Spark</strong> identity with a little softer curl language from C. The orange Implementer and teal Reviewer retain their established designs. These four generated studies explore layouts; production geometry and runtime are unchanged.</p>
+  <nav aria-label="Layout studies"><a href="#01">01 · Open Triangle</a><a href="#02">02 · Window Studio</a><a href="#03">03 · Compact Corner</a><a href="#04">04 · Open Atelier</a><a href="prompts.json">Exact prompts</a></nav>
+  <div class="grid">
+    <figure><a href="#01"><img src="01-open-triangle.png" alt="Open Triangle overview"></a><figcaption>01 · Open Triangle — clearest relationship between the crew.</figcaption></figure>
+    <figure><a href="#02"><img src="02-window-studio.png" alt="Window Studio overview"></a><figcaption>02 · Window Studio — strongest café seating identity.</figcaption></figure>
+    <figure><a href="#03"><img src="03-compact-corner.png" alt="Compact Corner overview"></a><figcaption>03 · Compact Corner — intimate framing, tighter circulation.</figcaption></figure>
+    <figure><a href="#04"><img src="04-open-atelier.png" alt="Open Atelier overview"></a><figcaption>04 · Open Atelier — brief on a divider, more studio-like zoning.</figcaption></figure>
+  </div>
+  <section id="01">
+    <h2>01 · Open Triangle</h2>
+    <figure><a href="01-open-triangle.png"><img loading="lazy" src="01-open-triangle.png" alt="Human at a small round table, Implementer and Reviewer at separate angled desks, low coffee cabinet and side-wall brief."></a>
+      <figcaption><strong>Recommended starting point.</strong> Three distinct work areas communicate across an open center. The thin desk frames and uncluttered floor give the colorful cast room to read. A production version should make the right-hand brief smaller and retain visible routes behind the chairs.</figcaption>
+    </figure>
+  </section>
+  <section id="02">
+    <h2>02 · Window Studio</h2>
+    <figure><a href="02-window-studio.png"><img loading="lazy" src="02-window-studio.png" alt="Human on a simple window bench between perimeter workstations, with a compact recessed coffee nook and narrow side brief."></a>
+      <figcaption>The window bench gives the Human a natural café position without lounge decoration. The coffee nook is compact and legible. This camera is lower and crops the workstation edges: raise it modestly for the live room so movement routes and interaction points remain inspectable.</figcaption>
+    </figure>
+  </section>
+  <section id="03">
+    <h2>03 · Compact Corner</h2>
+    <figure><a href="03-compact-corner.png"><img loading="lazy" src="03-compact-corner.png" alt="Human seated at a small left-hand table, Implementer behind, Reviewer consulting a tablet beside a foreground workstation."></a>
+      <figcaption>The closest, most conversational composition. Faces and characteristic poses dominate. Its tighter footprint would need more clearance behind the Reviewer chair, and the brief could be reduced further. Best as a character-framing study, less strong as the default navigation layout.</figcaption>
+    </figure>
+  </section>
+  <section id="04">
+    <h2>04 · Open Atelier</h2>
+    <figure><a href="04-open-atelier.png"><img loading="lazy" src="04-open-atelier.png" alt="Staggered workstations with a shared brief on a low divider, compact coffee area behind, and Human at a small right-hand table."></a>
+      <figcaption>The brief becomes a collaborative surface rather than a teaching wall. The divider provides clear zones, but adds visual mass and risks a cubicle-like atmosphere. Keep dividers shorter or remove one if taking this direction forward.</figcaption>
+    </figure>
+  </section>
+  <h2>What to carry forward</h2>
+  <p>Start with 01's open circulation and crew triangle. Consider 02's simple bench as an alternative Human station. Retain a plain pale floor, slender pale-wood desks, one compact espresso station, and one understated brief. Keep the Human's expressive hair, plum layers and notebook gesture as the emotional focus.</p>
+  <p class="quiet">Built-in image generation; exact prompts and source-output filenames are recorded in prompts.json. These are visual concepts, not validated meshes, collision plans or Babylon screenshots. Generated materials are somewhat richer than the intended runtime kit; simplify grain, upholstery seams and lighting detail when authoring game assets. No production assets, assistant profiles or workflow semantics were changed.</p>
+</main>
+</html>

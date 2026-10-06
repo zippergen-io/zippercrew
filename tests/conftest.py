@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import urllib.error
@@ -75,5 +76,8 @@ def browser_timing(request, monkeypatch):
 
         # Keep transient scripted phases observable on busy development machines.
         # This affects only fake participants; real CLI execution is never delayed.
-        monkeypatch.setenv("ZIPPERCREW_DEMO_TURN_SECONDS", "3")
+        monkeypatch.setenv(
+            "ZIPPERCREW_DEMO_TURN_SECONDS",
+            "12" if os.environ.get("ZIPPERCREW_SCREENSHOTS") else "3",
+        )
         expect.set_options(timeout=20000)

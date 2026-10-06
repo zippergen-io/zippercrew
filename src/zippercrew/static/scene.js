@@ -1,6 +1,6 @@
 import { ROLES, launchRoom } from '/room-engine.js';
 
-// Thin boundary between runtime snapshots, accessible DOM controls, and Phaser.
+// Thin boundary between runtime snapshots, accessible DOM controls, and Babylon.
 export const PROCESS = {
   id: 'pair_programming',
   name: 'Pair Programming',
@@ -32,12 +32,12 @@ export function createScene(container, onSelect) {
   root.id = 'room-art';
   root.dataset.ready = 'false';
   const host = document.createElement('div');
-  host.id = 'phaser-host';
+  host.id = 'room-host';
   const controls = document.createElement('div');
   controls.className = 'scene-controls';
   const loading = document.createElement('span');
   loading.className = 'scene-loading';
-  loading.textContent = 'Setting the table…';
+  loading.textContent = 'Loading Corner Café…';
   root.append(host, controls, loading);
   container.replaceChildren(root);
   for (const role of ROLES) {

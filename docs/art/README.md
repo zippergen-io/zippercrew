@@ -1,6 +1,20 @@
-# Corner Café production assets
+# Corner Café art history
 
-The production room now uses the approved **grounded café + stylized agent cast**
+Latest direction studies:
+
+- [Human concepts](human-lookdev-2026-10-06/index.html): **B · The Spark** is the
+  selected Human basis, with a little softer curl language from C. The orange
+  Implementer and teal Reviewer retain their current identities.
+- [Minimal café layouts](minimal-cafe-lookdev-2026-10-06/index.html): four cleaner,
+  rug-free environment concepts with the selected cast. **02 Window Studio +
+  01 Open Triangle** now guide the production GLBs; see the
+  [production capture](window-studio-production/completed-real-run.png).
+
+The current Babylon room uses an original stylized 3D asset kit. See
+[Babylon art direction and asset source](babylon-cafe.md). The raster assets and
+pose sheets below are retained as historical references, not loaded by the Room.
+
+The previous Phaser room used the approved **grounded café + stylized agent cast**
 direction. Original assets were derived with the built-in image-generation tool on
 2026-10-05 from the approved [environment and persona studies](lookdev-2026-10-05/README.md).
 The Human remains human; Implementer and Reviewer are distinct robot personas.

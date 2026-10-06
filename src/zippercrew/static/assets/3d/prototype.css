@@ -1,0 +1,42 @@
+body {
+  margin: 0;
+  background: #91aab3;
+  font: 14px system-ui;
+}
+#world {
+  position: absolute;
+  inset: 0;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+nav {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  gap: 10px;
+  background: #203444da;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 9px;
+}
+button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.work-bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 10px;
+  background: white;
+  border-radius: 10px;
+}
+.work-bubble span {
+  display: block;
+  font-size: 12px;
+}

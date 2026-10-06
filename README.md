@@ -1,7 +1,7 @@
 # ZipperCrew
 
 Assemble two CLI coding agents, give them a task, and watch their communication
-process in a character-driven 2.5D café. The Implementer edits your repository; an
+process in a stylized real-time 3D café. The Implementer edits your repository; an
 independent, read-only Reviewer examines the actual files. You decide when to
 ship, ask for another round with optional guidance, or let review drive the loop.
 
@@ -19,9 +19,10 @@ uv sync
 uv run zippercrew
 ```
 
-Open http://127.0.0.1:8765. The production Corner Café uses the approved grounded
-interior, coral Implementer robot, teal Reviewer robot, and plum-accented Human
-([art and pose sheets](docs/art/README.md)). You are already in the room:
+Open http://127.0.0.1:8765. Corner Café is a stylized 3D level with a coral
+Implementer robot, teal Reviewer robot, and plum-accented Human. The original
+first-pass GLB kit replaces the previous rendered café
+([current art and prototype notes](docs/art/babylon-cafe.md)). You are already in the room:
 
 1. Click the **Implementer** and **Reviewer** stations to choose saved assistant
    profiles, or **Create a profile**. Each seat has its own persistent conversation.
@@ -81,7 +82,8 @@ Reviewers can run verification commands within the CLI's read-only sandbox.
 
 ## Development
 
-The room uses Phaser Canvas with locally packaged café and character assets.
+The room uses Babylon.js with locally packaged GLB café assets and rigged characters.
+A WebGL-capable browser is required. No remote asset requests are made.
 The surrounding UI is plain JavaScript and CSS. `uv sync` is sufficient; no npm
 install, frontend build, or external asset service is required. See the
 [scene notes](docs/room-experience.md) for the isolated visual preview.

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZipperCrew · Human exploration</title>
+<style>
+  :root { color-scheme: light; font-family: system-ui, sans-serif; color: #262333; background: #f1efed; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  main { max-width: 1560px; padding: clamp(18px, 4vw, 64px); margin: auto; }
+  h1 { font-size: clamp(28px, 4vw, 48px); margin-bottom: 12px; }
+  h2 { margin-top: 48px; }
+  p { max-width: 78ch; line-height: 1.65; }
+  a { color: #6b3373; }
+  nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 24px 0; }
+  figure { margin: 28px 0 40px; }
+  img { width: 100%; height: auto; display: block; border-radius: 10px; background: #ddd; }
+  figcaption { line-height: 1.6; padding: 14px 0; max-width: 95ch; }
+  .tag { font-size: 13px; color: #625969; }
+  section { scroll-margin-top: 20px; }
+  .comparison { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+  @media (max-width: 850px) { .comparison { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <div class="tag">ZipperCrew · Art exploration · 6 October 2026</div>
+  <h1>The Human as creative orchestrator</h1>
+  <p>Four original young male-presenting directions, each with neutral, orchestrating, seated-at-laptop, expressive idle, and silhouette views. The references inform hair, clothing energy and playful warmth, without copying a face, costume or existing character.</p>
+  <p><strong>Recommendation: B · The Spark.</strong> Its irregular hair, uneven overshirt and notebook gesture best combine an attentive orchestrator with mischievous energy. C offers a calmer, more welcoming alternative.</p>
+  <nav aria-label="Concepts"><a href="#a">A · Improviser</a><a href="#b">B · Spark</a><a href="#c">C · Listener</a><a href="#d">D · Offbeat</a><a href="#cast">Cast comparisons</a><a href="prompts.json">Generation prompts</a></nav>
+  <section id="a">
+    <h2>A · The Improviser</h2>
+    <figure><a href="a-improviser.png"><img src="a-improviser.png" alt="Improviser: sculpted chestnut curls, plum jacket, saffron knit and teal folio, shown in four poses and silhouette."></a>
+    <figcaption>Layered creative-musician direction. Rounded curls and open hands are welcoming; the short jacket and tidy overall shape remain the most conventional of the four. A useful restrained baseline.</figcaption></figure>
+  </section>
+  <section id="b">
+    <h2>B · The Spark</h2>
+    <figure><a href="b-spark.png"><img loading="lazy" src="b-spark.png" alt="Spark: wild asymmetric copper hair, mismatched rolled sleeves, uneven plum overshirt, notebook and high-tops in four poses plus silhouette."></a>
+    <figcaption><strong>Preferred direction.</strong> The swept shag, stray curls and uneven shirttail give the strongest unruly silhouette. The raised brow and notebook gesture suggest an idea arriving while listening. This revised sheet replaces an earlier, too-similar short-jacket version. For a game model, consolidate flyaways and shoe details into durable, readable forms.</figcaption></figure>
+  </section>
+  <section id="c">
+    <h2>C · The Ensemble Listener</h2>
+    <figure><a href="c-listener.png"><img loading="lazy" src="c-listener.png" alt="Ensemble Listener: looping copper curls, long plum cardigan with mismatched cuffs and digital folio, in four poses plus silhouette."></a>
+    <figcaption>Balanced orchestrator. The looping curl and long cardigan distinguish the silhouette; an open folio and palm-up gesture convey listening. Warmest alternative, with less mischief. Simplify the knit texture and small curls for the existing game materials.</figcaption></figure>
+  </section>
+  <section id="d">
+    <h2>D · The Offbeat</h2>
+    <figure><a href="d-offbeat.png"><img loading="lazy" src="d-offbeat.png" alt="Offbeat: large swept copper hair, boxy plum gilet, striped sleeves, wide trousers and ochre mini-laptop in four poses plus silhouette."></a>
+    <figcaption>Bolder graphic interpretation. Broad folded hair, a boxy gilet and wide trousers produce a strong shape at distance. The portable computer is distinctive, but the swept hairstyle reads more deliberately styled than spontaneous.</figcaption></figure>
+  </section>
+  <section id="cast">
+    <h2>The strongest two with the crew</h2>
+    <p>Concept edits use the current orange Implementer and teal Reviewer as the reference, retaining their designs. These are generated cast studies, not Babylon screenshots or pixel-identical robot renders. B includes a second scale pass to bring the Human into a more equal relationship with the robots.</p>
+    <div class="comparison">
+      <figure><a href="b-cast.png"><img loading="lazy" src="b-cast.png" alt="Spark Human with the existing orange Implementer and teal Reviewer."></a><figcaption><strong>B:</strong> expressive organic silhouette against the two mechanical silhouettes. Strongest overall cast identity.</figcaption></figure>
+      <figure><a href="c-cast.png"><img loading="lazy" src="c-cast.png" alt="Ensemble Listener Human with the existing orange Implementer and teal Reviewer."></a><figcaption><strong>C:</strong> relaxed warmth and clear listening gesture. Softer personality; the tall curl adds some height to the trio.</figcaption></figure>
+    </div>
+  </section>
+  <p class="tag">Created using built-in image generation. Production GLBs, animation, renderer and workflow were not changed in this exploration. Silhouette views are concept studies; exact mesh silhouettes and seated deformation will need validation when a direction is modeled.</p>
+</main>
+</html>

@@ -2,9 +2,9 @@
  * Nothing here emits a workflow event or enables a process action. */
 const AMBIENT_STATES = new Set(['ready', 'waiting', 'completed']);
 const ACTIONS = {
-  Implementer: ['stretch', 'coffee', 'monitor', 'board'],
-  Reviewer: ['tablet', 'board', 'coffee'],
-  Human: ['phone', 'look-around', 'coffee', 'window'],
+  Implementer: ['stretch', 'coffee', 'monitor', 'board', 'look-around'],
+  Reviewer: ['tablet', 'board', 'coffee', 'skeptical', 'sit'],
+  Human: ['phone', 'look-around', 'coffee', 'window', 'laptop', 'board'],
 };
 export class AmbientDirector {
   constructor(random = Math.random) {
@@ -23,19 +23,19 @@ export class AmbientDirector {
     if (!AMBIENT_STATES.has(state) || reduced) { this.cancel(role); return null; }
     if (!p || p.state !== state) {
       this.cancel(role);
-      p = { state, due: now + this.pause(25000, 30000), action: null, previous: null, lastAction: now };
+      p = { state, due: now + this.pause(18000, 26000), action: null, previous: null, lastAction: now };
       this.people.set(role, p);
     }
     if (p.action && now >= p.until) {
       if (p.resource) this.reservations.delete(p.resource);
       p.action = null;
       p.resource = null;
-      p.due = now + this.pause(45000, 75000);
+      p.due = now + this.pause(30000, 50000);
     }
     if (!p.action && now >= p.due) {
-      p.due = now + this.pause(35000, 55000);
+      p.due = now + this.pause(25000, 40000);
       // Ordinary stillness is intentionally the most frequent outcome.
-      if (this.random() < 0.65 && now - p.lastAction < 150000) return null;
+      if (this.random() < 0.65 && now - p.lastAction < 100000) return null;
       const choices = (ACTIONS[role] || ['look-around']).filter(a => a !== p.previous);
       const action = choices[Math.floor(this.random() * choices.length)];
       const resource = ['coffee', 'board', 'window'].includes(action)
