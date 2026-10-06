@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e8e4dd">
+  <title>The studio · ZipperCrew</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%236d8795'/%3E%3Cpath d='M9 10h14v4H13v4h10v4H9v-8h10v-1H9z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script src="../../src/zippercrew/static/vendor/phaser-3.90.0.min.js" defer></script>
+  <script src="app.js" type="module"></script>
+</head>
+<body>
+  <svg class="icon-definitions" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+    <symbol id="i-studio" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><path d="M14 15h6m-6 4h6"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m3 9v-2a6 6 0 0 0-2-4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.5A9 9 0 0 1 9.5 3.5a9 9 0 1 0 11 11Z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-9 9M8 4H4v16h16v-4"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6m3-4v6l4 2"/></symbol>
+  </defs></svg>
+  <main class="workspace" aria-label="The studio workspace">
+    <div class="scene-scroll" id="scene-scroll"><div id="game" role="application" aria-label="Pixel office. Click an agent or desk to inspect it. Click the floor or use arrow keys or W A S D to walk. The People button also lets you select an agent with the keyboard." tabindex="0"></div></div>
+  </main>
+  <header class="corner-bar studio-bar">
+    <span class="brand-mark"><svg class="icon"><use href="#i-studio"/></svg></span>
+    <h1>The studio</h1><span class="brand-caption">ZipperCrew</span>
+  </header>
+  <nav class="corner-bar controls-bar" aria-label="Studio controls">
+    <button id="people-toggle" class="people-toggle" aria-label="People in the studio, 4 present" aria-expanded="false" aria-controls="people-popover"><svg class="icon"><use href="#i-people"/></svg><span>4</span><span class="presence-dot"></span></button>
+    <span class="divider"></span>
+    <div class="mood-switch" role="group" aria-label="Office mood">
+      <button data-mood-choice="day" aria-label="Day mode" title="Day mode" aria-pressed="true"><svg class="icon"><use href="#i-sun"/></svg></button>
+      <button data-mood-choice="night" aria-label="Night mode" title="Night mode" aria-pressed="false"><svg class="icon"><use href="#i-moon"/></svg></button>
+    </div>
+    <span class="divider"></span>
+    <button id="menu-toggle" class="icon-button" aria-label="Studio menu" title="Studio menu" aria-expanded="false" aria-controls="studio-menu"><svg class="icon"><use href="#i-more"/></svg></button>
+  </nav>
+  <section id="people-popover" class="popover people-popover" aria-label="People in the studio" hidden>
+    <div class="popover-heading"><strong>In the studio</strong><span>3 agents + you</span></div><div class="crew" id="crew"></div>
+  </section>
+  <section id="studio-menu" class="popover studio-menu" aria-label="Studio menu" hidden>
+    <div class="popover-heading"><strong>Your studio</strong></div>
+    <button id="sit" class="menu-item" aria-pressed="false">Take a seat</button>
+    <button id="pause" class="menu-item" aria-pressed="false"><span id="pause-icon" aria-hidden="true">Ⅱ</span><span id="pause-label">Pause activity</span></button>
+    <button id="show-history" class="menu-item"><svg class="icon"><use href="#i-history"/></svg>Recent activity</button>
+    <div class="menu-help"><span>Move</span><span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span><span>or WASD</span></div>
+    <p class="preview-note">Preview workspace · scripted activity</p>
+  </section>
+  <div class="status-pill" role="status"><span class="presence-dot"></span><span id="scene-state">A little focus, a little company</span></div>
+  <p class="world-hint" id="world-hint">Click an agent or a desk to explore<span> · </span>Click the floor to walk</p>
+  <div class="zoom-controls corner-bar" role="group" aria-label="Office zoom"><button id="zoom-out" aria-label="Zoom out">−</button><button id="fit" title="Fit office to view">Fit</button><button id="zoom-in" aria-label="Zoom in">+</button></div>
+  <section class="context-card person-card" id="person-card" role="dialog" aria-labelledby="person-name" aria-describedby="person-description" hidden>
+    <button id="close-person" class="icon-button close-card" aria-label="Close character details"><svg class="icon"><use href="#i-close"/></svg></button>
+    <div class="person-heading"><canvas id="person-portrait" width="32" height="36" aria-hidden="true"></canvas><div><h2 id="person-name"></h2><p id="person-role" class="role-label"></p></div></div>
+    <p id="person-description" class="description"></p>
+    <div class="person-activity"><span class="presence-dot"></span><span id="person-activity"></span></div>
+    <button class="focus-task" id="person-task"><span class="field-label">Current focus</span><span class="task-link"><span id="person-task-title"></span><svg class="icon"><use href="#i-arrow"/></svg></span></button>
+    <button class="primary-action" id="walk-over">Walk over<svg class="icon"><use href="#i-arrow"/></svg></button>
+  </section>
+  <section class="context-card task-card" id="task-card" role="dialog" aria-labelledby="task-title" hidden>
+    <button id="close-task" class="icon-button close-card" aria-label="Close desk details"><svg class="icon"><use href="#i-close"/></svg></button>
+    <p class="card-location" id="task-location"></p><span class="task-state" id="task-state"></span>
+    <h2 id="task-title"></h2><p id="task-summary" class="description"></p>
+    <button id="task-owner" class="task-owner"></button>
+    <button class="primary-action" id="expand-task">Open task<svg class="icon"><use href="#i-expand"/></svg></button>
+  </section>
+  <dialog id="detail-dialog" class="detail-window" aria-labelledby="detail-title">
+    <div class="window-heading"><span id="detail-kind" class="field-label"></span><button id="close-detail" class="icon-button" aria-label="Close window"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="window-content"><h2 id="detail-title"></h2><p id="detail-description" class="description"></p><div id="detail-body"></div></div>
+    <div class="window-footer"><span id="detail-note"></span><button id="back-to-office" class="secondary-action">Back to the office</button></div>
+  </dialog>
+</body>
+</html>
