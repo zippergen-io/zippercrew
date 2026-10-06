@@ -1,0 +1,22 @@
+{
+  "renderer": "Babylon.js 9.15.0",
+  "browser": "Playwright Chromium",
+  "status": "passed",
+  "triangles": 49802,
+  "meshes": 149,
+  "pageErrors": [],
+  "checks": [
+    "outward custom-mesh normals",
+    "perspective camera and shared cast/received shadows",
+    "live changes in all three character poses",
+    "visual arrival does not create receive",
+    "receive interrupts ambient travel immediately",
+    "all three interaction routes and returns",
+    "no furniture or participant overlap during sampled movement",
+    "adjacent Human decisions",
+    "pause preserves poses",
+    "authoritative receive before visual arrival",
+    "compact viewport without horizontal overflow",
+    "reduced motion starts paused with valid poses"
+  ]
+}

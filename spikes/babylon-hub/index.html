@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZipperCrew · Hub study</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="../../src/zippercrew/static/vendor/babylon-9.15.0.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header><a class="brand" href="./">Zipper<span>Crew</span><i></i></a><div class="breadcrumb">Visual lab <span>/</span> The little ensemble</div><span class="badge">BABYLON · LIVE 3D</span></header>
+  <main>
+    <section class="room" aria-label="Animated three-dimensional Hub">
+      <div class="room-heading"><div><span class="eyebrow">PAIR PROGRAMMING</span><h1>A little room. A real crew.</h1></div><div class="room-chip"><i></i> Hub <span>3 participants</span></div></div>
+      <div id="viewport"><canvas id="world" aria-label="3D crew: Human, Implementer and Reviewer. Select a character or use the buttons below."></canvas><div id="overlays" aria-hidden="true"><div id="activity" class="activity"><span>LOCAL ACTIVITY</span><strong>Running tests…</strong><small>14 passed · 2 failed</small></div><div id="packet-label" class="packet-label">Proposal <span>Implementer → Reviewer</span></div><div id="arrival" class="arrival">Proposal waiting</div></div><div id="loading">Opening the Hub…</div></div>
+      <div class="room-footer"><span><i></i> <span id="scene-status">The crew is settling in</span></span><button id="camera">Reset view</button><button id="pause" aria-pressed="false">Pause motion</button></div>
+    </section>
+    <aside>
+      <span class="eyebrow">THE ENSEMBLE</span><h2>Different minds.<br>Shared momentum.</h2><p class="intro">A live character study. Select a crewmate, watch them work, or let the room get quiet.</p>
+      <div class="cast" aria-label="Select a participant"><button data-person="human" class="person selected"><i class="human"></i><span><strong>Human</strong><small>Creative orchestrator</small></span><b>01</b></button><button data-person="implementer" class="person"><i class="implementer"></i><span><strong>Implementer</strong><small>Quick hands, curious mind</small></span><b>02</b></button><button data-person="reviewer" class="person"><i class="reviewer"></i><span><strong>Reviewer</strong><small>A considered second look</small></span><b>03</b></button></div>
+      <div class="selection"><span id="selected-name">Human</span><p id="selected-description">Sculptural hair, generous hands, an uneven overshirt. Observes, listens, and brings the ensemble together.</p><button id="walk">Take a short break ↗</button></div>
+      <div class="playback"><span class="eyebrow">TRY THE ROOM</span><button id="work" class="primary">Watch them work <span>↗</span></button><button id="quiet">Quiet moment <span>☕</span></button><button id="send">Send a Proposal <span>→</span></button><button id="receive" disabled>Receive Proposal <span>↓</span></button><button id="attention">Ask the Human <span>◎</span></button></div>
+      <div id="decision" hidden><strong>Your call</strong><p>The crew is ready for your direction.</p><div><button data-decision="Ship it">Ship it</button><button data-decision="Another round">Another round</button><button data-decision="Abandon">Abandon</button></div></div>
+      <div class="trace"><div><span class="eyebrow">HANDOFF</span><span class="demo-label">Scripted demo</span></div><ol id="events"><li>No protocol message yet</li></ol><p>Travel is visual. Only a receive event starts review.</p></div>
+    </aside>
+  </main>
+  <footer><span><b>01</b> / HYBRID HUB STUDY</span><span>Three body grammars. One world.</span><span>Drag gently to inspect · wheel to adjust</span></footer>
+</body>
+</html>
