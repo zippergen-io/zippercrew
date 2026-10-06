@@ -24,7 +24,7 @@ where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-zippercrew = ["static/*", "static/vendor/*", "static/assets/dollhouse/*", "static/assets/brand/*"]
+zippercrew = ["static/*", "static/office/*", "static/vendor/*", "static/assets/dollhouse/*", "static/assets/brand/*"]
 
 [tool.setuptools.exclude-package-data]
 zippercrew = ["static/assets/characters/*", "static/assets/corner-cafe/*", "static/assets/3d/*", "static/babylon-room.js", "static/vendor/babylon*", "static/vendor/BABYLON-LICENSE.txt"]

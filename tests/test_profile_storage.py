@@ -5,6 +5,7 @@ import select
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from conftest import request
@@ -40,7 +41,9 @@ def test_cli_saves_profiles_outside_launch_directory(tmp_path, explicit_project)
         assert select.select([process.stdout], [], [], 10)[0], "Server did not start"
         startup = process.stdout.readline()
         assert "http://127.0.0.1:" in startup, startup
-        base = startup.split(" — ", 1)[1].strip()
+        advertised = urlsplit(startup.split(" — ", 1)[1].strip())
+        assert advertised.path == "/office/"
+        base = f"{advertised.scheme}://{advertised.netloc}"
         status, bootstrap = request(base, "/api/bootstrap")
         assert status == 200 and bootstrap["project"] == str(selected.resolve())
         status, _ = request(

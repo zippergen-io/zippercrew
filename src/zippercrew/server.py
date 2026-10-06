@@ -144,7 +144,15 @@ class Handler(BaseHTTPRequestHandler):
                     "/style.css": ("style.css", "text/css; charset=utf-8"),
                 }[path]
                 self.reply(200, (STATIC / name).read_bytes(), mime)
-            elif path.startswith(("/assets/", "/vendor/")):
+            elif path in {"/office", "/office/"}:
+                if path == "/office":
+                    self.send_response(302)
+                    self.send_header("Location", "/office/")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                self.reply(200, (STATIC / "office/index.html").read_bytes(), "text/html")
+            elif path.startswith(("/assets/", "/vendor/", "/office/")):
                 target = (STATIC / path.lstrip("/")).resolve()
                 if not target.is_relative_to(STATIC.resolve()) or not target.is_file():
                     self.reply(404, {"error": "Asset not found"})
@@ -343,7 +351,7 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, interrupt)
     print(
-        f"ZipperCrew{' · DEMO' if args.demo else ''} — http://127.0.0.1:{app.server_port}",
+        f"ZipperCrew{' · DEMO' if args.demo else ''} — http://127.0.0.1:{app.server_port}/office/",
         flush=True,
     )
     try:

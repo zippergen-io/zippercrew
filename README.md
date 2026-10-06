@@ -19,6 +19,35 @@ uv sync
 uv run zippercrew
 ```
 
+Open **http://127.0.0.1:8765/office/** for the pixel office. The world stays full-screen;
+setup, task messages, and decisions open in small modern windows.
+
+1. Choose **New room** (or **⋯ → Rooms → New room**).
+2. Enter a room name, repository path, and task. Choose a Worker and Reviewer.
+   Existing profiles are available; selecting default Codex or Claude creates a
+   reusable profile when you save. Authenticate the chosen CLI beforehand.
+3. Optionally add separate role instructions under **Agent instructions & options**.
+4. Choose **Start task**. Worker edits the repository; Reviewer checks it read-only.
+   The **Task** button or any desk opens progress, messages, and **Stop run**.
+5. When **Your decision** appears, open it to ship, request another round, or abandon.
+   **Ship it** finishes the process; it does not commit or push.
+
+**Save room** saves setup without launching agents. **⋯ → Rooms** reopens saved rooms;
+**⋯ → Run history** opens previous runs read-only. Closing a window or switching rooms
+does not stop a run. To edit a task after completion, choose **Edit task & run again**.
+The live crew is Worker, Reviewer, and you; Planner is not part of this workflow yet.
+Day/night lighting, movement, and seating use the approved pixel-office artwork.
+Agent states and work bubbles follow backend events, with no scripted work fallback.
+
+The original visual-only preview remains in `spikes/pixel-office/`. The packaged live
+client lives in `src/zippercrew/static/office/`; it uses the existing Room/Run API and
+SSE stream. No orchestration or backend permissions were changed.
+
+## Classic view and advanced settings
+
+The earlier interface is still available at http://127.0.0.1:8765. Its profile
+management, model overrides, and detailed inspectors remain available:
+
 Open http://127.0.0.1:8765. The Room is a clean, dollhouse-like studio with a
 red rabbit Implementer, pale green paper Reviewer, and the refined Patchwork Cue
 Human orchestrator. The approved Linked Studio, purposeful ambient routines, and
