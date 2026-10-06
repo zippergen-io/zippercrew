@@ -70,7 +70,11 @@ def test_real_walking_never_crosses_furniture_and_seating_has_front_entry(servic
                     """({role,destination})=>{
                   const s=room.scene,p=s.people.get(role),now=performance.now();
                   s.transition(p,'waiting');s.ambient.step(role,'waiting',now);
-                  Object.assign(s.ambient.people.get(role),{action:destination,until:now+90000});
+                  // Pin the fixture's chosen destination for the whole walk;
+                  // the production scheduler now also uses due for rotation.
+                  Object.assign(s.ambient.people.get(role),{
+                    action:destination,until:now+90000,due:now+90000
+                  });
                   s.ambientAction(p,destination);
                 }""",
                     {"role": role, "destination": destination},

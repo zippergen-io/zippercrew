@@ -354,3 +354,93 @@ Automated verification:
   Real work interrupts ambient goals; the workflow never waits for animation.
 - Real cast/received shadow participation, active/idle joint motion, reduced
   motion and protocol send/receive separation remain covered.
+
+# Inhabited miniature world / Phaser migration — 2026-10-06
+
+Preserved the complete working Babylon state in commit `078f566` and tag
+`archive/babylon-window-studio-2026-10-06` before changing the renderer. The
+production page now uses Phaser Canvas and a new authored illustrated PNG kit.
+No old pseudo-3D café renderer was restored. ZipperGen was not modified.
+
+The real acceptance run used `coding-agent-codex` and `reviewer-agent-claude`
+in `/tmp/zippercrew-dollhouse-task`. Codex fixed `slug(text)` to normalize
+whitespace and preserve punctuation, and added standard-library tests. Claude
+reviewed the actual source with its existing read-only adapter. The browser
+selected Another round and supplied non-breaking-space coverage guidance, then
+selected Ship it after the second review. Both rounds retained the separate
+assistant sessions. The five resulting unittests pass independently. Claude
+explicitly disclosed that it reviewed the tests without executing shell commands.
+
+Room: `a944fac895344f6e995e5309b89572c2`.
+Run: `2b2f0afd8a6b427f900204c15c7fcaa4` — completed, two rounds.
+The journal has four assistant invocations, 26 observable progress events, ten
+observed tool-output records, and the original send/receive event history.
+Full local records remain under `/tmp/zippercrew-dollhouse-live/`; they were not
+copied into the repository. [Screenshots](art/dollhouse-production/README.md)
+show the production page during that execution. Reopening the completed run,
+selecting Reviewer, and opening its trace produced no browser page errors.
+
+Validation:
+
+- 49 non-browser tests passed; Ruff and mypy passed.
+- Production browser coverage passed for two-round continuity, automatic mode,
+  reduced motion, stop, profile creation/model/effort, safe inspector messages,
+  real send/receive presentation, ambient preemption, history, Room management,
+  autosave and responsive shell. Renderer-name/asset-failure checks were updated
+  from Babylon/GLB to Phaser/PNG and rerun successfully.
+- New asset checks verify RGBA sprite sheets and every atlas frame's bounds.
+- New navigation checks cover every pair of seat/rest/approach/shared destinations
+  for 3, 5 and 8 roles and reject goals inside furniture. These caught and fixed
+  two approach/rest points too close to inflated furniture footprints.
+- The eight-role production-renderer harness keeps the three-role character
+  scale and brings an annex participant into view. This tests rendering only;
+  no eight-agent workflow has been added.
+- Every role's ambient coffee movement yields immediately to real semantic work;
+  active poses use different authored frames, not just changed state strings.
+- The actual shell was exercised at 1440×900, 1366×768, 1280×720, 1200×650,
+  1000×600, wide desktop, short and narrow layouts. Controls remain reachable;
+  Canvas buffer size and DOM/Canvas selection remain aligned.
+- A clean wheel contains all eleven dollhouse PNG/JSON files and Phaser, with
+  Babylon modules, engines and GLBs excluded. No npm build or runtime downloads.
+
+The atlas has a compact eight-pose vocabulary per role. Additional in-between
+frames can improve fluidity later without changing semantics or room layout.
+
+## Linked Studio / Patchwork Cue production integration — 2026-10-06
+
+The production Phaser renderer now loads the approved integration package's
+`linked-studio-background.png` and `cast-atlas.png` under versioned production
+asset names. PNG contents are byte-identical to the approved package; no new
+character generation or environment exploration was performed. Human has the
+approved neutral and orchestrating frames, and the agents retain their approved
+characteristic artwork.
+
+Ambient policy now starts an occupied local routine immediately, changes it on a
+varied 10–19 second cadence, and mixes in 21–30 second excursions. Role libraries
+cover listening/notes, tool/sketch/paper activity, thinking, window/board visits,
+coffee and short pacing. Action history prevents immediate repetition. Shared
+path reservations and yielding also cover the return home. Actual task states
+and observed communication interrupt these routines; cosmetic arrival still
+cannot acknowledge a protocol message. Reduced motion suppresses these routines.
+
+Validation:
+
+- Full test run: 78 passed; one archived navigation fixture failed because its
+  manually forced action did not pin the new scheduler's rotation deadline.
+  After pinning that fixture's deadline, its original collision/seating assertions
+  pass. The focused rerun passed all 10 tests, including the new scaled-occlusion
+  regression, approved-source identity, ten-minute ambient coverage, navigation
+  at 3/5/8 participants, task preemption and real send/receive semantics.
+- Corrected a Canvas mask/container-transform bug found in real app screenshots.
+  The regression checks visible Reviewer feet and table-over-Implementer pixels.
+- Real app screenshots show the approved studio, live brief, ambient labels and
+  participants moving between local destinations, without browser page errors.
+- Ruff and mypy pass. Offline source/wheel builds pass. Wheel inspection verifies
+  that all three new production assets are included with unchanged contents.
+- Capture assets are in `art/linked-studio-production-2026-10-06/`. Demo captures
+  use isolated data and scripted agents; they do not run a real coding assistant.
+
+The animation remains lightweight 2D: approved poses, foot-anchor travel,
+restrained gestures, Human blinks and a lifted mug. It does not claim a complete
+skeletal animation rig. State labels, activity bubbles and protocol cards remain
+separate from these cosmetic motions.

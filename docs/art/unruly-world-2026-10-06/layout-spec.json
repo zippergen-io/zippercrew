@@ -1,0 +1,497 @@
+{
+  "design": "Linked Studio",
+  "version": 1,
+  "status": "Design specification; not connected to runtime",
+  "units": "1x authored pixels",
+  "roomSize": {
+    "width": 960,
+    "height": 640
+  },
+  "characterHeights": {
+    "human": 200,
+    "implementer": 172,
+    "reviewer": 172
+  },
+  "capacityPerRoom": 3,
+  "layers": [
+    "shell",
+    "backWallProps",
+    "furnitureSortedByFootY",
+    "charactersSortedByFootY",
+    "protocolObjects",
+    "localActivityDOM",
+    "namesStatusDOM",
+    "navigationDOM"
+  ],
+  "regions": {
+    "wall": {
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 410
+    },
+    "floor": {
+      "x": 0,
+      "y": 410,
+      "w": 960,
+      "h": 230
+    },
+    "protocolBand": {
+      "x": 24,
+      "y": 190,
+      "w": 912,
+      "h": 74
+    },
+    "bubbleBand": {
+      "x": 30,
+      "y": 280,
+      "w": 900,
+      "h": 70
+    },
+    "walkStrip": {
+      "x": 30,
+      "y": 596,
+      "w": 900,
+      "h": 30
+    }
+  },
+  "overlayRules": {
+    "bubble": {
+      "maxWidth": 160,
+      "maxHeight": 54,
+      "preferredTop": 280,
+      "style": "rounded white local activity label; no sequence or receipt status"
+    },
+    "card": {
+      "width": 120,
+      "height": 56,
+      "laneY": 226,
+      "style": "cream folded paper; real label, sequence and authoritative status",
+      "activePerRoom": 2
+    },
+    "label": {
+      "offsetY": 24,
+      "maxWidth": 160
+    },
+    "messageDock": {
+      "offsetX": 65,
+      "offsetY": -85
+    },
+    "escapeStem": {
+      "offsetX": 110
+    },
+    "ports": {
+      "left": [
+        24,
+        226
+      ],
+      "right": [
+        936,
+        226
+      ]
+    }
+  },
+  "camera": {
+    "roomZoom": 1,
+    "crewCountChangesZoom": false,
+    "smallViewport": "Crop / pan inside room before reducing character size. Below 640px show one room and maintain readable sprite height.",
+    "navigation": "Explicit room tabs, role roster, neighbor doorway; at most two rooms on very wide screens.",
+    "fitAllMode": "Topology diagram only; no miniature character camera view."
+  },
+  "roomTypes": {
+    "hub": {
+      "anchors": [
+        [
+          170,
+          565
+        ],
+        [
+          465,
+          550
+        ],
+        [
+          790,
+          565
+        ]
+      ],
+      "kinds": [
+        "make",
+        "coordinate",
+        "inspect"
+      ],
+      "walkBounds": {
+        "left": 30,
+        "right": 930,
+        "top": 455,
+        "bottom": 626
+      },
+      "obstacles": [
+        {
+          "id": "coffee",
+          "x": 28,
+          "y": 414,
+          "w": 120,
+          "h": 28
+        },
+        {
+          "id": "make-table",
+          "x": 95,
+          "y": 455,
+          "w": 230,
+          "h": 30
+        },
+        {
+          "id": "stool",
+          "x": 475,
+          "y": 480,
+          "w": 60,
+          "h": 25
+        },
+        {
+          "id": "reading-ledge",
+          "x": 700,
+          "y": 470,
+          "w": 160,
+          "h": 25
+        }
+      ],
+      "destinations": {
+        "coffee": [
+          80,
+          515
+        ],
+        "brief": [
+          580,
+          555
+        ],
+        "idle": [
+          350,
+          610
+        ]
+      },
+      "furniture": [
+        {
+          "key": "coffee-cabinet",
+          "foot": [
+            88,
+            442
+          ]
+        },
+        {
+          "key": "make-table",
+          "foot": [
+            210,
+            485
+          ]
+        },
+        {
+          "key": "stool",
+          "foot": [
+            505,
+            505
+          ]
+        },
+        {
+          "key": "reading-ledge",
+          "foot": [
+            780,
+            495
+          ]
+        }
+      ]
+    },
+    "maker": {
+      "anchors": [
+        [
+          170,
+          565
+        ],
+        [
+          790,
+          565
+        ],
+        [
+          485,
+          570
+        ]
+      ],
+      "kinds": [
+        "make",
+        "inspect",
+        "pair"
+      ],
+      "walkBounds": {
+        "left": 30,
+        "right": 930,
+        "top": 455,
+        "bottom": 626
+      },
+      "obstacles": [
+        {
+          "id": "make-table",
+          "x": 95,
+          "y": 455,
+          "w": 230,
+          "h": 30
+        },
+        {
+          "id": "reading-ledge",
+          "x": 700,
+          "y": 470,
+          "w": 160,
+          "h": 25
+        }
+      ],
+      "destinations": {
+        "pair": [
+          430,
+          560
+        ],
+        "idle": [
+          350,
+          610
+        ]
+      },
+      "furniture": [
+        {
+          "key": "make-table",
+          "foot": [
+            210,
+            485
+          ]
+        },
+        {
+          "key": "reading-ledge",
+          "foot": [
+            780,
+            495
+          ]
+        }
+      ]
+    },
+    "quiet": {
+      "anchors": [
+        [
+          200,
+          565
+        ],
+        [
+          775,
+          565
+        ]
+      ],
+      "kinds": [
+        "read",
+        "plan"
+      ],
+      "walkBounds": {
+        "left": 30,
+        "right": 930,
+        "top": 455,
+        "bottom": 626
+      },
+      "obstacles": [
+        {
+          "id": "reading-ledge",
+          "x": 110,
+          "y": 470,
+          "w": 180,
+          "h": 25
+        },
+        {
+          "id": "small-table",
+          "x": 700,
+          "y": 455,
+          "w": 150,
+          "h": 30
+        }
+      ],
+      "destinations": {
+        "pair": [
+          480,
+          560
+        ],
+        "idle": [
+          480,
+          610
+        ]
+      },
+      "furniture": [
+        {
+          "key": "reading-ledge",
+          "foot": [
+            200,
+            495
+          ]
+        },
+        {
+          "key": "small-table",
+          "foot": [
+            775,
+            485
+          ]
+        }
+      ]
+    }
+  },
+  "profiles": {
+    "3": {
+      "rooms": [
+        {
+          "id": "hub",
+          "type": "hub",
+          "name": "Hub",
+          "occupants": [
+            "H",
+            "I1",
+            "R1"
+          ],
+          "slots": {
+            "H": 1,
+            "I1": 0,
+            "R1": 2
+          }
+        }
+      ],
+      "links": []
+    },
+    "5": {
+      "rooms": [
+        {
+          "id": "hub",
+          "type": "hub",
+          "name": "Hub",
+          "occupants": [
+            "H",
+            "I1",
+            "R1"
+          ],
+          "slots": {
+            "H": 1,
+            "I1": 0,
+            "R1": 2
+          }
+        },
+        {
+          "id": "maker",
+          "type": "maker",
+          "name": "Maker wing",
+          "occupants": [
+            "I2",
+            "R2"
+          ],
+          "slots": {
+            "I2": 0,
+            "R2": 1
+          }
+        }
+      ],
+      "links": [
+        [
+          "hub",
+          "maker"
+        ]
+      ]
+    },
+    "8": {
+      "rooms": [
+        {
+          "id": "hub",
+          "type": "hub",
+          "name": "Hub",
+          "occupants": [
+            "H",
+            "I1",
+            "R1"
+          ],
+          "slots": {
+            "H": 1,
+            "I1": 0,
+            "R1": 2
+          }
+        },
+        {
+          "id": "maker",
+          "type": "maker",
+          "name": "Maker wing",
+          "occupants": [
+            "I2",
+            "R2",
+            "I3"
+          ],
+          "slots": {
+            "I2": 0,
+            "R2": 1,
+            "I3": 2
+          }
+        },
+        {
+          "id": "quiet",
+          "type": "quiet",
+          "name": "Quiet wing",
+          "occupants": [
+            "I4",
+            "R3"
+          ],
+          "slots": {
+            "I4": 0,
+            "R3": 1
+          }
+        }
+      ],
+      "links": [
+        [
+          "hub",
+          "maker"
+        ],
+        [
+          "maker",
+          "quiet"
+        ]
+      ]
+    }
+  },
+  "participants": {
+    "H": {
+      "role": "Human",
+      "visualId": "human",
+      "name": "Human"
+    },
+    "I1": {
+      "role": "Implementer",
+      "visualId": "implementer",
+      "name": "Implementer 1"
+    },
+    "I2": {
+      "role": "Implementer",
+      "visualId": "implementer",
+      "name": "Implementer 2"
+    },
+    "I3": {
+      "role": "Implementer",
+      "visualId": "implementer",
+      "name": "Implementer 3"
+    },
+    "I4": {
+      "role": "Implementer",
+      "visualId": "implementer",
+      "name": "Implementer 4"
+    },
+    "R1": {
+      "role": "Reviewer",
+      "visualId": "reviewer",
+      "name": "Reviewer 1"
+    },
+    "R2": {
+      "role": "Reviewer",
+      "visualId": "reviewer",
+      "name": "Reviewer 2"
+    },
+    "R3": {
+      "role": "Reviewer",
+      "visualId": "reviewer",
+      "name": "Reviewer 3"
+    }
+  },
+  "growthRule": "Add a room with capacity 2 or 3 and a graph connection; place new participant IDs in free anchors. Role, visualId and participant ID are independent fields. These sample individuals reuse the existing rabbit/paper appearances."
+}

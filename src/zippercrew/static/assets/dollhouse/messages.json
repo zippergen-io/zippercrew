@@ -1,0 +1,64 @@
+{
+  "frames": {
+    "task": {
+      "frame": {
+        "x": 110,
+        "y": 102,
+        "w": 349,
+        "h": 371
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "proposal": {
+      "frame": {
+        "x": 568,
+        "y": 107,
+        "w": 401,
+        "h": 359
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "review": {
+      "frame": {
+        "x": 1075,
+        "y": 76,
+        "w": 355,
+        "h": 392
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "guidance": {
+      "frame": {
+        "x": 89,
+        "y": 562,
+        "w": 397,
+        "h": 348
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "control": {
+      "frame": {
+        "x": 601,
+        "y": 563,
+        "w": 336,
+        "h": 336
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "inbox": {
+      "frame": {
+        "x": 1025,
+        "y": 629,
+        "w": 438,
+        "h": 240
+      },
+      "rotated": false,
+      "trimmed": false
+    }
+  }
+}

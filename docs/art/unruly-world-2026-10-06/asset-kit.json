@@ -1,0 +1,204 @@
+{
+  "status": "Reusable production kit specification; frames listed here are not yet exported assets",
+  "artScale": "Author at 2x, layout in 1x units",
+  "style": "Flat fills, 2–3px furniture contours at 1x, 3–4px character contours; no baked labels",
+  "assets": [
+    {
+      "group": "Wall segments",
+      "frames": [
+        "wall-ivory",
+        "wall-sage",
+        "wall-clay"
+      ],
+      "size": [
+        960,
+        410
+      ],
+      "note": "Flat fill; no baked board, lamp, messages or shadows."
+    },
+    {
+      "group": "Floor elements",
+      "frames": [
+        "floor-warm",
+        "floor-cool",
+        "baseboard"
+      ],
+      "size": [
+        960,
+        230
+      ],
+      "note": "No rugs or perspective plank grid; baseboard a separate 960×10 strip."
+    },
+    {
+      "group": "Windows",
+      "frames": [
+        "window-wide",
+        "window-small"
+      ],
+      "size": [
+        320,
+        150
+      ],
+      "note": "Flat cloud insert separate from frame; reserve upper feature zone y42–182."
+    },
+    {
+      "group": "Desks / worktables",
+      "frames": [
+        "make-table",
+        "planning-table"
+      ],
+      "size": [
+        230,
+        100
+      ],
+      "note": "Shallow broad outline. Planning table 160×85. Foot origin .5,1; tabletop/foreground layers separately if seated arms must cross edge."
+    },
+    {
+      "group": "Chairs",
+      "frames": [
+        "chair-simple",
+        "stool"
+      ],
+      "size": [
+        60,
+        100
+      ],
+      "note": "Stool 50×75; back and seat/front can separate for seated poses."
+    },
+    {
+      "group": "Coffee station",
+      "frames": [
+        "coffee-cabinet",
+        "coffee-machine"
+      ],
+      "size": [
+        130,
+        130
+      ],
+      "note": "Machine 52×65. Shared only in hub; no replicated café counters."
+    },
+    {
+      "group": "Shared brief panel",
+      "frames": [
+        "brief-frame",
+        "brief-paper"
+      ],
+      "size": [
+        230,
+        150
+      ],
+      "note": "Blank reusable art; task text and actions stay live DOM / Phaser text."
+    },
+    {
+      "group": "Shelves / reading ledges",
+      "frames": [
+        "reading-ledge",
+        "shelf-short"
+      ],
+      "size": [
+        180,
+        70
+      ],
+      "note": "Broad simple shapes; at most two objects per shelf."
+    },
+    {
+      "group": "Plants",
+      "frames": [
+        "plant-small"
+      ],
+      "size": [
+        52,
+        80
+      ],
+      "note": "Optional one per room, outside bubble/card/walking space."
+    },
+    {
+      "group": "Lamps",
+      "frames": [
+        "lamp-shade"
+      ],
+      "size": [
+        60,
+        45
+      ],
+      "note": "Short edge placement, no rendered light cone or animated light."
+    },
+    {
+      "group": "Small tables",
+      "frames": [
+        "small-table"
+      ],
+      "size": [
+        150,
+        85
+      ],
+      "note": "Optional planning/idle corner, not a living-room grouping."
+    },
+    {
+      "group": "Mugs",
+      "frames": [
+        "mug-cream",
+        "mug-clay"
+      ],
+      "size": [
+        22,
+        26
+      ],
+      "note": "No steam effect required; sip uses one simple pose swap."
+    },
+    {
+      "group": "Laptops",
+      "frames": [
+        "laptop-open",
+        "laptop-closed"
+      ],
+      "size": [
+        64,
+        50
+      ],
+      "note": "One open screen fill, keys one broad strip. Closed 54×8."
+    },
+    {
+      "group": "Paper / tools / inbox",
+      "frames": [
+        "paper-loose",
+        "checklist",
+        "proposal-slip",
+        "wrench",
+        "pencil",
+        "inbox"
+      ],
+      "size": [
+        32,
+        44
+      ],
+      "note": "Props without typography; each sized individually in atlas metadata. Hand pivots exported."
+    },
+    {
+      "group": "Protocol carrier",
+      "frames": [
+        "protocol-card",
+        "protocol-folder",
+        "decision-card"
+      ],
+      "size": [
+        120,
+        56
+      ],
+      "note": "Separate from local activity bubble; label, sequence and receipt status supplied by actual runtime."
+    },
+    {
+      "group": "Optional dividers / connectors",
+      "frames": [
+        "doorway-frame",
+        "wall-end",
+        "divider-low"
+      ],
+      "size": [
+        100,
+        210
+      ],
+      "note": "Door clear width ≥80; matched room/message ports in metadata; low divider 120×110 optional."
+    }
+  ]
+}

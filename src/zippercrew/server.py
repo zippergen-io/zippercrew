@@ -92,7 +92,11 @@ class Handler(BaseHTTPRequestHandler):
         return valid
 
     def reply(self, code: int, payload: Any, mime: str = "application/json") -> None:
-        body = json.dumps(payload).encode() if mime == "application/json" else payload
+        body = (
+            json.dumps(payload).encode()
+            if mime == "application/json" and not isinstance(payload, bytes)
+            else payload
+        )
         self.send_response(code)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(body)))
@@ -118,6 +122,8 @@ class Handler(BaseHTTPRequestHandler):
                 "/scene.js",
                 "/room-engine.js",
                 "/babylon-room.js",
+                "/dollhouse-room.js",
+                "/dollhouse-layout.js",
                 "/presentation.js",
                 "/inspector.js",
                 "/style.css",
@@ -128,6 +134,11 @@ class Handler(BaseHTTPRequestHandler):
                     "/scene.js": ("scene.js", "text/javascript; charset=utf-8"),
                     "/room-engine.js": ("room-engine.js", "text/javascript; charset=utf-8"),
                     "/babylon-room.js": ("babylon-room.js", "text/javascript; charset=utf-8"),
+                    "/dollhouse-room.js": ("dollhouse-room.js", "text/javascript; charset=utf-8"),
+                    "/dollhouse-layout.js": (
+                        "dollhouse-layout.js",
+                        "text/javascript; charset=utf-8",
+                    ),
                     "/presentation.js": ("presentation.js", "text/javascript; charset=utf-8"),
                     "/inspector.js": ("inspector.js", "text/javascript; charset=utf-8"),
                     "/style.css": ("style.css", "text/css; charset=utf-8"),

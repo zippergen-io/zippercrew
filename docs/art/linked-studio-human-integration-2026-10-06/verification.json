@@ -1,0 +1,17 @@
+{
+  "browser": "Chrome headless / Phaser 3.90.0 Canvas",
+  "assetLoading": "passed",
+  "participants": 3,
+  "humanPoseSwitch": "passed",
+  "activityBubbles": "passed",
+  "protocolCardRouting": "passed",
+  "unknownParticipantRejected": "passed",
+  "deskOcclusion": "visually verified after compound-mask correction",
+  "runtimeAppModified": false,
+  "genuineAlpha": "verified",
+  "atlasSize": [
+    1774,
+    887
+  ],
+  "atlasBounds": "passed"
+}

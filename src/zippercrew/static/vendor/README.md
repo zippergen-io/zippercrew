@@ -1,4 +1,12 @@
-# Babylon.js
+# Phaser — production renderer
+
+Phaser 3.90.0, the previously vendored unmodified official distribution, is
+restored with its MIT license (`PHASER-LICENSE.txt`). It is loaded locally by
+`index.html`; no CDN or runtime package resolution is used. Canvas rendering
+avoids a WebGL requirement. See https://phaser.io/ and
+https://docs.phaser.io/phaser/concepts/scale-manager.
+
+# Babylon.js — archived development reference only
 
 Pinned official npm distributions, unmodified, served locally:
 
@@ -14,7 +22,7 @@ SHA-256:
 - Loader: `72b44c1ee61cf6eaf7825f6cf07ca2af70dafe1a86f743215cf4d32a7328a0a9`
 
 No runtime network requests or dynamic loader modules are needed for our GLBs.
-The previous Phaser distribution is retired from the Room.
+Babylon is not loaded by the product page and is excluded from packaged builds.
 
 # Message Markdown
 

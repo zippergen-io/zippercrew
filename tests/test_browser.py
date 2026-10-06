@@ -63,7 +63,7 @@ def test_continuous_room_through_two_rounds_and_history(service):
         assert page.get_by_text("Open the room", exact=False).count() == 0
         screenshot(page, "first-frame")
         configure(page, project)
-        assert inspect_scene(page)["art"] == "stylized-cafe-3d-v3"
+        assert inspect_scene(page)["art"] == "linked-studio-patchwork-v2"
         screenshot(page, "ready")
         scene = page.locator("#room-art canvas").element_handle()
         page.get_by_role("button", name="Start working").click()
@@ -201,7 +201,7 @@ def test_autonomous_review_same_room_and_motion_preference(service, motion):
         assert len({t["id"] for t in transfers}) == len(transfers)
         assert scene.evaluate("node => node === document.querySelector('#room-art canvas')")
         assert inspect_scene(page)["reducedMotion"] == (motion == "reduce")
-        assert inspect_scene(page)["renderer"] == "Babylon.WebGL"
+        assert inspect_scene(page)["renderer"] == "Phaser.Canvas"
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         browser.close()
 
@@ -235,7 +235,7 @@ def test_canvas_selection_and_keyboard_inspector_coexist(service):
         page = browser.new_page(viewport={"width": 1440, "height": 900})
         page.goto(base)
         expect(page.locator("#room-art")).to_have_attribute("data-ready", "true")
-        # Test actual Babylon picking without the accessible DOM target catching it.
+        # Test actual Phaser picking without the accessible DOM target catching it.
         target = page.locator("#actor-Human").bounding_box()
         page.locator(".scene-controls button").evaluate_all(
             "nodes => nodes.forEach(n=>n.style.pointerEvents='none')"
@@ -259,7 +259,7 @@ def test_asset_failure_is_explicit_and_does_not_allow_start(service):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page()
-        page.route("**/assets/3d/reviewer.glb", lambda route: route.abort())
+        page.route("**/assets/dollhouse/patchwork-cast.png", lambda route: route.abort())
         page.goto(base)
         expect(page.locator("#error")).to_contain_text("Room asset could not load")
         expect(page.locator(".scene-loading")).to_contain_text("Reload to retry")
@@ -304,25 +304,26 @@ def test_cosmetic_policy_is_calm_interruptible_and_observable(service):
         result = page.evaluate("""async () => {
             const { AmbientDirector, ActivityCadence } = await import('/presentation.js');
             const check = (condition, message) => { if (!condition) throw Error(message); };
-            let rolls = [];
-            const d = new AmbientDirector(() => rolls.shift() ?? 0.99);
-            check(d.step('Implementer', 'waiting', 0) === null, 'initial pause');
-            rolls = [0, 0.9, 0.3, 0]; // cadence, do action, coffee, duration
-            check(d.step('Implementer', 'waiting', 60000) === 'coffee', 'coffee');
-            check(d.reservations.get('back-aisle') === 'Implementer', 'reserve shared aisle');
-            d.step('Reviewer', 'waiting', 0);
-            rolls = [0, 0.9, 0.4];
-            check(d.step('Reviewer', 'waiting', 60000) === null, 'no shared collision');
-            check(d.step('Implementer', 'working', 60001) === null, 'work preempts');
+            const d = new AmbientDirector(() => 0.7);
+            check(d.step('Implementer', 'waiting', 0) === 'check-tool', 'occupied immediately');
+            d.people.get('Implementer').due = 1;
+            const action = d.step('Implementer', 'waiting', 2);
+            check(action && action !== 'check-tool', 'purposeful next action');
+            check(d.step('Implementer', 'working', 3) === null, 'work preempts');
             check(d.reservations.size === 0, 'release reservation');
             for (const state of ['working', 'reviewing', 'needs human',
                                 'failed', 'stopped', 'unconfigured'])
                 check(d.step('Human', state, 1000000) === null, 'forbidden ambient state');
             check(d.step('Reviewer', 'waiting', 2000000, true) === null, 'reduced motion');
-            const calm = new AmbientDirector(() => 0.2);
-            let actions = 0;
-            for (let t = 0; t < 3600000; t += 1000) if (calm.step('Human', 'waiting', t)) actions++;
-            check(actions > 0 && actions < 300, 'occasional movement, mostly stillness');
+            const calm = new AmbientDirector(() => 0.7);
+            let occupied = 0, changes = 0, previous = null;
+            for (let t = 0; t < 3600000; t += 1000) {
+              const action = calm.step('Human', 'waiting', t);
+              if (action) occupied++;
+              if (action !== previous) { changes++; previous = action; }
+            }
+            check(occupied === 3600, 'no extended empty idle periods');
+            check(changes > 100 && changes < 300, 'calm sustained routines');
             const a = new ActivityCadence();
             const first = { id: 1, text: 'Working on the task…' };
             const next = { id: 2, text: 'Reviewing the proposal…' };
@@ -376,9 +377,8 @@ def test_scene_preempts_ambient_and_does_not_invent_message_receipts(service):
             for(const role of ['Implementer','Reviewer','Human'])
                 s.ambient.step(role,'waiting',performance.now());
             const p = s.ambient.people.get('Reviewer');
-            p.due = -1;
-            let rolls = [0, .9, .3, 0];
-            s.ambient.random = () => rolls.shift() ?? .99;
+            Object.assign(p, {action:'board', due:Infinity, until:performance.now()+25000});
+            s.ambientAction(s.people.get('Reviewer'),'board');
         }""")
         page.wait_for_function("() => roomTest.inspect().participants[1].ambientAction === 'board'")
         assert page.evaluate("roomTest.inspect().participants[1].state") == "waiting"

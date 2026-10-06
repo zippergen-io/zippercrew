@@ -1,11 +1,20 @@
 /* Cosmetic policy only. Injected time/randomness makes long idle periods testable.
  * Nothing here emits a workflow event or enables a process action. */
 const AMBIENT_STATES = new Set(['ready', 'waiting', 'completed']);
-const ACTIONS = {
-  Implementer: ['stretch', 'coffee', 'monitor', 'board', 'look-around'],
-  Reviewer: ['tablet', 'board', 'coffee', 'skeptical', 'sit'],
-  Human: ['phone', 'look-around', 'coffee', 'window', 'laptop', 'board'],
+export const AMBIENT_ACTIONS = {
+  implementer: ['check-tool', 'read-sketch', 'organize', 'think', 'coffee', 'board', 'pace'],
+  reviewer: ['read-document', 'check-card', 'think', 'organize', 'coffee', 'board', 'pace'],
+  human: ['listen', 'read-notes', 'reflect', 'coffee', 'window', 'board', 'pace'],
 };
+export const AMBIENT_LABELS = {
+  'check-tool': 'Checking a tool', 'read-sketch': 'Looking over a sketch',
+  organize: 'Organizing papers', think: 'Thinking', coffee: 'Taking a coffee break',
+  board: 'Looking at the brief board', pace: 'Stretching their legs',
+  'read-document': 'Reading a document', 'check-card': 'Checking a card',
+  listen: 'Listening to the crew', 'read-notes': 'Reading notes',
+  reflect: 'Thinking through notes', window: 'Looking out the window',
+};
+const EXCURSIONS = new Set(['coffee', 'board', 'window', 'pace']);
 export class AmbientDirector {
   constructor(random = Math.random) {
     this.random = random;
@@ -14,35 +23,40 @@ export class AmbientDirector {
   }
   pause(min, spread) { return min + this.random() * spread; }
   cancel(role) {
-    const p = this.people.get(role);
-    if (p?.resource) this.reservations.delete(p.resource);
+    for (const [resource, owner] of this.reservations)
+      if (owner === role) this.reservations.delete(resource);
     this.people.delete(role);
   }
-  step(role, state, now, reduced = false) {
+  step(role, state, now, reduced = false, visualRole = role.toLowerCase().split(' ')[0]) {
     let p = this.people.get(role);
     if (!AMBIENT_STATES.has(state) || reduced) { this.cancel(role); return null; }
     if (!p || p.state !== state) {
       this.cancel(role);
-      p = { state, due: now + this.pause(18000, 26000), action: null, previous: null, lastAction: now };
+      // Occupied from the first frame. The initial action stays at the local
+      // station; randomness staggers later excursions across the ensemble.
+      const initial = (AMBIENT_ACTIONS[visualRole] || AMBIENT_ACTIONS.human)[0];
+      p = { state, action: initial, previous: null, history: [initial],
+        due: now + this.pause(8000, 7000), lastAction: now, until: Infinity,
+        resource: null, visualRole };
       this.people.set(role, p);
     }
-    if (p.action && now >= p.until) {
-      if (p.resource) this.reservations.delete(p.resource);
-      p.action = null;
+    if (now >= Math.min(p.due, p.until)) {
+      if (p.resource && this.reservations.get(p.resource) === role)
+        this.reservations.delete(p.resource);
       p.resource = null;
-      p.due = now + this.pause(30000, 50000);
-    }
-    if (!p.action && now >= p.due) {
-      p.due = now + this.pause(25000, 40000);
-      // Ordinary stillness is intentionally the most frequent outcome.
-      if (this.random() < 0.65 && now - p.lastAction < 100000) return null;
-      const choices = (ACTIONS[role] || ['look-around']).filter(a => a !== p.previous);
-      const action = choices[Math.floor(this.random() * choices.length)];
-      const resource = ['coffee', 'board', 'window'].includes(action)
-        ? 'back-aisle' : null;
-      if (resource && this.reservations.has(resource)) return null;
+      const history = p.history || [p.action];
+      const library = AMBIENT_ACTIONS[p.visualRole] || AMBIENT_ACTIONS.human;
+      // Every trip is followed by a local activity. Busy resources fall back
+      // to another purposeful action, never to a long empty waiting period.
+      const canTravel = !EXCURSIONS.has(p.action) && !this.reservations.has('back-aisle');
+      const choices = library.filter(a => !history.slice(-2).includes(a) &&
+        (canTravel || !EXCURSIONS.has(a)));
+      const action = choices[Math.min(choices.length - 1, Math.floor(this.random() * choices.length))];
+      const resource = EXCURSIONS.has(action) ? 'back-aisle' : null;
       if (resource) this.reservations.set(resource, role);
-      Object.assign(p, { lastAction: now, action, previous: action, resource, until: now + this.pause(6500, 4500) });
+      const until = now + (resource ? this.pause(21000, 9000) : this.pause(10000, 9000));
+      Object.assign(p, { lastAction: now, previous: p.action, action, resource,
+        history: [...history.slice(-1), action], until, due: until });
     }
     return p.action;
   }

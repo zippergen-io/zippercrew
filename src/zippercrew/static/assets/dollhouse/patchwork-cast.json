@@ -1,0 +1,92 @@
+{
+  "frames": {
+    "human-neutral": {
+      "frame": {
+        "x": 35,
+        "y": 220,
+        "w": 405,
+        "h": 555
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 405,
+        "h": 555
+      },
+      "sourceSize": {
+        "w": 405,
+        "h": 555
+      }
+    },
+    "human-orchestrating": {
+      "frame": {
+        "x": 441,
+        "y": 210,
+        "w": 428,
+        "h": 566
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 428,
+        "h": 566
+      },
+      "sourceSize": {
+        "w": 428,
+        "h": 566
+      }
+    },
+    "implementer": {
+      "frame": {
+        "x": 869,
+        "y": 286,
+        "w": 466,
+        "h": 478
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 466,
+        "h": 478
+      },
+      "sourceSize": {
+        "w": 466,
+        "h": 478
+      }
+    },
+    "reviewer": {
+      "frame": {
+        "x": 1372,
+        "y": 275,
+        "w": 374,
+        "h": 490
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 374,
+        "h": 490
+      },
+      "sourceSize": {
+        "w": 374,
+        "h": 490
+      }
+    }
+  },
+  "meta": {
+    "image": "patchwork-cast.png",
+    "size": {
+      "w": 1774,
+      "h": 887
+    },
+    "scale": "1"
+  }
+}

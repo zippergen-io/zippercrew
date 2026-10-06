@@ -1,0 +1,97 @@
+{
+  "ready": true,
+  "renderer": "Phaser.Canvas",
+  "art": "linked-studio-patchwork-v2",
+  "reducedMotion": false,
+  "viewport": {
+    "width": 1066,
+    "height": 855,
+    "cameraWidth": 1066,
+    "worldWidth": 1836,
+    "zoom": 0.5806100217864923
+  },
+  "messages": [],
+  "envelopes": [],
+  "participants": [
+    {
+      "role": "Implementer",
+      "state": "ready",
+      "pose": "think",
+      "frame": "think",
+      "spriteFrame": "implementer",
+      "ambientAction": "think",
+      "ambientHistory": [
+        "check-tool",
+        "organize",
+        "think"
+      ],
+      "mode": "ambient",
+      "motion": {
+        "bob": 0,
+        "lean": -0.8,
+        "stretch": 0.00045138337980708484,
+        "drinking": false
+      },
+      "currentActivity": null,
+      "x": 932,
+      "y": 665,
+      "moving": false,
+      "seated": false,
+      "navigationBlocked": false,
+      "visible": true
+    },
+    {
+      "role": "Reviewer",
+      "state": "ready",
+      "pose": "organize",
+      "frame": "organize",
+      "spriteFrame": "reviewer",
+      "ambientAction": "organize",
+      "ambientHistory": [
+        "read-document",
+        "check-card",
+        "organize"
+      ],
+      "mode": "ambient",
+      "motion": {
+        "bob": -0.0,
+        "lean": 0,
+        "stretch": 0.0015756882623913985,
+        "drinking": false
+      },
+      "currentActivity": null,
+      "x": 1395,
+      "y": 665,
+      "moving": false,
+      "seated": false,
+      "navigationBlocked": false,
+      "visible": true
+    },
+    {
+      "role": "Human",
+      "state": "ready",
+      "pose": "pace",
+      "frame": "pace",
+      "spriteFrame": "human-neutral",
+      "ambientAction": "pace",
+      "ambientHistory": [
+        "listen",
+        "pace"
+      ],
+      "mode": "ambient",
+      "motion": {
+        "bob": 0,
+        "lean": 0,
+        "stretch": -0.0018837571570310052,
+        "drinking": false
+      },
+      "currentActivity": null,
+      "x": 590,
+      "y": 652,
+      "moving": false,
+      "seated": false,
+      "navigationBlocked": false,
+      "visible": true
+    }
+  ]
+}

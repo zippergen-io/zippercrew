@@ -1,0 +1,203 @@
+window.LINKED_STUDIO_SPEC = {
+  "version": 1,
+  "design": "Linked Studio / Patchwork Cue Human internal-design refinement",
+  "status": "Runnable visual integration preview; backend connection remains in host application",
+  "canvas": {
+    "width": 1836,
+    "height": 800
+  },
+  "roomCrop": {
+    "x": 0,
+    "y": 0,
+    "width": 1836,
+    "height": 711
+  },
+  "assets": {
+    "background": "linked-studio-background.png",
+    "atlasImage": "cast-atlas.png",
+    "atlasData": "cast-atlas.json"
+  },
+  "participants": [
+    {
+      "id": "human",
+      "frame": "human-orchestrating",
+      "x": 510,
+      "footY": 676,
+      "height": 354,
+      "role": "Human",
+      "activity": "Listening to the crew"
+    },
+    {
+      "id": "implementer",
+      "frame": "implementer",
+      "x": 932,
+      "footY": 676,
+      "height": 306,
+      "role": "Implementer",
+      "activity": "Preparing a proposal"
+    },
+    {
+      "id": "reviewer",
+      "frame": "reviewer",
+      "x": 1395,
+      "footY": 676,
+      "height": 320,
+      "role": "Reviewer",
+      "activity": "Checking the proposal"
+    }
+  ],
+  "foregroundPolygons": [
+    [
+      [
+        671,
+        618
+      ],
+      [
+        690,
+        605
+      ],
+      [
+        717,
+        595
+      ],
+      [
+        1132,
+        595
+      ],
+      [
+        1164,
+        614
+      ],
+      [
+        1164,
+        640
+      ],
+      [
+        1143,
+        649
+      ],
+      [
+        1143,
+        689
+      ],
+      [
+        1113,
+        689
+      ],
+      [
+        1113,
+        650
+      ],
+      [
+        732,
+        650
+      ],
+      [
+        732,
+        688
+      ],
+      [
+        708,
+        688
+      ],
+      [
+        708,
+        650
+      ],
+      [
+        674,
+        643
+      ]
+    ],
+    [
+      [
+        699,
+        580
+      ],
+      [
+        716,
+        578
+      ],
+      [
+        718,
+        560
+      ],
+      [
+        730,
+        557
+      ],
+      [
+        735,
+        562
+      ],
+      [
+        730,
+        579
+      ],
+      [
+        736,
+        583
+      ],
+      [
+        736,
+        618
+      ],
+      [
+        701,
+        622
+      ]
+    ],
+    [
+      [
+        755,
+        555
+      ],
+      [
+        766,
+        549
+      ],
+      [
+        846,
+        553
+      ],
+      [
+        854,
+        559
+      ],
+      [
+        865,
+        600
+      ],
+      [
+        893,
+        608
+      ],
+      [
+        896,
+        615
+      ],
+      [
+        874,
+        625
+      ],
+      [
+        767,
+        624
+      ]
+    ]
+  ],
+  "protocolLaneY": 150,
+  "messageRules": {
+    "activity": "Local observable work; rounded bubble, no protocol sequence",
+    "protocol": "Paper card displaying real type, sender and recipient. Render from backend events only. Animation completion never acknowledges or advances workflow."
+  },
+  "implementationNotes": [
+    "Use origin (0.5,1) and shared footY for sprites; preserve source aspect ratios.",
+    "Background is a cleaned version of the approved three-person stage. Cast atlas has genuine alpha.",
+    "Use foreground polygons to mask a second copy of the background over the Implementer. These are rendering masks, not collision polygons.",
+    "Separate participant ID, role, and visual frame when connecting runtime.",
+    "Changing crew size must allocate linked room modules, not shrink these sprites.",
+    "Atlas provides Human neutral and orchestrating states, plus locked-agent characteristic poses; walking and remaining animation frames are not included.",
+    "Generated raster retains slight tonal variation; strict palette flattening and full animation are remaining asset-production steps."
+  ]
+};

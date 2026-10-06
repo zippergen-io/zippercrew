@@ -45,21 +45,34 @@ actual model/effort availability. Shared profiles are never modified by Room edi
 Role instructions are per-Room additions. Configuration changes never rewrite a
 previous Run's effective configuration or transcript.
 
-The frontend creates one Babylon.js scene before loading configuration. Setup
-autosaves a persistent Room draft; starting supplies server snapshots to that same
-scene. `scene.js` remains the boundary between snapshots, accessible DOM controls,
-and the renderer. `room-engine.js` re-exports the implementation in
-`babylon-room.js`. Babylon owns geometry, skeletal clip blending, real shadow maps,
-world-space movement and protocol cards. `presentation.js` retains the existing
-ambient scheduling and observed activity cadence; neither can change execution.
+The frontend creates one Phaser Room before loading configuration. Setup
+autosaves a persistent Room draft; starting supplies server snapshots to that
+same scene. `scene.js` bridges snapshots and accessible DOM controls;
+`room-engine.js` re-exports `dollhouse-room.js`. Phaser owns authored image layers,
+pose selection, presentation movement and message-card animation. It cannot
+start work, advance rounds, acknowledge messages or decide a verdict.
+`presentation.js` retains the shared ambient scheduler and observed activity
+cadence. The only server support changes are static JS routes and serving atlas
+JSON bytes without trying to JSON-serialize them again.
 
-Babylon 9.15.0 and its matching glTF loader are pinned and served locally with their
-Apache license. The original café and cast are GLBs with simplified PBR materials,
-not rendered background planes. WebGL is required. A failed asset/context produces
-an explicit error. The Python application needs no npm install, frontend build,
-CDN, extra service, or upstream ZipperGen change. The existing static asset handler
-serves the kit; the only additional API surface is a renderer JavaScript route.
-See [room experience](room-experience.md) and [3D art direction](art/babylon-cafe.md).
+### Renderer decision — 2026-10-06
+
+Phaser is the production renderer. Babylon solved true spatial realism, but
+physical realism is not central to ZipperCrew. Character connection, coordination
+readability, scalability, visual identity and lightweight animation matter more.
+This is a new authored flat 2D miniature world, not restoration of the old
+pseudo-realistic Phaser café or its procedural SVG surfaces.
+
+The complete Babylon working state is preserved in commit `078f566` and tag
+`archive/babylon-window-studio-2026-10-06`. Its source/assets remain available for
+reference in development, but the application does not load Babylon or GLBs, and
+the wheel excludes them. No product/backend rollback occurred.
+
+Phaser 3.90.0 is vendored with its MIT license. Local PNGs + JSON frame atlases
+supply all character/furniture/message artwork. Canvas requires no WebGL, external
+service, npm installation or build. The original raster pixels are retained;
+`tools/index_dollhouse.py` computes frame metadata only. See
+[room experience](room-experience.md) for layout, navigation and pose contracts.
 
 ## Events and human endpoint
 
@@ -243,11 +256,10 @@ result summaries. Public command output is available in the trace (bounded at
 bodies are excluded. As with existing full action payloads, traces are local debug
 artifacts and may contain workspace content.
 
-The café now uses actual geometric shadows: a directional window light and a
-hemispheric fill illuminate the same furniture and skinned meshes. Character
-meshes both cast and receive the shadow map, including partial environmental
-occlusion. The former sprite shadow polygons are retired. The brief uses a dynamic
-texture on a real board plane; perspective follows the camera automatically.
+The miniature studio uses authored furniture/character layers and small contact
+shadows. Floor anchors determine occlusion order. Environment shading is
+part of the artwork; there is no physical shadow simulation. The brief is text
+inside an authored flat board sprite, matching the fixed front-facing viewpoint.
 
 Lightweight Room edits autosave after 700 ms, with a persistent Saving / Saved /
 Not saved indicator and a Retry action. Switching or closing an inspector flushes
@@ -275,8 +287,9 @@ of hiding overflow. At widths of 900px or less, Room and inspector stack, with t
 footer in normal flow; it cannot cover either surface. Header and footer controls
 wrap, and long brief/path content cannot impose a minimum page width.
 
-A ResizeObserver resizes Babylon's drawing buffer to the host dimensions. The
-perspective camera adjusts its distance for narrow aspect ratios. DOM hit targets
+A ResizeObserver resizes Phaser's Canvas drawing buffer to the host dimensions. The
+world container scales to a stable logical viewport. Additional bays extend the
+world horizontally instead of shrinking the cast. DOM hit targets
 and activity bubbles use projected world positions, never hard-coded screen
 coordinates. Resizing redraws the scene immediately so a changed backing buffer
 cannot leave the room blank between layout and the next animation frame.

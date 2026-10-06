@@ -1,0 +1,84 @@
+{
+  "frames": {
+    "desk": {
+      "frame": {
+        "x": 33,
+        "y": 185,
+        "w": 440,
+        "h": 285
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "chair": {
+      "frame": {
+        "x": 536,
+        "y": 131,
+        "w": 234,
+        "h": 347
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "laptop": {
+      "frame": {
+        "x": 801,
+        "y": 257,
+        "w": 318,
+        "h": 183
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "coffee": {
+      "frame": {
+        "x": 1182,
+        "y": 130,
+        "w": 314,
+        "h": 340
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "board": {
+      "frame": {
+        "x": 34,
+        "y": 598,
+        "w": 451,
+        "h": 247
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "table": {
+      "frame": {
+        "x": 521,
+        "y": 615,
+        "w": 268,
+        "h": 273
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "perch": {
+      "frame": {
+        "x": 846,
+        "y": 643,
+        "w": 257,
+        "h": 244
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "shadow": {
+      "frame": {
+        "x": 1186,
+        "y": 776,
+        "w": 298,
+        "h": 85
+      },
+      "rotated": false,
+      "trimmed": false
+    }
+  }
+}

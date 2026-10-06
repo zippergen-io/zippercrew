@@ -1,0 +1,20 @@
+Patchwork Cue — final Human refinement
+
+Selected source: ../unruly-cast-detail-2026-10-06/cast-1-patchwork-cue.png
+The source is copied byte-for-byte as locked-patchwork-source.png.
+Before/after and trio layouts display portions of the original source directly. The Implementer and Reviewer are not regenerated, repainted, recolored or redesigned.
+
+Human changes:
+- Broad interior hair-lock contours within the existing auburn silhouette.
+- Plum collar, clearer mint/cream undershirt and hem, ochre rolled cuffs.
+- One ochre lower patch pocket, existing chest pencil and one mint hem tab.
+- Simple asymmetric sock stripes and one broad shoe-vamp line per shoe.
+- Teal notebook with three large colored tabs and a clear page edge.
+- Small mouth shapes and independently tilted eyebrows for neutral, cueing, focus and thoughtful idle.
+
+Preserved:
+- Compact Patchwork Cue head/body balance and short legs.
+- Original young creative-orchestrator identity, color family and flat graphic contours.
+- No increase in real-person facial likeness.
+
+Built-in image_gen was used for the Human refinement. HTML/SVG viewports and browser captures arrange the supplied raster artwork for comparison and scale review; they do not redraw the characters.

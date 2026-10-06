@@ -1,2 +1,2 @@
-// Stable presentation boundary. ZipperGen and the web inspector do not depend on Babylon.
-export { ROLES, Cafe3D, launchRoom } from '/babylon-room.js';
+// Stable semantic presentation boundary; the web UI does not depend on Phaser.
+export { ROLES, DollhouseRoom, launchRoom } from '/dollhouse-room.js';

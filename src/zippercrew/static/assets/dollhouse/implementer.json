@@ -1,0 +1,84 @@
+{
+  "frames": {
+    "idle": {
+      "frame": {
+        "x": 76,
+        "y": 11,
+        "w": 244,
+        "h": 486
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "walk-a": {
+      "frame": {
+        "x": 446,
+        "y": 9,
+        "w": 302,
+        "h": 486
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "walk-b": {
+      "frame": {
+        "x": 829,
+        "y": 9,
+        "w": 299,
+        "h": 487
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "work-a": {
+      "frame": {
+        "x": 1242,
+        "y": 65,
+        "w": 266,
+        "h": 430
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "work-b": {
+      "frame": {
+        "x": 91,
+        "y": 557,
+        "w": 267,
+        "h": 429
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "coffee": {
+      "frame": {
+        "x": 463,
+        "y": 516,
+        "w": 260,
+        "h": 477
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "receive": {
+      "frame": {
+        "x": 834,
+        "y": 516,
+        "w": 318,
+        "h": 477
+      },
+      "rotated": false,
+      "trimmed": false
+    },
+    "completed": {
+      "frame": {
+        "x": 1152,
+        "y": 516,
+        "w": 355,
+        "h": 477
+      },
+      "rotated": false,
+      "trimmed": false
+    }
+  }
+}

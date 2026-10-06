@@ -44,7 +44,7 @@ def room_config(data: dict[str, Any]) -> dict[str, Any]:
     motion = data.get("motion", "full")
     if motion not in {"full", "reduced"}:
         raise ValueError("Choose full or reduced animation.")
-    result.update(environment="Corner Café", motion=motion)
+    result.update(environment="Linked Studio", motion=motion)
     return result
 
 

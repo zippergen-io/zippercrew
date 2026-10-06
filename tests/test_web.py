@@ -186,10 +186,10 @@ def test_local_origin_protection(service, config):
 def test_local_renderer_assets_and_path_boundary(service):
     _, base, _ = service
     for path, mime in [
-        ("/assets/3d/reviewer.glb", "model/gltf-binary"),
-        ("/assets/3d/corner-cafe.glb", "model/gltf-binary"),
-        ("/vendor/babylon-9.15.0.js", "text/javascript"),
-        ("/babylon-room.js", "text/javascript"),
+        ("/assets/dollhouse/reviewer.png", "image/png"),
+        ("/assets/dollhouse/reviewer.json", "application/json"),
+        ("/vendor/phaser-3.90.0.min.js", "text/javascript"),
+        ("/dollhouse-room.js", "text/javascript"),
     ]:
         with urllib.request.urlopen(base + path, timeout=5) as response:
             assert response.headers["Content-Type"].startswith(mime)

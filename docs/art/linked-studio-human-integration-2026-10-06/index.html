@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZipperCrew · Linked Studio integration</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f5f2;color:#302d35;font:15px/1.5 system-ui,sans-serif}main{max-width:1480px;margin:auto;padding:30px 34px}header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:18px}h1{font-size:27px;letter-spacing:-.6px;margin:0 0 5px}p{margin:0;color:#706a72}.eyebrow{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#80576f;margin-bottom:7px}.controls{display:flex;gap:8px;flex-wrap:wrap}button,a.button{border:1px solid #d9d3d6;border-radius:7px;background:white;color:#463942;padding:9px 13px;font:inherit;cursor:pointer;text-decoration:none}button:disabled{opacity:.4}button[aria-pressed=true]{background:#e8dce4;border-color:#99708b}#viewport{overflow:auto;border:1px solid #ddd7d1;border-radius:12px;background:#faf8f3}#world{width:100%;min-width:960px;aspect-ratio:1836/800}#world canvas{display:block}#status{font-size:12px;margin-top:10px}.notes{display:grid;grid-template-columns:1.2fr 1fr;gap:40px;margin-top:27px;border-top:1px solid #e0dadc;padding-top:22px}.notes h2{font-size:16px;margin:0 0 8px}.notes p{font-size:13px;line-height:1.7}.links{display:flex;gap:17px;flex-wrap:wrap;margin-top:13px}a{color:#735269}.note-small{font-size:12px!important;margin-top:8px!important}@media(max-width:850px){header{align-items:flex-start;flex-direction:column}.notes{grid-template-columns:1fr}main{padding:20px}}
+</style></head><body><main>
+<header><div><div class="eyebrow">Patchwork Cue · targeted integration</div><h1>The crew in Linked Studio</h1><p>Refined Human · approved agent designs · existing studio composition</p></div><div class="controls"><button id="pose" disabled aria-pressed="false">Neutral pose</button><button id="activities" disabled aria-pressed="false">Activity bubbles</button><button id="message" disabled>Preview message</button></div></header>
+<div id="viewport"><div id="world" role="img" aria-label="The refined Human coordinates beside a red rabbit Implementer at the shared table and a pale green paper Reviewer by the reading ledge."></div></div>
+<p id="status" role="status">Loading the layered preview…</p>
+<section class="notes"><div><h2>Human refinement</h2><p>A layered fringe and temple sections, quieter eyes and a simple line nose, constructed collar, cuff bands, pocket opening, waistband and sneaker panels. The short body, broad hair silhouette and plum–mint–ochre palette remain the basis.</p><div class="links"><a href="human-detail.html">Inspect the Human</a><a href="cast-atlas.png">Transparent cast atlas</a><a href="generation-prompts.txt">Generation prompts</a></div></div><div><h2>Implementation handoff</h2><p>The Phaser preview loads the room and transparent cast separately. A foreground mask puts the table and laptop in front of the Implementer. Activity bubbles and protocol cards are independent layers; the message button uses clearly marked sample data.</p><div class="links"><a href="scene-layout.json">Layout + anchors</a><a href="cast-atlas.json">Atlas frames</a><a href="linked-studio-scene.js">Phaser scene</a><a href="implementation.html">Integration notes</a></div></div></section>
+</main>
+<script src="../../../src/zippercrew/static/vendor/phaser-3.90.0.min.js"></script><script src="scene-layout.js"></script><script src="linked-studio-scene.js"></script>
+<script>
+const game=new Phaser.Game({type:Phaser.CANVAS,parent:'world',width:1836,height:800,backgroundColor:'#faf8f3',transparent:false,render:{antialias:true},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:[LinkedStudioRefinement],banner:false,audio:{noAudio:true}});
+document.querySelector('#activities').onclick=function(){const on=this.getAttribute('aria-pressed')!=='true';this.setAttribute('aria-pressed',String(on));window.studioScene.showActivities(on)};
+document.querySelector('#pose').onclick=function(){const on=this.getAttribute('aria-pressed')!=='true';this.setAttribute('aria-pressed',String(on));window.studioScene.setHumanPose(on)};
+document.querySelector('#message').onclick=()=>window.studioScene.showProtocol({id:'sample-'+Date.now(),type:'Task',from:'human',to:'implementer',preview:true});
+if(new URLSearchParams(location.search).has('verify')) {
+  const check=setInterval(()=>{
+    const scene=window.studioScene;if(!scene)return;clearInterval(check);
+    try {
+      if(scene.people.size!==3)throw Error('Expected three participants');
+      const image=scene.textures.get('studio-cast').getSourceImage();
+      if(image.width!==1774||image.height!==887)throw Error('Atlas dimensions mismatch');
+      scene.setHumanPose(true);
+      if(scene.people.get('human').sprite.frame.name!=='human-neutral')throw Error('Neutral pose failed');
+      scene.setHumanPose(false);scene.showActivities(true);
+      if(scene.bubbles.some(b=>!b.visible))throw Error('Activity layer failed');
+      if(scene.showProtocol({type:'Task',from:'missing',to:'reviewer'})!==false)throw Error('Unknown participant accepted');
+      if(!scene.showProtocol({id:'verification',type:'Task',from:'human',to:'implementer',preview:true},true))throw Error('Message card failed');
+      document.documentElement.dataset.verification='passed';
+      document.getElementById('status').textContent='Verification passed: assets, three participants, Human poses, activity layer and protocol routing';
+    }catch(error){document.documentElement.dataset.verification='failed';document.getElementById('status').textContent=error.message;}
+  },50);
+}
+</script></body></html>

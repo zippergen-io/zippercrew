@@ -1,6 +1,6 @@
 import { ROLES, launchRoom } from '/room-engine.js';
 
-// Thin boundary between runtime snapshots, accessible DOM controls, and Babylon.
+// Thin boundary between runtime snapshots, accessible DOM controls, and Phaser.
 export const PROCESS = {
   id: 'pair_programming',
   name: 'Pair Programming',
@@ -37,7 +37,7 @@ export function createScene(container, onSelect) {
   controls.className = 'scene-controls';
   const loading = document.createElement('span');
   loading.className = 'scene-loading';
-  loading.textContent = 'Loading Corner Café…';
+  loading.textContent = 'Loading the crew’s studio…';
   root.append(host, controls, loading);
   container.replaceChildren(root);
   for (const role of ROLES) {
@@ -66,7 +66,7 @@ export function createScene(container, onSelect) {
     reducedMotion: preference.matches || motionPreference === 'reduced',
     onSelect,
     onReady: (scene) => {
-      host.querySelector('canvas').setAttribute('aria-label', 'Corner Café crew room');
+      host.querySelector('canvas').setAttribute('aria-label', 'ZipperCrew miniature studio');
       loading.remove();
       root.dataset.ready = 'true';
       if (view) scene.present(view);
@@ -87,7 +87,8 @@ export function createScene(container, onSelect) {
         button.dataset.pose = person.pose;
         button.dataset.ambient = person.ambientAction || '';
         const activity = document.getElementById(`local-activity-${person.name}`);
-        const text = [person.currentActivity?.text, person.currentActivity?.detail].filter(Boolean).join(' · ');
+        const activityView = person.currentActivity || person.ambientActivity;
+        const text = [activityView?.text, activityView?.detail].filter(Boolean).join(' · ');
         if (activity.textContent !== text) activity.textContent = text;
         button.dataset.x = person.worldX;
         button.dataset.y = person.worldY;

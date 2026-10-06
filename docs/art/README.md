@@ -1,4 +1,24 @@
-# Corner Café art history
+# Current production art: inhabited miniature studio
+
+The production Room uses **Phaser, the refined Patchwork Cue cast, and Linked
+Studio**. The approved red rabbit Implementer and pale green paper Reviewer are
+unchanged. Human keeps the structured auburn fringe, understated face, and
+constructed plum/mint/ochre clothing.
+
+- [Current production app, recording and screenshots](linked-studio-production-2026-10-06/index.html)
+- [Approved art and implementation handoff](linked-studio-human-integration-2026-10-06/index.html)
+- [Runtime behavior and layering](../room-experience.md)
+
+The runtime copies the approved cast and room PNGs unchanged. The galleries below
+are retained as design history, not additional approved production directions.
+
+## Earlier dollhouse studies
+
+[Cast, room and 3/5/8-participant studies](flat-dollhouse-lookdev-2026-10-06/index.html)
+preceded Patchwork Cue and Linked Studio. Their recommendations are superseded by
+the current production direction above. The original prompts remain with each gallery.
+
+# Earlier art history
 
 Latest direction studies:
 
@@ -7,10 +27,10 @@ Latest direction studies:
   Implementer and teal Reviewer retain their current identities.
 - [Minimal café layouts](minimal-cafe-lookdev-2026-10-06/index.html): four cleaner,
   rug-free environment concepts with the selected cast. **02 Window Studio +
-  01 Open Triangle** now guide the production GLBs; see the
+  01 Open Triangle** guided the archived Babylon GLBs; see the
   [production capture](window-studio-production/completed-real-run.png).
 
-The current Babylon room uses an original stylized 3D asset kit. See
+The archived Babylon room used an original stylized 3D asset kit. See
 [Babylon art direction and asset source](babylon-cafe.md). The raster assets and
 pose sheets below are retained as historical references, not loaded by the Room.
 

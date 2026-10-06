@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#d5ded6"><title>ZipperCrew</title>
-  <link rel="stylesheet" href="/style.css"><script src="/vendor/babylon-9.15.0.js" defer></script><script src="/vendor/babylon-loaders-9.15.0.js" defer></script><script src="/app.js" type="module"></script>
+  <link rel="stylesheet" href="/style.css"><script src="/vendor/phaser-3.90.0.min.js" defer></script><script src="/app.js" type="module"></script>
 </head>
 <body>
   <header class="app-header">
@@ -17,7 +17,7 @@
     <div class="notices"><div id="demo-banner" class="banner" hidden>Demo · scripted agents, real process</div><div id="error" class="error" role="alert" hidden></div></div>
     <div id="room-layout" class="room-layout">
       <section class="room-stage" aria-label="Crew room">
-        <div class="room-toolbar"><span id="room-status" class="status-pill" role="status">Setting up</span><span class="environment-name">Corner Café</span><span id="save-status" role="status" aria-live="polite">Autosave on</span><button id="retry-save" class="text-button" hidden>Retry save</button><span id="run-context" class="environment-name"></span><button id="latest-run" class="secondary" hidden>Latest run →</button></div>
+        <div class="room-toolbar"><span id="room-status" class="status-pill" role="status">Setting up</span><span class="environment-name">Linked Studio</span><span id="save-status" role="status" aria-live="polite">Autosave on</span><button id="retry-save" class="text-button" hidden>Retry save</button><span id="run-context" class="environment-name"></span><button id="latest-run" class="secondary" hidden>Latest run →</button></div>
         <div id="scene" class="scene"></div>
         <div class="scene-caption"><span id="scene-hint">Select a station to choose an agent.</span></div>
       </section>
