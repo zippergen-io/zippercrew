@@ -1,6 +1,8 @@
 import { pixelText } from './art.js';
+import { TASK_BOARD } from './world.js';
 
-export const BOARD = {x:184,y:26,width:148,height:34};
+export const BOARD = TASK_BOARD;
+const TITLE_CHARS=28,LINE_CHARS=26;
 const terminal=run=>!run||['completed','failed','stopped'].includes(run.status);
 
 // A deterministic excerpt, never an invented summary. The full Unicode brief
@@ -20,15 +22,15 @@ export function boardCopy(brief){
   if(!lines.length)return {title:'YOUR NEXT TASK',lines:['GIVE THE CREW A BRIEF','CLICK TO GET STARTED']};
   if((lines.join('').match(/\?/g)||[]).length>lines.join('').length/4)
     return {title:'CURRENT TASK',lines:['OPEN THE BOARD','TO READ THE FULL BRIEF']};
-  const title=excerpt(lines[0],33),rest=lines.slice(1);
-  if(!rest.length&&lines[0].length>33){
+  const title=excerpt(lines[0],TITLE_CHARS),rest=lines.slice(1);
+  if(!rest.length&&lines[0].length>TITLE_CHARS){
     let remainder=lines[0].slice(title.replace(/\.\.\.$/,'').length).trim();
     while(remainder&&rest.length<2){
-      const chunk=excerpt(remainder,31);rest.push(chunk);
+      const chunk=excerpt(remainder,LINE_CHARS);rest.push(chunk);
       remainder=remainder.slice(chunk.replace(/\.\.\.$/,'').length).trim();
     }
   }
-  return {title,lines:rest.slice(0,2).map(line=>excerpt(line,31))};
+  return {title,lines:rest.slice(0,2).map(line=>excerpt(line,LINE_CHARS))};
 }
 
 export function boardStatus(run,connected,hasRoom){
@@ -48,7 +50,7 @@ export class TaskBoard {
   constructor(scene){
     this.scene=scene;this.hover=false;this.signature='';
     this.texture=scene.textures.createCanvas('current-task-board',BOARD.width,BOARD.height);
-    this.sprite=scene.add.image(BOARD.x,BOARD.y,this.texture.key).setOrigin(0).setDepth(58);
+    this.sprite=scene.add.image(BOARD.x,BOARD.y,this.texture.key).setOrigin(0).setDepth(BOARD.y+BOARD.height);
     this.sprite.contextOwner='task-board';
     this.sprite.setInteractive({useHandCursor:true});
     this.sprite.on('pointerover',()=>{this.hover=true;this.draw();});
@@ -69,16 +71,55 @@ export class TaskBoard {
     if(!this.copy)return;
     const night=this.scene.mood==='night',c=this.texture.getContext();
     c.imageSmoothingEnabled=false;c.clearRect(0,0,BOARD.width,BOARD.height);
-    const colors=night?{edge:'#544d49',frame:'#94775d',paper:'#6b747d',ink:'#f0e6d3',muted:'#d0d6d8',line:'#858b8d',blue:'#a9c4d0',coral:'#db9b89',amber:'#e2b776'}:
-      {edge:'#6e6258',frame:'#b99772',paper:'#f3eee4',ink:'#4d5c67',muted:'#6c767b',line:'#ddd6c8',blue:'#7898aa',coral:'#c67f6e',amber:'#c39a51'};
+    const colors=night?{
+      edge:'#44484b',frame:'#947b60',rim:'#b29b7c',grain:'#776550',paper:'#aaa99c',
+      inset:'#828779',highlight:'#bdbaaa',ink:'#35434a',muted:'#455257',line:'#91978a',
+      blue:'#638a9d',coral:'#af7865',amber:'#9d7846',metal:'#717d82',metalLight:'#9ba4a1',
+    }:{
+      edge:'#706455',frame:'#caa77c',rim:'#e6cb9e',grain:'#af8b64',paper:'#f0eadb',
+      inset:'#d2caba',highlight:'#faf4e6',ink:'#485963',muted:'#657278',line:'#d6d2c3',
+      blue:'#7898aa',coral:'#c7836e',amber:'#b18b4c',metal:'#899599',metalLight:'#b5bfbb',
+    };
     const p={r:(x,y,w,h,color)=>{c.fillStyle=colors[color]||color;c.fillRect(x,y,w,h);}};
-    p.r(1,1,146,32,'edge');p.r(0,0,147,32,'frame');p.r(1,1,145,30,'edge');
-    p.r(2,2,143,29,'paper');p.r(3,2,141,1,night?'#889093':'#fffaf0');
-    p.r(4,23,137,1,'line');p.r(4,31,137,2,'frame');p.r(125,31,8,1,'blue');p.r(136,31,5,1,'coral');
-    pixelText(p,this.copy.title,6,3,'ink');
-    this.copy.lines.forEach((line,i)=>{p.r(6,12+i*7,2,1,'coral');pixelText(p,line,11,10+i*7,'muted');});
-    p.r(6,25,2,2,this.status.accent);pixelText(p,excerpt(this.status.text,31),12,24,'ink');
-    if(this.hover){p.r(0,0,147,1,'blue');p.r(0,0,1,32,'blue');p.r(146,0,1,32,'blue');}
+    const w=BOARD.width;
+    // Short metal supports and contact shadows make this a room object. They
+    // sit behind the light-wood frame; the full sheet never becomes UI chrome.
+    p.r(8,58,w-13,2,night?'#20293035':'#66523c20');
+    for(const x of [13,w-19]){
+      p.r(x,43,3,14,'edge');p.r(x,45,1,12,'metalLight');
+      p.r(x-4,57,12,2,'edge');p.r(x-3,57,10,1,'metal');
+    }
+    p.r(3,3,w-3,49,night?'#20293045':'#59463630');
+    p.r(0,0,w-2,50,'edge');p.r(1,1,w-4,47,'frame');
+    p.r(1,1,w-5,1,'rim');p.r(1,2,1,45,'rim');
+    p.r(w-5,3,2,45,'grain');p.r(2,47,w-5,2,'grain');
+    // A recessed warm writing surface and a fine inner shadow.
+    p.r(4,4,w-10,42,'inset');p.r(5,5,w-12,40,'paper');
+    p.r(6,6,w-14,1,'highlight');
+    // Quiet frame joints and grain, not a thick uniform rectangle.
+    p.r(3,2,9,1,'grain');p.r(w-22,2,12,1,'grain');
+    p.r(2,2,1,1,'edge');p.r(w-4,2,1,1,'edge');
+    p.r(2,46,1,1,'edge');p.r(w-4,46,1,1,'edge');
+    // Two tiny magnets; the title has its own breathing room beneath them.
+    for(const [x,color]of [[11,'blue'],[w-17,'coral']]){
+      p.r(x,7,3,2,'inset');p.r(x,6,2,2,color);p.r(x,6,1,1,'highlight');
+    }
+    pixelText(p,this.copy.title,11,11,'ink');
+    this.copy.lines.forEach((line,i)=>{
+      p.r(11,21+i*7,2,1,'coral');pixelText(p,line,16,19+i*7,'muted');
+    });
+    // An inset divider and five clear pixels under the status baseline.
+    p.r(11,33,w-27,1,'line');
+    p.r(11,37,2,2,this.status.accent);
+    pixelText(p,excerpt(this.status.text,27),17,36,'ink');
+    // A projecting tray, two capped markers and a small felt eraser.
+    p.r(7,49,w-16,3,'edge');p.r(8,49,w-18,1,'metalLight');
+    p.r(9,51,w-20,1,'metal');
+    p.r(w-43,47,10,2,'highlight');p.r(w-43,47,3,2,'blue');
+    p.r(w-29,47,9,2,'highlight');p.r(w-22,47,2,2,'coral');
+    p.r(13,46,8,3,'edge');p.r(14,46,6,2,'metal');
+    // Hover catches the frame's top edge instead of adding a UI-style outline.
+    if(this.hover)p.r(4,1,w-12,1,'highlight');
     this.texture.refresh();
   }
   inspect(){return {title:this.copy.title,lines:this.copy.lines,status:this.status.text,...BOARD};}

@@ -47,6 +47,18 @@ occasionally visit the coffee corner or lounge, and exchange short social bubble
 These ambient breaks yield to real work and handoffs. Pause/reduced motion freezes
 ambient movement and typing, while the clock and actual task feedback stay live.
 
+A crocodile companion stands quietly along the lounge edge, occasionally peeking or
+taking a short walk after 37–51 seconds of rest. Every pose stays upright on its
+hind legs, including idle and blinking. The default is about 6% smaller than the
+approved avatar-height version; set `COMPANION.size` to `'original'` to restore it.
+The original artwork is retained unchanged, alongside a nearest-neighbor size variant.
+The rounded muzzle, big eyes, tiny hands and striped belly follow the pencil reference.
+It yields to agent movement,
+messages, human decisions, and open panels, and respects pause/reduced motion.
+It has no workflow role or click target. Its original pixel poses live in
+`static/office/crocodile-art.js`; nooks and timing are data in `office/world.js`
+(`COMPANION`), with behavior isolated in `office/mascot.js`.
+
 Blue-tinted work bubbles carry up to six lines of deliberate public status; warm thought
 bubbles denote ambient moments, and conversations use speech tails and role accents.
 With the matching ZipperGen checkout, agents publish explicit `<ui-status>` updates
@@ -61,8 +73,10 @@ alongside full turn responses. Screen marks are abstract activity,
 not literal terminal output. Tool details depend on the CLI progress observer;
 without it, the office shows the actual working/reviewing state and final messages.
 
-The small whiteboard on the back wall shows the task title, two short excerpt lines,
-and the current round/status. Click it to read the full brief and open task controls.
+The framed project board at the back of the room shows the task title, two short
+excerpt lines, and a separately padded round/status line. Its warm writing surface,
+magnets, marker tray, and slim supports use native pixel art in both moods.
+Click it to read the full brief and open task controls.
 Real protocol messages trigger visible handoffs: the sending agent carries a note
 over, the recipient briefly acknowledges it, and the crew returns to their desks.
 A slow amber ring marks a pending human decision, becoming static with reduced motion.

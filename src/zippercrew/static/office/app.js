@@ -4,6 +4,7 @@ import { createNavigation } from './navigation.js';
 import { DecisionAttention } from './attention.js';
 import { OfficeActivity } from './activity.js';
 import { OfficeAmbient } from './ambient.js';
+import { OfficeMascot } from './mascot.js';
 import { OfficeSurfaces } from './surfaces.js';
 import { OfficeSession } from './session.js';
 import { TaskBoard } from './task-board.js';
@@ -34,11 +35,12 @@ class Studio extends Phaser.Scene {
     this.map=this.make.tilemap({data,tileWidth:tile,tileHeight:tile});
     this.floorTiles=this.map.addTilesetImage('floor-tiles',`${this.mood}:floor-tiles`,tile,tile,0,0);
     this.map.createLayer(0,this.floorTiles,0,0).setDepth(-2);
-    for(const z of WORLD.zones){this.themedImage(z.x,z.y,`rug-${z.id}`).setOrigin(0).setDepth(-1);const sprite=this.add.image(z.x+8,z.y-15,labelTexture(this,z.label,{color:'zone'})).setOrigin(0).setDepth(1);this.zoneLabels.push({sprite,text:z.label});}
+    for(const z of WORLD.zones){this.themedImage(z.x,z.y,`rug-${z.id}`).setOrigin(0).setDepth(-1);const sprite=this.add.image(z.x+8,z.y+(z.labelOffsetY??-15),labelTexture(this,z.label,{color:'zone'})).setOrigin(0).setDepth(1);this.zoneLabels.push({sprite,text:z.label});}
     this.themedImage(0,0,'lighting').setOrigin(0).setDepth(-.5);
     // Render shadows and furniture in the same coordinate system. Floor-bound
     // sorting lets characters pass both in front of and behind each object.
     for(const f of WORLD.furniture){
+      if(f.type==='taskBoard')continue; // Dynamic text is rendered by TaskBoard.
       const key=f.type==='chair'?`chair-${f.variant}-back`:this.textures.exists(`${this.mood}:${f.type}-${f.variant}`)?`${f.type}-${f.variant}`:f.type;
       const sprite=this.themedImage(f.x,f.y,key).setOrigin(0).setDepth(f.y+(f.footprint?.[1]??0)+(f.footprint?.[3]??30));
       if(f.owner){
@@ -90,6 +92,7 @@ class Studio extends Phaser.Scene {
     this.updatePauseUI();
     this.handoffs=new OfficeHandoffs(this);
     this.activity=new OfficeActivity(this);this.ambient=new OfficeAmbient(this);
+    this.mascot=new OfficeMascot(this);
     this.session=new OfficeSession(this);this.session.boot();
   }
   resize(fit=false){
@@ -238,6 +241,7 @@ class Studio extends Phaser.Scene {
     }
     this.handoffs?.update(dt);
     this.ambient?.update(dt);this.activity?.update(dt);this.surfaces.update();this.attention.update();
+    this.mascot?.update(dt);
     if(this.selected){const p=this.people.get(this.selected);this.selection.setPosition(Math.round(p.x),Math.round(p.y)+1);}
     const c=this.conversation;if(c){const a=this.people.get(c.a),b=this.people.get(c.b);this.talkDots.setPosition(Math.round((a.x+b.x)/2),Math.round(Math.min(a.y,b.y))-36).setVisible(!a.bubble&&!b.bubble);}
   }

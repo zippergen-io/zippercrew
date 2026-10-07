@@ -3,6 +3,15 @@
 // Trim only the empty exterior margin; world coordinates stay unchanged.
 export const VIEW = {x:24,y:16,width:512,height:320};
 export const WALK_SPEED = {human:76,agent:64};
+export const TASK_BOARD = {id:'task-board',type:'taskBoard',x:191,y:35,width:134,height:61,footprint:[8,56,117,4]};
+// Quiet lounge-edge nooks. Ground anchors and a bounded route keep the small
+// companion away from desks, message handoffs and the main circulation lane.
+export const COMPANION = {
+  size:'small', // 'original' restores the approved avatar-height artwork.
+  spots:[{x:448,y:300},{x:412,y:292},{x:456,y:288}],
+  bounds:{x:400,y:284,width:64,height:24},
+  speed:17,firstWalk:28,quietDelay:2.5,restDurations:[43,37,51],
+};
 export const SOCIAL_SPOTS = [
   {id:'coffee',label:'At the coffee corner',points:[{x:428,y:108},{x:464,y:108}]},
   {id:'nook',label:'Taking a moment in the nook',points:[{x:408,y:190},{x:444,y:190}]},
@@ -12,10 +21,11 @@ export const WORLD = {
   floor: { x: 32, y: 64, width: 496, height: 256 },
   rooms: [{ id: 'studio', label: 'The studio', bounds: [32, 24, 496, 304] }],
   zones: [
-    { id: 'work', label: 'THE WORKSHOP', x: 56, y: 111, width: 248, height: 181, style: 'sage' },
+    { id: 'work', label: 'THE WORKSHOP', x: 56, y: 111, width: 248, height: 181, style: 'sage', labelOffsetY:-7 },
     { id: 'lounge', label: 'THE NOOK', x: 352, y: 123, width: 144, height: 156, style: 'cream' },
   ],
   furniture: [
+    TASK_BOARD,
     { id: 'mira-desk', type: 'desk', owner:'planner', x: 69, y: 125, variant: 0, footprint: [0, 10, 82, 29],
       lights:[{kind:'lamp',x:11,y:19,rx:62,ry:52,strength:.6},{kind:'screen',x:43,y:12,rx:33,ry:55,strength:.23}] },
     { id: 'theo-desk', type: 'desk', owner:'worker', x: 201, y: 125, variant: 1, footprint: [0, 10, 82, 29],
@@ -33,7 +43,7 @@ export const WORLD = {
     { id:'coffee-table',type:'table',x:405,y:213,footprint:[1,1,47,24] },
     { id:'lounge-chair',type:'armchair',x:357,y:243,footprint:[0,3,27,27],seat:{x:14,y:18,direction:'down',approach:{x:14,y:39}} },
     { id:'side-table',type:'sideTable',x:481,y:150,footprint:[0,1,19,15] },
-    { id:'library',type:'shelf',x:219,y:59,footprint:[0,17,74,15] },
+    { id:'library',type:'shelf',x:93,y:66,footprint:[0,17,74,15] },
     { id:'coffee-bar',type:'coffeeBar',x:434,y:65,footprint:[0,12,69,17] },
     { id:'record-cabinet',type:'cabinet',x:67,y:296,footprint:[0,5,75,17] },
     { id:'plant-entry',type:'plant',x:470,y:290,variant:0,footprint:[7,20,17,10] },
