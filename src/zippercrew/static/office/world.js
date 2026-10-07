@@ -1,5 +1,12 @@
 // All placement is in native art pixels, on a 16 px tile grid. A sprite's x/y
 // is its top-left; collision boxes describe only its footprint on the floor.
+// Trim only the empty exterior margin; world coordinates stay unchanged.
+export const VIEW = {x:24,y:16,width:512,height:320};
+export const WALK_SPEED = {human:76,agent:64};
+export const SOCIAL_SPOTS = [
+  {id:'coffee',label:'At the coffee corner',points:[{x:428,y:108},{x:464,y:108}]},
+  {id:'nook',label:'Taking a moment in the nook',points:[{x:408,y:190},{x:444,y:190}]},
+];
 export const WORLD = {
   width: 560, height: 352, tile: 16,
   floor: { x: 32, y: 64, width: 496, height: 256 },

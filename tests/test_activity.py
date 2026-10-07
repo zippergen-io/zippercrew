@@ -266,3 +266,70 @@ def test_new_summaries_do_not_reveal_secrets_or_infer_a_plan():
     for output in ["All checks passed! SECRET=hidden", "Success: no issues found in hidden files"]:
         item = summarize(dict(kind="command", phase="completed", command="mypy src", output=output))
         assert "detail" not in item
+
+
+def test_explicit_room_status_is_independent_of_tools_and_invocation_scoped(config, monkeypatch):
+    from zippercrew.adapter import assistant_backend, load_process
+
+    observed = []
+
+    def factory(selection, *, project_root, on_progress=None):
+        def invoke(action, inputs):
+            assert "<ui-status>" in action.instructions
+            on_progress({"kind": "invocation.started", "invocation_id": "one"})
+            on_progress(
+                {
+                    "kind": "ui_status",
+                    "invocation_id": "one",
+                    "text": "Updating the office.\nKeeping the character animations.",
+                }
+            )
+            return {action.outputs[0][0]: "done"}
+
+        return invoke
+
+    monkeypatch.setattr("zippercrew.adapter.make_cli_assistant_backend", factory)
+    _, module = load_process()
+    assistant_backend(config, observed.append)(module.implement, {"task": "work"})
+    state = initial_state("room", config)
+    action = {"lifeline": "Implementer", "action_kind": "assistant", "action": "implement"}
+    apply_event(state, {"id": 1, "type": "runtime", "event": {**action, "type": "act_start"}})
+    for index, event in enumerate(observed, 2):
+        apply_event(state, {"id": index, **event})
+    status = state["room_status"]["Implementer"]
+    assert status["text"].startswith("Updating the office.")
+    apply_event(
+        state,
+        {
+            "id": 4,
+            "type": "assistant.progress",
+            "role": "Implementer",
+            "invocation_id": "one",
+            "activity": {"text": "Running tests…"},
+        },
+    )
+    assert state["room_status"]["Implementer"] == status
+    assert state["local_activity"]["Implementer"]["text"] == "Running tests…"
+    apply_event(
+        state,
+        {
+            "id": 5,
+            "type": "assistant.ui_status",
+            "role": "Implementer",
+            "invocation_id": "old",
+            "text": "Stale status",
+        },
+    )
+    assert state["room_status"]["Implementer"] == status
+    apply_event(state, {"id": 6, "type": "room.stopped"})
+    apply_event(
+        state,
+        {
+            "id": 7,
+            "type": "assistant.ui_status",
+            "role": "Implementer",
+            "invocation_id": "one",
+            "text": "Too late",
+        },
+    )
+    assert not state["room_status"] and not state["messages"]

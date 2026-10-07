@@ -167,7 +167,7 @@ function architecture(p){
   window(85);window(342);
   if(p.mood==='night')for(const x of [85,342]){r(x+22,37,1,1,'#c6d3e1');r(x+65,35,1,1,'#c6d3e1');}
   // The live task board occupies the central wall. Keep a small clock by coffee.
-  r(458,35,12,18,C.edge);r(455,38,18,12,C.edge);r(458,36,12,16,'#f0e8d0');r(456,39,16,10,'#f0e8d0');r(464,39,1,6,'#7f826d');r(464,44,4,1,'#7f826d');r(463,38,2,1,'#b6af93');r(463,50,2,1,'#b6af93');
+  r(458,35,12,18,C.edge);r(455,38,18,12,C.edge);r(458,36,12,16,'#f0e8d0');r(456,39,16,10,'#f0e8d0');r(463,38,2,1,'#b6af93');r(463,50,2,1,'#b6af93');
   // Side walls and low cutaway front wall. The entrance stays open.
   r(29,65,7,257,'#b7bea4');r(30,65,2,255,'#d6dcc0');r(36,65,2,255,'#bdac8d');r(524,65,7,257,'#a3b093');r(524,65,2,255,'#c4cdae');
   for(const [x,w] of [[29,232],[314,217]]){r(x,319,w,9,C.edge);r(x+1,319,w-2,5,'#b7c1a6');r(x+1,319,w-2,2,'#e0e2c8');r(x+1,324,w-2,3,'#95a58a');}
@@ -197,13 +197,46 @@ function rug(p,zone){
 // A deliberately small 3×5 bitmap alphabet. No browser-font smoothing in-world.
 const GLYPHS={A:'010101111101101',B:'110101110101110',C:'011100100100011',D:'110101101101110',E:'111100110100111',F:'111100110100100',G:'011100101101011',H:'101101111101101',I:'111010010010111',J:'001001001101010',K:'101101110101101',L:'100100100100111',M:'101111111101101',N:'101111111111101',O:'010101101101010',P:'110101110100100',Q:'010101101111011',R:'110101110101101',S:'011100010001110',T:'111010010010010',U:'101101101101111',V:'101101101101010',W:'101101111111101',X:'101101010101101',Y:'101101010010010',Z:'111001010100111','0':'111101101101111','1':'010110010010111','2':'110001010100111','3':'110001010001110','4':'101101111001001','5':'111100110001110','6':'011100111101111','7':'111001010010010','8':'111101111101111','9':'111101111001110','.':'000000000000010',',':'000000000010100','!':'010010010000010','?':'110001010000010',"'":'010010000000000','-':'000000111000000',':':'000010000010000','+':'000010111010000','/':'001001010100100','&':'010101010101011'};
 export function pixelText(p,text,x,y,color){[...text.toUpperCase()].forEach((ch,i)=>{const bits=GLYPHS[ch];if(bits)for(let j=0;j<15;j++)if(bits[j]==='1')p.r(x+i*4+j%3,y+Math.floor(j/3),1,1,color);});}
-export function labelTexture(scene,text,{background=null,color='ink',bubble=false,accent=null}={}){
-  const key=`${scene.mood}:label:${text}:${background}:${color}:${bubble}:${accent}`;if(scene.textures.exists(key))return key;
-  const w=text.length*4+7+(accent?5:0),h=bubble?17:11,c=make(w,h),p=painter(c,scene.mood);
-  if(background){p.r(2,0,w-4,h-(bubble?4:0),C.edge);p.r(0,2,w,h-(bubble?8:4),C.edge);p.r(2,1,w-4,h-(bubble?6:2),background);p.r(1,2,w-2,h-(bubble?8:4),background);}
-  if(bubble){const mid=Math.floor(w/2);p.r(mid-3,12,6,2,C.edge);p.r(mid-2,14,4,2,C.edge);p.r(mid-1,16,2,1,C.edge);p.r(mid-2,11,4,2,background);p.r(mid-1,13,2,2,background);}
+// Wrap at word boundaries on the native bitmap grid; never rasterize DOM fonts.
+export function bubbleLines(text,width=38,maxLines=3){
+  const clean=String(text).normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/…/g,'...').replace(/[–—·]/g,'-').replace(/[^\x20-\x7e\n]/g,' ');
+  const lines=[];
+  for(const paragraph of clean.split('\n')){
+    const paragraphStart=lines.length;
+    let line='';
+    for(let word of paragraph.trim().split(/\s+/).filter(Boolean)){
+      if(line&&line.length+word.length+1>width){lines.push(line);line='';}
+      while(word.length>width){if(line){lines.push(line);line='';}lines.push(word.slice(0,width));word=word.slice(width);}
+      line+=(line?' ':'')+word;
+    }
+    if(line)lines.push(line);
+    // Avoid a lone final word on its own line while preserving authored breaks.
+    if(lines.length-paragraphStart>1){
+      const last=lines.length-1;
+      while(lines[last].length<width*.4){
+        const words=lines[last-1].split(' ');if(words.length<3)break;
+        const word=words.pop();if(word.length+1+lines[last].length>width)break;
+        lines[last]=word+' '+lines[last];lines[last-1]=words.join(' ');
+      }
+    }
+  }
+  if(lines.length>maxLines)lines[maxLines-1]=lines[maxLines-1].slice(0,width-3).replace(/\s+\S*$/,'')+'...';
+  return lines.slice(0,maxLines);
+}
+export function labelTexture(scene,text,{background=null,color='ink',bubble=false,accent=null,thought=false,roomStatus=false}={}){
+  const lines=bubble?bubbleLines(text,roomStatus?44:38,roomStatus?6:3):[text];
+  const key=`${scene.mood}:label:${lines.join('\n')}:${background}:${color}:${bubble}:${accent}:${thought}`;
+  if(scene.textures.exists(key))return key;
+  const w=Math.max(...lines.map(line=>line.length),1)*4+7+(accent?5:0);
+  const body=bubble?lines.length*8+5:11,h=body+(bubble?4:0),c=make(w,h),p=painter(c,scene.mood);
+  if(background){p.r(2,0,w-4,body,C.edge);p.r(0,2,w,body-4,C.edge);p.r(2,1,w-4,body-2,background);p.r(1,2,w-2,body-4,background);}
+  const mid=Math.floor(w/2);
+  if(thought){p.r(mid-2,body-1,3,2,C.edge);p.r(mid-1,body-1,1,1,background);p.r(mid+1,body+2,2,2,C.edge);}
+  else if(bubble){p.r(mid-3,body-1,6,2,C.edge);p.r(mid-2,body+1,4,2,C.edge);p.r(mid-1,body+3,2,1,C.edge);p.r(mid-2,body-2,4,2,background);p.r(mid-1,body,2,2,background);}
   if(accent)p.r(3,4,3,3,accent);
-  pixelText(p,text,accent?9:4,3,color);scene.textures.addCanvas(key,c);return key;
+  lines.forEach((line,i)=>pixelText(p,line,accent?9:4,3+i*8,color));
+  scene.textures.addCanvas(key,c);return key;
 }
 
 export function createArt(scene,mood){

@@ -1,6 +1,10 @@
-import { WORLD, PEOPLE } from './world.js';
+import { WORLD, PEOPLE, VIEW, WALK_SPEED } from './world.js';
 import { createArt, labelTexture, CHARACTER_ANCHORS } from './art.js';
 import { createNavigation } from './navigation.js';
+import { DecisionAttention } from './attention.js';
+import { OfficeActivity } from './activity.js';
+import { OfficeAmbient } from './ambient.js';
+import { OfficeSurfaces } from './surfaces.js';
 import { OfficeSession } from './session.js';
 import { TaskBoard } from './task-board.js';
 import { OfficeHandoffs } from './handoffs.js';
@@ -19,7 +23,7 @@ class Studio extends Phaser.Scene {
   constructor(){super('Studio');this.people=new Map();this.paused=reducedMotion.matches;this.elapsed=0;this.worldTime=0;this.selected=null;this.hovered=null;this.conversation=null;this.ready=false;this.mood=new URLSearchParams(location.search).get('mood')==='night'?'night':'day';this.themedImages=[];this.zoneLabels=[];}
   themedImage(x,y,key){const sprite=this.add.image(x,y,this.lighting.textureKey(this.mood,key,x,y));this.themedImages.push({sprite,key,x,y});return sprite;}
   create(){
-    this.cameras.main.setRoundPixels(true);
+    this.cameras.main.setRoundPixels(true).setScroll(VIEW.x,VIEW.y);
     for(const mood of ['day','night'])createArt(this,mood);
     this.lighting=new NightLighting(this);
     this.nav=createNavigation();this.seating=new Seating(this);
@@ -49,6 +53,7 @@ class Studio extends Phaser.Scene {
       }
     }
     this.board=new TaskBoard(this);
+    this.surfaces=new OfficeSurfaces(this);this.attention=new DecisionAttention(this);
     this.destination=pixelCenter(this.themedImage(0,0,'destination')).setDepth(2).setVisible(false);
     this.selection=pixelCenter(this.themedImage(0,0,'selection')).setDepth(3).setVisible(false);
     for(const data of PEOPLE){
@@ -84,6 +89,7 @@ class Studio extends Phaser.Scene {
     reducedMotion.addEventListener('change',event=>{this.paused=event.matches;this.updatePauseUI();});
     this.updatePauseUI();
     this.handoffs=new OfficeHandoffs(this);
+    this.activity=new OfficeActivity(this);this.ambient=new OfficeAmbient(this);
     this.session=new OfficeSession(this);this.session.boot();
   }
   resize(fit=false){
@@ -94,14 +100,19 @@ class Studio extends Phaser.Scene {
     const padding=getComputedStyle(view),availableWidth=view.clientWidth-parseFloat(padding.paddingLeft)-parseFloat(padding.paddingRight),availableHeight=view.clientHeight-parseFloat(padding.paddingTop)-parseFloat(padding.paddingBottom);
     // Keep avatars readable on phones; pan the native-size office instead of
     // fitting the entire world into a tiny Retina thumbnail.
-    const fitted=Math.max(Math.ceil(dpr),Math.floor(Math.min(availableWidth*dpr/WORLD.width,availableHeight*dpr/WORLD.height)));
+    const ideal=Math.min(availableWidth*dpr/VIEW.width,availableHeight*dpr/VIEW.height);
+    // On desktops, a tiny amount of panning is preferable to losing a full
+    // integer zoom step. Phones retain readable avatars and deliberate panning.
+    const next=Math.ceil(ideal),gentleOverflow=availableWidth>=1000&&next/ideal<=1.08;
+    const fitted=Math.max(Math.ceil(dpr),gentleOverflow?next:Math.floor(ideal));
     if(fit||!this.manualZoom)this.physicalScale=fitted;
     const maxScale=Math.max(1,Math.floor(8*dpr));
     this.physicalScale=Math.max(1,Math.min(maxScale,this.physicalScale));
-    const cssScale=this.physicalScale/dpr,w=WORLD.width*cssScale,h=WORLD.height*cssScale;
+    const cssScale=this.physicalScale/dpr,w=VIEW.width*cssScale,h=VIEW.height*cssScale;
     this.game.canvas.style.width=`${w}px`;this.game.canvas.style.height=`${h}px`;
     $('game').style.width=`${w}px`;$('game').style.height=`${h}px`;
     view.style.justifyItems=w>availableWidth?'start':'center';view.style.alignItems=h>availableHeight?'start':'center';
+    if(fit||!this.manualZoom){view.scrollLeft=Math.max(0,(w-availableWidth)/2);view.scrollTop=Math.max(0,(h-availableHeight)/2);}
     this.scale.updateBounds();$('zoom-out').disabled=this.physicalScale<=1;$('zoom-in').disabled=this.physicalScale>=maxScale;
     $('fit').textContent=this.manualZoom?`${Number(cssScale.toFixed(2))}×`:'Fit';
     this.ui?.reposition();
@@ -116,7 +127,7 @@ class Studio extends Phaser.Scene {
     for(const p of this.people.values()){
       p.sprite.setTexture(this.lighting.characterKey(p),p.sprite.frame.name);
       p.nameTag.setTexture(this.nameTexture(p));
-      if(p.bubble)p.bubble.setTexture(labelTexture(this,p.bubbleText,{background:'bubble',color:'bubbleInk',bubble:true}));
+      if(p.bubble)p.bubble.setTexture(this.bubbleTexture(p));
     }
     this.board?.update(this.session?.room,this.session?.taskRun,this.session?.connected);
     this.talkDots.setTexture(labelTexture(this,'...',{background:'bubble',color:'bubbleInk',bubble:true}));
@@ -151,7 +162,15 @@ class Studio extends Phaser.Scene {
   updateStatus(){if(this.session){this.session.refreshChrome();return;}const c=this.conversation;$('scene-state').textContent=this.paused?'A quiet moment · paused':c?`${this.people.get(c.a).name} & ${this.people.get(c.b).name} · comparing notes`:'A little focus, a little company';if(this.selected)this.updatePerson();}
   updatePerson(){const p=this.people.get(this.selected);if(!p)return;$('person-name').textContent=p.name;$('person-role').textContent=`${p.role} · ${p.kind}`;$('person-role').style.setProperty('--role-accent',PALETTES[this.mood][p.id]);$('person-description').textContent=p.description;this.ui?.updatePerson();}
   select(id){this.selected=id;$('person-card').hidden=!id;this.selection.setVisible(!!id);document.querySelectorAll('[data-person]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.person===id)));if(id){this.updatePerson();this.portrait($('person-portrait'),id);}this.ui?.onSelect(id);}
-  say(id,text,duration=4){const p=this.people.get(id);p.bubble?.destroy();p.bubbleText=text;p.bubble=pixelCenter(this.add.image(Math.round(p.x),Math.round(p.y)-43,labelTexture(this,text,{background:'bubble',color:'bubbleInk',bubble:true}))).setDepth(820);p.bubbleUntil=this.worldTime+duration;this.ui?.record(p.name,text);}
+  bubbleTexture(p){return labelTexture(this,p.bubbleText,{background:p.bubbleKind==='work'?'workBubble':p.bubbleKind==='idle'?'idleBubble':'bubble',color:'bubbleInk',bubble:true,thought:p.bubbleKind==='idle',roomStatus:p.bubbleKind==='work',accent:['work','conversation'].includes(p.bubbleKind)?p.id:null});}
+  say(id,text,duration=4,kind='message'){const p=this.people.get(id);p.bubble?.destroy();p.bubbleText=text;p.bubbleKind=kind;p.bubble=pixelCenter(this.add.image(Math.round(p.x),Math.round(p.y)-43,this.bubbleTexture(p))).setDepth(820);p.bubbleUntil=this.worldTime+duration;this.placeBubble(p);this.ui?.record(p.name,text);}
+  placeBubble(p){
+    const sprite=p.bubble;if(!sprite)return;
+    const half=Math.floor(sprite.width/2);
+    sprite.setOrigin(half/sprite.width,1).setPosition(
+      Math.round(Math.max(VIEW.x+half+3,Math.min(VIEW.x+VIEW.width-(sprite.width-half)-3,p.x))),
+      Math.round(Math.max(VIEW.y+sprite.height+2,p.y-36)));
+  }
   endConversation(){this.conversation=null;this.talkDots?.setVisible(false);for(const p of this.people.values()){p.bubble?.destroy();p.bubble=null;}this.updateStatus();}
   moveTo(id,target,options={}){
     const {status='Taking a short walk',onArrival=null,preserveSeatReservation=false}=options;
@@ -174,7 +193,7 @@ class Studio extends Phaser.Scene {
       const canMove=p.id==='human'||!this.paused;
       if(p.transition&&canMove)this.seating.update(p,dt);
       if(p.route.length&&canMove&&!p.transition){
-        let budget=dt*(p.id==='human'?44:25);
+        let budget=dt*(p.id==='human'?WALK_SPEED.human:WALK_SPEED.agent);
         // Consume reached nodes and carry unused movement through corners. A
         // zero-length grid snap must never produce an idle frame or turn up.
         while(p.route.length&&budget>.0001&&!p.transition){
@@ -215,14 +234,15 @@ class Studio extends Phaser.Scene {
       const partner=this.conversation?.a===p.id?this.people.get(this.conversation.b):this.conversation?.b===p.id?this.people.get(this.conversation.a):null;
       const labelOffset=partner?(p.x<partner.x?-6:6):0;
       p.nameTag.setPosition(Math.round(p.x)+labelOffset,Math.round(p.y)+9).setVisible(p.id==='human'||this.selected===p.id||this.hovered===p.id||[this.conversation?.a,this.conversation?.b,this.handoffs?.active?.sender,this.handoffs?.active?.recipient].includes(p.id));
-      if(p.bubble){p.bubble.setPosition(Math.round(p.x),Math.round(p.y)-43);if(this.worldTime>=p.bubbleUntil){p.bubble.destroy();p.bubble=null;}}
+      if(p.bubble){this.placeBubble(p);if(this.worldTime>=p.bubbleUntil){p.bubble.destroy();p.bubble=null;}}
     }
     this.handoffs?.update(dt);
+    this.ambient?.update(dt);this.activity?.update(dt);this.surfaces.update();this.attention.update();
     if(this.selected){const p=this.people.get(this.selected);this.selection.setPosition(Math.round(p.x),Math.round(p.y)+1);}
     const c=this.conversation;if(c){const a=this.people.get(c.a),b=this.people.get(c.b);this.talkDots.setPosition(Math.round((a.x+b.x)/2),Math.round(Math.min(a.y,b.y))-36).setVisible(!a.bubble&&!b.bubble);}
   }
-  walkHuman(dt){if(document.activeElement!==$('game'))return;const k=this.keys,dx=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),dy=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown);if(!dx&&!dy)return;const p=this.people.get('human');this.seating.cancelApproach(p);this.updateSeatUI();if(p.seated){this.seating.stand(p);return;}p.route=[];p.onArrival=null;this.destination.setVisible(false);const speed=44*dt/Math.hypot(dx,dy),nx=p.x+dx*speed,ny=p.y+dy*speed;const can=(x,y)=>this.nav.free(x,y)&&![...this.people.values()].some(other=>other!==p&&Math.hypot(x-other.x,y-other.y)<11);if(can(nx,p.y))p.x=nx;if(can(p.x,ny))p.y=ny;p.keyboardIntent=true;}
-  inspect(){return {ready:this.ready,mood:this.mood,paused:this.paused,time:this.elapsed,selected:this.selected,conversation:this.conversation,physicalScale:this.physicalScale,people:[...this.people.values()].map(p=>({id:p.id,x:p.x,y:p.y,direction:p.direction,walking:p.route.length>0,status:p.status,seating:this.seating.inspect(p)})),furniture:WORLD.furniture.length,tileLayers:this.map.layers.length,board:this.board?.inspect(),handoffs:this.handoffs?.inspect()};}
+  walkHuman(dt){if(document.activeElement!==$('game'))return;const k=this.keys,dx=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),dy=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown);if(!dx&&!dy)return;const p=this.people.get('human');this.seating.cancelApproach(p);this.updateSeatUI();if(p.seated){this.seating.stand(p);return;}p.route=[];p.onArrival=null;this.destination.setVisible(false);const speed=WALK_SPEED.human*dt/Math.hypot(dx,dy),nx=p.x+dx*speed,ny=p.y+dy*speed;const can=(x,y)=>this.nav.free(x,y)&&![...this.people.values()].some(other=>other!==p&&Math.hypot(x-other.x,y-other.y)<11);if(can(nx,p.y))p.x=nx;if(can(p.x,ny))p.y=ny;p.keyboardIntent=true;}
+  inspect(){return {ready:this.ready,mood:this.mood,paused:this.paused,time:this.elapsed,selected:this.selected,conversation:this.conversation,physicalScale:this.physicalScale,people:[...this.people.values()].map(p=>({id:p.id,x:p.x,y:p.y,direction:p.direction,walking:p.route.length>0,status:p.status,seating:this.seating.inspect(p)})),furniture:WORLD.furniture.length,tileLayers:this.map.layers.length,board:this.board?.inspect(),handoffs:this.handoffs?.inspect(),ambient:this.ambient?.inspect(),clock:this.surfaces?.clockTime};}
 }
 
-new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:WORLD.width,height:WORLD.height,transparent:true,pixelArt:true,roundPixels:true,antialias:false,antialiasGL:false,banner:false,audio:{noAudio:true},fps:{target:30,forceSetTimeOut:true},input:{keyboard:true,touch:{capture:false}},scene:Studio,render:{pixelArt:true,roundPixels:true,antialias:false}});
+new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:VIEW.width,height:VIEW.height,transparent:true,pixelArt:true,roundPixels:true,antialias:false,antialiasGL:false,banner:false,audio:{noAudio:true},fps:{target:30,forceSetTimeOut:true},input:{keyboard:true,touch:{capture:false}},scene:Studio,render:{pixelArt:true,roundPixels:true,antialias:false}});

@@ -13,9 +13,9 @@ def capture(page, name):
     if directory := os.environ.get("ZIPPERCREW_OFFICE_CAPTURES"):
         target = Path(directory)
         target.mkdir(parents=True, exist_ok=True)
-        page.evaluate("() => studio.game.loop.wake()")
+        page.evaluate("() => {studio.game.loop.wake();}")
         page.wait_for_timeout(100)
-        page.evaluate("() => studio.game.loop.stop()")
+        page.evaluate("() => {studio.game.loop.stop();}")
         page.screenshot(path=str(target / f"{name}.png"))
 
 
@@ -37,6 +37,8 @@ def test_task_board_and_real_message_couriers(service):
         )
         page.locator("#setup-brief").fill(brief)
         page.get_by_role("button", name="Start task", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         expect(page.get_by_role("button", name="Stop run", exact=True)).to_be_visible()
         page.locator("#back-to-office").click()
         page.wait_for_function("() => studio.handoffs.active?.sender === 'worker'")
@@ -110,7 +112,8 @@ def test_task_board_and_real_message_couriers(service):
         before = page.evaluate("({x:studio.people.get('human').x,y:studio.people.get('human').y})")
         bounds = page.locator("#game canvas").bounding_box()
         page.mouse.click(
-            bounds["x"] + 245 * bounds["width"] / 560, bounds["y"] + 39 * bounds["height"] / 352
+            bounds["x"] + (245 - 24) * bounds["width"] / 512,
+            bounds["y"] + (39 - 16) * bounds["height"] / 320,
         )
         expect(page.locator(".task-brief")).to_have_text(brief)
         assert page.locator(".task-brief script").count() == 0

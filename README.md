@@ -39,10 +39,36 @@ The live crew is Worker, Reviewer, and you; Planner is not part of this workflow
 Day/night lighting, movement, and seating use the approved pixel-office artwork.
 Agent states and work bubbles follow backend events, with no scripted work fallback.
 
+The office fills more of the viewport, retaining integer physical-pixel scaling
+and panning on smaller screens. Agents walk at 64 art pixels/second (formerly 25);
+your avatar moves at 76. The wall clock follows your computer's local time.
+Working agents type and their monitors animate; idle agents turn away and stretch,
+occasionally visit the coffee corner or lounge, and exchange short social bubbles.
+These ambient breaks yield to real work and handoffs. Pause/reduced motion freezes
+ambient movement and typing, while the clock and actual task feedback stay live.
+
+Blue-tinted work bubbles carry up to six lines of deliberate public status; warm thought
+bubbles denote ambient moments, and conversations use speech tails and role accents.
+With the matching ZipperGen checkout, agents publish explicit `<ui-status>` updates
+before the first tool call and at meaningful milestones, aiming for an update every
+20–30 seconds during sustained work when the CLI can speak. The prompt asks for
+concrete findings, next actions, and their purpose. New statuses can replace older
+work bubbles after four seconds; reading time scales with message length. Those updates remain separate from shell telemetry and
+private reasoning. Older runtimes use specific tool-based descriptions, never generic
+Working/Thinking bubbles. The detail window has an on-demand shell-output log.
+Agent cards show the latest three activity events; the task window shows twelve,
+alongside full turn responses. Screen marks are abstract activity,
+not literal terminal output. Tool details depend on the CLI progress observer;
+without it, the office shows the actual working/reviewing state and final messages.
+
 The small whiteboard on the back wall shows the task title, two short excerpt lines,
 and the current round/status. Click it to read the full brief and open task controls.
 Real protocol messages trigger visible handoffs: the sending agent carries a note
 over, the recipient briefly acknowledges it, and the crew returns to their desks.
+A slow amber ring marks a pending human decision, becoming static with reduced motion.
+Accepted Start, Save, Stop and decision actions close the dialog and show a brief agent
+acknowledgment; failed requests keep the dialog and draft intact. If another input is
+required (such as guidance), use **Your decision** to reopen it.
 These animations never delay execution or invent a receipt. Reloading and reconnecting
 do not replay old exchanges; reduced motion uses brief bubbles without courier walks.
 

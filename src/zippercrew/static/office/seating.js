@@ -79,7 +79,13 @@ export class Seating {
 
   frame(person,time) {
     if(!person.seated || (person.transition?.kind==='stand'&&person.transition.progress>.5))return null;
-    return SEATED_FRAMES[this.chairs.get(person.seated).seat.direction]+Math.floor(time*2)%2;
+    const base=SEATED_FRAMES[this.chairs.get(person.seated).seat.direction];
+    const working=this.scene.activity?.isWorking(person)&&!(person.reactionUntil>this.scene.worldTime);
+    if(working||person.transition){person.restSince=null;return base+(working?Math.floor(time*5)%2:0);}
+    person.restSince??=time;
+    // Hold each look for seconds rather than alternating frames near a stop.
+    const age=(time-person.restSince+(person.id==='reviewer'?2:0))%14;
+    return base+(age>=9&&age<12?3:2);
   }
 
   inspect(person) {

@@ -1,4 +1,4 @@
-import { WORLD } from './world.js';
+import { VIEW } from './world.js';
 
 const $=id=>document.getElementById(id);
 
@@ -64,23 +64,25 @@ export class OfficeInterface {
     this.panel='person-card';this.anchor={x:Math.max(...neighbors.map(other=>other.x))+12,y:p.y-25};
     // Selecting someone from the roster also finds them on a small, panned view.
     const view=$('scene-scroll'),bounds=view.getBoundingClientRect(),canvas=this.scene.game.canvas.getBoundingClientRect();
-    const x=canvas.left+p.x*canvas.width/WORLD.width,y=canvas.top+p.y*canvas.height/WORLD.height;
+    const x=canvas.left+(p.x-VIEW.x)*canvas.width/VIEW.width,y=canvas.top+(p.y-VIEW.y)*canvas.height/VIEW.height;
     if(x<bounds.left+40||x>bounds.right-40)view.scrollLeft+=x-(bounds.left+bounds.width/2);
     if(y<bounds.top+80||y>bounds.bottom-80)view.scrollTop+=y-(bounds.top+bounds.height/2);
     this.updatePerson();this.reposition();$('close-person').focus({preventScroll:true});
   }
   updatePerson(){
     const p=this.scene.people.get(this.scene.selected);if(!p)return;
-    $('person-activity').textContent=p.exchangeStatus||p.liveStatus||'Ready';
+    $('person-activity').textContent=p.exchangeStatus||this.scene.activity?.currentText(p)||p.ambientStatus||p.liveStatus||'Ready';
+    this.scene.activity?.renderRecent($('person-recent'),p.id,3);
     $('person-task-title').textContent=this.scene.session?.room?.brief||'Create a room to get started';
     $('walk-over').firstChild.textContent=p.id==='human'?(p.seated?'Stand up':'Take a seat'):'Walk over';
     $('walk-over').disabled=!!(p.id==='human'&&(p.seatApproach||p.transition));
+    this.reposition();
   }
   showTask(owner){this.scene.session?.showTask(owner);}
   reposition(){
     if(!this.panel||!this.anchor)return;
     const panel=$(this.panel),r=this.scene.game.canvas.getBoundingClientRect();
-    const x=r.left+this.anchor.x*r.width/WORLD.width,y=r.top+this.anchor.y*r.height/WORLD.height;
+    const x=r.left+(this.anchor.x-VIEW.x)*r.width/VIEW.width,y=r.top+(this.anchor.y-VIEW.y)*r.height/VIEW.height;
     const width=panel.offsetWidth,height=panel.offsetHeight;
     const right=x+38,left=x-width-38;
     panel.style.left=`${Math.round(Math.max(16,Math.min(innerWidth-width-16,right+width<=innerWidth-16?right:left)))}px`;

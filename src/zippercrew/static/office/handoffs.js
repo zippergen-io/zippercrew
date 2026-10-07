@@ -33,11 +33,11 @@ export class OfficeHandoffs {
     this.scene.textures.addCanvas(key,canvas);return key;
   }
   speak(id,text,{force=false,duration=3.5}={}){
-    if(!this.scene.people.has(id))return;
+    if(!this.scene.people.has(id)||this.scene.worldTime<(this.scene.reactionUntil||0))return;
     if(!force&&(this.active||this.clock-(this.lastSpeech.get(id)??-100)<7))return;
     // Keep only one speech bubble during an exchange, plus the carried card.
     for(const p of this.scene.people.values())if(p.id!==id){p.bubble?.destroy();p.bubble=null;}
-    this.lastSpeech.set(id,this.clock);this.scene.say(id,text,duration);
+    this.lastSpeech.set(id,this.clock);this.scene.say(id,text,duration,'conversation');
   }
   reset(){
     this.cancel();this.seen.clear();this.receipts.clear();this.runId=null;this.completed=[];
@@ -48,7 +48,7 @@ export class OfficeHandoffs {
     this.scene.conversation=null;this.scene.talkDots?.setVisible(false);
     if(trip){this.home(trip.sender);if(trip.recipientChair)this.home(trip.recipient);}
     for(const person of this.scene.people.values()){
-      person.exchangeStatus=null;person.bubble?.destroy();person.bubble=null;
+      person.exchangeStatus=null;if(!(person.reactionUntil>this.scene.worldTime)){person.bubble?.destroy();person.bubble=null;}
     }
   }
   observe(run,{replay=false}={}){
@@ -72,7 +72,7 @@ export class OfficeHandoffs {
     if(['stopped','failed'].includes(run.status)){this.cancel();return;}
     if(terminal(run)){
       this.queue=[];
-      if(!this.active)for(const p of this.scene.people.values()){p.bubble?.destroy();p.bubble=null;}
+      if(!this.active)for(const p of this.scene.people.values())if(!(p.reactionUntil>this.scene.worldTime)){p.bubble?.destroy();p.bubble=null;}
       return;
     }
     this.queue=this.queue.slice(-4);
@@ -96,6 +96,7 @@ export class OfficeHandoffs {
     return candidates.find(point=>this.scene.nav.route(sender.seated?this.scene.seating.points(this.scene.seating.chairs.get(sender.seated)).approach:sender,point,occupied).length);
   }
   start(message){
+    this.scene.ambient?.cancel();
     const sender=this.scene.people.get(message.sender),recipient=this.scene.people.get(message.recipient);
     const target=this.target(sender,recipient);
     if(!target)return false;
@@ -170,6 +171,7 @@ export class OfficeHandoffs {
   }
   update(dt){
     this.clock+=dt;this.cooldown=Math.max(0,this.cooldown-dt);
+    if(this.scene.worldTime<(this.scene.reactionUntil||0))return;
     if(this.scene.paused){
       if(this.active)this.finish();
       // Reduced motion uses the same envelopes without moving anybody.

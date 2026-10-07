@@ -74,10 +74,10 @@ export class TaskBoard {
     const p={r:(x,y,w,h,color)=>{c.fillStyle=colors[color]||color;c.fillRect(x,y,w,h);}};
     p.r(1,1,146,32,'edge');p.r(0,0,147,32,'frame');p.r(1,1,145,30,'edge');
     p.r(2,2,143,29,'paper');p.r(3,2,141,1,night?'#889093':'#fffaf0');
-    p.r(4,25,137,1,'line');p.r(4,31,137,2,'frame');p.r(125,31,8,1,'blue');p.r(136,31,5,1,'coral');
-    pixelText(p,this.copy.title,6,4,'ink');
-    this.copy.lines.forEach((line,i)=>{p.r(6,13+i*7,2,1,'coral');pixelText(p,line,11,11+i*7,'muted');});
-    p.r(6,27,2,2,this.status.accent);pixelText(p,excerpt(this.status.text,31),12,26,'ink');
+    p.r(4,23,137,1,'line');p.r(4,31,137,2,'frame');p.r(125,31,8,1,'blue');p.r(136,31,5,1,'coral');
+    pixelText(p,this.copy.title,6,3,'ink');
+    this.copy.lines.forEach((line,i)=>{p.r(6,12+i*7,2,1,'coral');pixelText(p,line,11,10+i*7,'muted');});
+    p.r(6,25,2,2,this.status.accent);pixelText(p,excerpt(this.status.text,31),12,24,'ink');
     if(this.hover){p.r(0,0,147,1,'blue');p.r(0,0,1,32,'blue');p.r(146,0,1,32,'blue');}
     this.texture.refresh();
   }

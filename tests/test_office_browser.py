@@ -59,6 +59,8 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.get_by_role("button", name="Edit setup / start").click()
         expect(page.get_by_label("Task", exact=True)).to_have_value(room["brief"])
         page.get_by_role("button", name="Start task", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible(
             timeout=45000
         )
@@ -72,6 +74,8 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.locator("#room-action").click()
         capture(page, "office-decision-night")
         page.get_by_role("button", name="Another round", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         guidance = page.locator("#decision-guidance")
         expect(guidance).to_be_visible()
         guidance.fill("Also test very small fractions.")
@@ -82,9 +86,13 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.locator("#room-action").click()
         expect(guidance).to_have_value("Also test very small fractions.")
         page.get_by_role("button", name="Continue", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=45000)
         assert page.evaluate("window.studio.session.run.round") == 2
         page.get_by_role("button", name="Ship it", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         expect(page.locator(".run-summary")).to_contain_text("Shipped after 2", timeout=45000)
         assert len(app.rooms.list()) == 1
         run_id = page.evaluate("window.studio.session.run.id")
@@ -103,8 +111,11 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.locator("#room-action").click()
         page.get_by_role("button", name="Edit task & run again").click()
         page.get_by_role("button", name="Start task", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         page.get_by_role("button", name="Stop run", exact=True).click()
         expect(page.locator("#scene-state")).to_contain_text("Stopped")
+        page.locator("#room-action").click()
         assert len(app.rooms.get(room["id"])["runs"]) == 2
         # Human movement, sprite anchors and selection still work in a live office.
         page.locator("#back-to-office").click()
@@ -183,6 +194,8 @@ def test_office_reconnect_restores_pending_decision_and_room_switch(service):
         enter_office(page, base)
         fill_room(page, project)
         page.get_by_role("button", name="Start task", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=45000)
         run_id = page.evaluate("window.studio.session.run.id")
         context.set_offline(True)
@@ -194,6 +207,8 @@ def test_office_reconnect_restores_pending_decision_and_room_switch(service):
         expect(page.locator("#room-action")).to_have_text("Your decision")
         page.locator("#room-action").click()
         page.get_by_role("button", name="Abandon", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.locator("#room-action").click()
         expect(page.locator(".run-summary")).to_contain_text("Abandoned")
         page.locator("#back-to-office").click()
         page.locator("#menu-toggle").click()

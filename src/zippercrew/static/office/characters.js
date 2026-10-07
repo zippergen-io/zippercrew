@@ -93,10 +93,16 @@ function body(p,s,id,dir){
   }
 }
 
-function arms(p,s,id,dir,step,seated){
+function arms(p,s,id,dir,step,seated,rest=false){
   const {r}=p,back=dir==='up',side=dir==='right';
   const sleeve=id==='reviewer'?s.inner:s.cloth;
   if(seated){
+    if(rest){
+      // Hands at the chair arms; head, torso and hip registration never shift.
+      r(8,19,4,5,s.shade);r(21,19,4,5,s.shade);
+      r(9,19,3,4,sleeve);r(21,19,3,4,sleeve);
+      r(9,24,3,2,s.skin);r(22,24,3,2,s.skin);return;
+    }
     // Quiet desk posture. Only fingers move; neither face nor torso bobs.
     r(8,19,4,4,s.shade);r(21,19,4,4,s.shade);
     r(9,19,3,3,sleeve);r(21,19,3,3,sleeve);
@@ -203,9 +209,15 @@ export function drawCharacter(p,person,dir,frame=0,{seated=false,blink=false}={}
   if(dir==='left'){p.c.translate(33,0);p.c.scale(-1,1);dir='right';}
   shadow(p,seated);
   legs(p,s,id,step,seated);
-  body(p,s,id,dir);
-  arms(p,s,id,dir,step,seated);
-  head(p,s,id,dir,blink);
+  body(p,s,id,seated&&frame>=2?'right':dir);
+  arms(p,s,id,dir,step,seated,seated&&frame>=2);
+  // A sustained quarter turn away from the monitor marks rest. The second
+  // resting pose looks out into the room; neither pose moves the hip anchor.
+  head(p,s,id,seated&&frame>=2?(frame===3?'down':'right'):dir,blink);
+  if(seated&&frame===3){
+    p.r(18,28,5,4,s.pants);p.r(20,30,5,2,s.pantsLight);
+    p.r(23,31,5,2,s.shoe);p.r(24,32,4,1,s.sole);
+  }
   p.c.restore();
 }
 

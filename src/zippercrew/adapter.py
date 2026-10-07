@@ -11,6 +11,7 @@ from types import ModuleType
 from typing import Any
 
 import zippergen
+from zippergen import assistant_progress
 from zippergen.assistant_backends import make_cli_assistant_backend
 from zippergen.workflow_io import load_workflow_spec, project_directory
 
@@ -47,6 +48,10 @@ def assistant_backend(
         identity = {"role": role, "invocation_id": event["invocation_id"]}
         if event.get("kind") == "invocation.started":
             emit({"type": "assistant.invocation", **identity})
+        elif event.get("kind") == "ui_status":
+            text = event.get("text")
+            if isinstance(text, str) and 0 < len(text) <= 240:
+                emit({"type": "assistant.ui_status", **identity, "text": text})
         else:
             if event.get("kind") == "command" and isinstance(event.get("output"), str):
                 emit(
@@ -89,6 +94,32 @@ def assistant_backend(
         if action.access != ("write" if role == "Implementer" else "read-only"):
             raise ValueError("The upstream pair-programming permission contract changed.")
         instructions = action.instructions
+        if emit and supports_progress and hasattr(assistant_progress, "UI_STATUS_VERSION"):
+            instructions += (
+                "\n\n## Public office status\n"
+                "Keep the human informed through standalone commentary messages in this format: "
+                "<ui-status>your update</ui-status>. Send an initial update before your first "
+                "tool call, then update when you have a useful finding, change approach, begin "
+                "editing or verification, encounter a blocker, or prepare a handoff. During "
+                "long multi-step work, aim to provide a useful update about every 20–30 seconds "
+                "at the next opportunity between tool calls. Do not interrupt a running tool "
+                "or repeat yourself just to meet a timer. "
+                "Use 2–3 compact, natural sentences, usually 120–200 characters total "
+                "(240 maximum), in up to 3 paragraphs. Name the concrete object of the work. "
+                "Connect what you found or changed to what you are doing next and why it "
+                "matters. Describe observed facts and intended next actions; distinguish "
+                "a planned check from a completed check. "
+                "Worker example: I found the sidebar is constraining the office width. "
+                "I’m adjusting the container while preserving the room layout and animations. "
+                "Reviewer example: The layout checks pass on desktop. I’m checking narrow "
+                "screens next, especially whether the task board stays clickable. "
+                "Blocker example: The visual check could not start because Chromium is "
+                "unavailable. I’m checking the local browser setup before retrying. "
+                "Avoid generic Working/Thinking/Processing messages, lists of tool calls, "
+                "raw shell output, secrets, or private reasoning. Do not claim success until "
+                "you have evidence. This status channel does not replace the final response: "
+                "keep that response in its required output format."
+            )
         if binding.get("instructions"):
             instructions += "\n\n## Additional role instructions\n" + binding["instructions"]
         # Claude's shell has no structural read-only filesystem boundary. Keep

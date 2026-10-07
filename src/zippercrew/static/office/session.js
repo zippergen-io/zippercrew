@@ -151,6 +151,7 @@ export class OfficeSession {
     if (navigation !== this.navigation) return;
     this.stream?.close();
     this.stream = null;
+    this.scene.ambient.cancel();this.scene.activity.reset();
     this.scene.handoffs.reset();
     this.room = room;
     this.run = null;
@@ -203,7 +204,8 @@ export class OfficeSession {
       person.liveStatus = status === 'needs human' ? 'Your decision' : status;
     }
     this.scene.handoffs.observe(state,{replay});
-    if(!replay)this.scene.handoffs.status(state,previous);
+    this.scene.activity.observe(state,{replay});
+    if(!replay&&state.pending&&state.pending.id!==previous?.pending?.id)this.scene.handoffs.status(state,previous);
     this.refreshChrome();
     this.updateRunWindow();
   }
@@ -211,6 +213,7 @@ export class OfficeSession {
   refreshChrome() {
     const run = this.taskRun;
     this.scene.board.update(this.room,run,this.connected);
+    this.scene.attention?.update();
     $('room-name').textContent = this.room?.name || 'The studio';
     $('room-action').disabled = this.busy;
     $('room-action').textContent = !this.initialized ? 'Connect' : !this.room ? 'New room' : this.run?.pending ? 'Your decision' : 'Task';
@@ -303,8 +306,8 @@ export class OfficeSession {
         // Retain the saved ID if launch fails; retry must not create another room.
         record = await api(record ? `/api/rooms/${record.id}/save` : '/api/rooms', data);
         await this.loadRoom(record.id);
-        if (launch) { const run = await api(`/api/rooms/${record.id}/runs`, {}); this.attach(run,{replay:false}); this.showTask(); }
-        else $('detail-dialog').close();
+        if (launch) { const run = await api(`/api/rooms/${record.id}/runs`, {}); this.attach(run,{replay:false}); this.confirmInOffice('worker','Task received.\nGetting ready to begin.'); }
+        else this.confirmInOffice('worker','Room saved.\nReady when you are.');
       });
     };
     $('detail-body').append(form);
@@ -339,7 +342,7 @@ export class OfficeSession {
     this.reportKey = undefined;
     const meta = node('p', this.room.config.workspace, 'repository-path');
     $('detail-body').append(meta, node('p', this.room.brief, 'task-brief'),
-      node('div', '', 'run-summary'), node('div', '', 'decision'), node('div', '', 'run-reports'), node('div', '', 'run-actions'));
+      node('div', '', 'run-summary'), node('div', '', 'decision'), node('div', '', 'run-progress'), node('div', '', 'shell-log'), node('div', '', 'run-reports'), node('div', '', 'run-actions'));
     this.updateRunWindow();
   }
 
@@ -375,6 +378,8 @@ export class OfficeSession {
         panel.append(actions);
       }
     }
+    this.scene.activity.renderRecent(document.querySelector('.run-progress'),this.owner,12,run);
+    this.renderToolLog(document.querySelector('.shell-log'),run,this.owner);
     const reports = document.querySelector('.run-reports');
     const reportKey = `${run?.id}:${run?.transcript.length || 0}:${this.owner}`;
     if (this.reportKey !== reportKey) {
@@ -392,10 +397,16 @@ export class OfficeSession {
         const stop = button('Stop run', () => this.perform(async () => {
           const state = await api(`/api/runs/${run.id}/stop`, {}); this.apply(state);
           this.stream?.close(); this.stream = null; this.connected = true; this.refreshChrome();
+          this.confirmInOffice('worker','Run stopped.');
         }));
         stop.disabled = !this.connected; actions.append(stop);
       }
     }
+  }
+
+  confirmInOffice(id,text){
+    $('detail-dialog').close();this.mode=null;
+    this.scene.activity.react(id,text);this.scene.ui.explored();
   }
 
   answer(requestId, value) {
@@ -403,7 +414,41 @@ export class OfficeSession {
       const state = await api(`/api/runs/${this.run.id}/answer`, {request_id: requestId, value});
       this.guidanceDrafts.delete(requestId);
       this.apply(state);
+      const reactions={
+        'Ship it':['reviewer','Approval received.\nFinishing this run.'],
+        'Abandon':['reviewer','Decision recorded.\nEnding this run.'],
+        'Another round':['worker','Another round requested.\nAdd any guidance when ready.'],
+      };
+      const [id,text]=reactions[value]||['worker','Guidance received.\nReturning to the task.'];
+      this.confirmInOffice(id,text);
     });
+  }
+
+  renderToolLog(container,run,owner){
+    const key=`${run?.id}:${owner}`;if(container.dataset.key===key)return;
+    container.dataset.key=key;container.replaceChildren();if(!run)return;
+    const details=node('details'),output=node('div'),refresh=button('Refresh output',()=>load());
+    const trace=node('a','Download full trace','trace-link');trace.href=`/api/runs/${run.id}/trace`;
+    trace.download=`run-${run.id}.jsonl`;
+    details.append(node('summary','Shell output'),output,refresh,trace);container.append(details);
+    let loaded=false;
+    const load=async()=>{
+      refresh.disabled=true;output.replaceChildren(node('p','Loading output…','field-help'));
+      try{
+        const response=await fetch(trace.href);if(!response.ok)throw Error('Could not load shell output.');
+        const events=(await response.text()).split('\n').flatMap(line=>{try{return [JSON.parse(line)];}catch{return [];}})
+          .filter(e=>e.type==='assistant.tool_output'&&(!roles[owner]||e.role===roles[owner])).slice(-8);
+        output.replaceChildren();
+        for(const event of events){
+          output.append(node('h4',names[event.role]||event.role),node('pre',String(event.output||'').slice(-12000),'message-text'));
+          if(event.truncated||String(event.output||'').length>12000)output.append(node('p','Showing an excerpt. See the trace for the recorded output.','field-help'));
+        }
+        if(!events.length)output.append(node('p','No shell output recorded yet.','field-help'));
+        loaded=true;
+      }catch(error){output.replaceChildren(node('p',error.message,'field-help'));}
+      finally{refresh.disabled=false;}
+    };
+    details.ontoggle=()=>{if(details.open&&!loaded)load();};
   }
 
   renderReports(container, run, owner) {
