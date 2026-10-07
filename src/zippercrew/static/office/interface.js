@@ -71,7 +71,7 @@ export class OfficeInterface {
   }
   updatePerson(){
     const p=this.scene.people.get(this.scene.selected);if(!p)return;
-    $('person-activity').textContent=p.liveStatus||'Ready';
+    $('person-activity').textContent=p.exchangeStatus||p.liveStatus||'Ready';
     $('person-task-title').textContent=this.scene.session?.room?.brief||'Create a room to get started';
     $('walk-over').firstChild.textContent=p.id==='human'?(p.seated?'Stand up':'Take a seat'):'Walk over';
     $('walk-over').disabled=!!(p.id==='human'&&(p.seatApproach||p.transition));

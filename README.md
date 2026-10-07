@@ -39,6 +39,13 @@ The live crew is Worker, Reviewer, and you; Planner is not part of this workflow
 Day/night lighting, movement, and seating use the approved pixel-office artwork.
 Agent states and work bubbles follow backend events, with no scripted work fallback.
 
+The small whiteboard on the back wall shows the task title, two short excerpt lines,
+and the current round/status. Click it to read the full brief and open task controls.
+Real protocol messages trigger visible handoffs: the sending agent carries a note
+over, the recipient briefly acknowledges it, and the crew returns to their desks.
+These animations never delay execution or invent a receipt. Reloading and reconnecting
+do not replay old exchanges; reduced motion uses brief bubbles without courier walks.
+
 The original visual-only preview remains in `spikes/pixel-office/`. The packaged live
 client lives in `src/zippercrew/static/office/`; it uses the existing Room/Run API and
 SSE stream. No orchestration or backend permissions were changed.

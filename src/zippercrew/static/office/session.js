@@ -80,6 +80,7 @@ export class OfficeSession {
     });
     window.addEventListener('offline', () => {
       this.stream?.close(); this.stream = null; this.connected = false;
+      this.scene.handoffs.cancel();this.replayNext=true;
       this.refreshChrome(); this.updateRunWindow();
     });
     window.addEventListener('online', () => { if (!terminal(this.run)) this.attach(this.run); });
@@ -150,6 +151,7 @@ export class OfficeSession {
     if (navigation !== this.navigation) return;
     this.stream?.close();
     this.stream = null;
+    this.scene.handoffs.reset();
     this.room = room;
     this.run = null;
     this.connected = true;
@@ -157,7 +159,7 @@ export class OfficeSession {
     for (const person of this.scene.people.values()) {
       person.liveStatus = 'Ready'; person.bubble?.destroy(); person.bubble = null;
     }
-    if (run) this.attach(run);
+    if (run) this.attach(run,{replay:true});
     this.refreshChrome();
   }
 
@@ -168,11 +170,12 @@ export class OfficeSession {
     });
   }
 
-  attach(run) {
+  attach(run,{replay=true}={}) {
     this.stream?.close();
     this.stream = null;
     this.connected = terminal(run);
-    this.apply(run);
+    this.apply(run,{replay});
+    this.replayNext=false;
     if (terminal(run)) return;
     const source = new EventSource(`/api/runs/${run.id}/events`);
     this.stream = source;
@@ -180,17 +183,17 @@ export class OfficeSession {
     source.addEventListener('state', event => {
       if (this.stream !== source) return;
       this.connected = true;
-      this.apply(JSON.parse(event.data));
+      this.apply(JSON.parse(event.data),{replay:this.replayNext});this.replayNext=false;
       if (terminal(this.run)) { source.close(); this.stream = null; }
     });
     source.onerror = () => {
       if (this.stream !== source) return;
-      this.connected = false; this.refreshChrome(); this.updateRunWindow();
+      this.connected = false; this.replayNext=true;this.scene.handoffs.cancel();this.refreshChrome(); this.updateRunWindow();
     };
     this.refreshChrome();
   }
 
-  apply(state) {
+  apply(state,{replay=false}={}) {
     if (this.run?.id === state.id && state.version < this.run.version) return;
     const previous = this.run;
     this.run = state;
@@ -198,18 +201,16 @@ export class OfficeSession {
       const person = this.scene.people.get(id);
       const status = state.participants[role];
       person.liveStatus = status === 'needs human' ? 'Your decision' : status;
-      const changed = !previous || previous.id !== state.id || previous.participants[role] !== status;
-      if (changed) { person.bubble?.destroy(); person.bubble = null; }
-      if (changed && ['working', 'reviewing', 'needs human'].includes(status)) {
-        this.scene.say(id, {working: 'WORKING ON THE TASK.', reviewing: 'REVIEWING THE CHANGES.', 'needs human': 'YOUR DECISION.'}[status], 6);
-      }
     }
+    this.scene.handoffs.observe(state,{replay});
+    if(!replay)this.scene.handoffs.status(state,previous);
     this.refreshChrome();
     this.updateRunWindow();
   }
 
   refreshChrome() {
     const run = this.taskRun;
+    this.scene.board.update(this.room,run,this.connected);
     $('room-name').textContent = this.room?.name || 'The studio';
     $('room-action').disabled = this.busy;
     $('room-action').textContent = !this.initialized ? 'Connect' : !this.room ? 'New room' : this.run?.pending ? 'Your decision' : 'Task';
@@ -302,7 +303,7 @@ export class OfficeSession {
         // Retain the saved ID if launch fails; retry must not create another room.
         record = await api(record ? `/api/rooms/${record.id}/save` : '/api/rooms', data);
         await this.loadRoom(record.id);
-        if (launch) { const run = await api(`/api/rooms/${record.id}/runs`, {}); this.attach(run); this.showTask(); }
+        if (launch) { const run = await api(`/api/rooms/${record.id}/runs`, {}); this.attach(run,{replay:false}); this.showTask(); }
         else $('detail-dialog').close();
       });
     };

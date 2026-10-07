@@ -2,6 +2,8 @@ import { WORLD, PEOPLE } from './world.js';
 import { createArt, labelTexture, CHARACTER_ANCHORS } from './art.js';
 import { createNavigation } from './navigation.js';
 import { OfficeSession } from './session.js';
+import { TaskBoard } from './task-board.js';
+import { OfficeHandoffs } from './handoffs.js';
 import { PALETTES } from './palettes.js';
 import { Seating } from './seating.js';
 import { NightLighting } from './lighting.js';
@@ -14,7 +16,7 @@ const pixelCenter=sprite=>sprite.setOrigin(Math.floor(sprite.width/2)/sprite.wid
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 
 class Studio extends Phaser.Scene {
-  constructor(){super('Studio');this.people=new Map();this.paused=reducedMotion.matches;this.elapsed=0;this.selected=null;this.hovered=null;this.conversation=null;this.ready=false;this.mood=new URLSearchParams(location.search).get('mood')==='night'?'night':'day';this.themedImages=[];this.zoneLabels=[];}
+  constructor(){super('Studio');this.people=new Map();this.paused=reducedMotion.matches;this.elapsed=0;this.worldTime=0;this.selected=null;this.hovered=null;this.conversation=null;this.ready=false;this.mood=new URLSearchParams(location.search).get('mood')==='night'?'night':'day';this.themedImages=[];this.zoneLabels=[];}
   themedImage(x,y,key){const sprite=this.add.image(x,y,this.lighting.textureKey(this.mood,key,x,y));this.themedImages.push({sprite,key,x,y});return sprite;}
   create(){
     this.cameras.main.setRoundPixels(true);
@@ -46,6 +48,7 @@ class Studio extends Phaser.Scene {
         chair.front=this.themedImage(f.x,f.y,f.type==='chair'?`chair-${f.variant}-front`:'armchair-front').setOrigin(0).setDepth(feet.y+1);
       }
     }
+    this.board=new TaskBoard(this);
     this.destination=pixelCenter(this.themedImage(0,0,'destination')).setDepth(2).setVisible(false);
     this.selection=pixelCenter(this.themedImage(0,0,'selection')).setDepth(3).setVisible(false);
     for(const data of PEOPLE){
@@ -80,6 +83,7 @@ class Studio extends Phaser.Scene {
     window.addEventListener('resize',()=>this.resize());
     reducedMotion.addEventListener('change',event=>{this.paused=event.matches;this.updatePauseUI();});
     this.updatePauseUI();
+    this.handoffs=new OfficeHandoffs(this);
     this.session=new OfficeSession(this);this.session.boot();
   }
   resize(fit=false){
@@ -114,6 +118,7 @@ class Studio extends Phaser.Scene {
       p.nameTag.setTexture(this.nameTexture(p));
       if(p.bubble)p.bubble.setTexture(labelTexture(this,p.bubbleText,{background:'bubble',color:'bubbleInk',bubble:true}));
     }
+    this.board?.update(this.session?.room,this.session?.taskRun,this.session?.connected);
     this.talkDots.setTexture(labelTexture(this,'...',{background:'bubble',color:'bubbleInk',bubble:true}));
     document.querySelectorAll('[data-mood-choice]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.moodChoice===mood)));
     document.querySelectorAll('canvas[data-portrait]').forEach(canvas=>this.portrait(canvas,canvas.dataset.portrait));
@@ -146,7 +151,7 @@ class Studio extends Phaser.Scene {
   updateStatus(){if(this.session){this.session.refreshChrome();return;}const c=this.conversation;$('scene-state').textContent=this.paused?'A quiet moment · paused':c?`${this.people.get(c.a).name} & ${this.people.get(c.b).name} · comparing notes`:'A little focus, a little company';if(this.selected)this.updatePerson();}
   updatePerson(){const p=this.people.get(this.selected);if(!p)return;$('person-name').textContent=p.name;$('person-role').textContent=`${p.role} · ${p.kind}`;$('person-role').style.setProperty('--role-accent',PALETTES[this.mood][p.id]);$('person-description').textContent=p.description;this.ui?.updatePerson();}
   select(id){this.selected=id;$('person-card').hidden=!id;this.selection.setVisible(!!id);document.querySelectorAll('[data-person]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.person===id)));if(id){this.updatePerson();this.portrait($('person-portrait'),id);}this.ui?.onSelect(id);}
-  say(id,text,duration=4){const p=this.people.get(id);p.bubble?.destroy();p.bubbleText=text;p.bubble=pixelCenter(this.add.image(Math.round(p.x),Math.round(p.y)-43,labelTexture(this,text,{background:'bubble',color:'bubbleInk',bubble:true}))).setDepth(820);p.bubbleUntil=this.elapsed+duration;this.ui?.record(p.name,text);}
+  say(id,text,duration=4){const p=this.people.get(id);p.bubble?.destroy();p.bubbleText=text;p.bubble=pixelCenter(this.add.image(Math.round(p.x),Math.round(p.y)-43,labelTexture(this,text,{background:'bubble',color:'bubbleInk',bubble:true}))).setDepth(820);p.bubbleUntil=this.worldTime+duration;this.ui?.record(p.name,text);}
   endConversation(){this.conversation=null;this.talkDots?.setVisible(false);for(const p of this.people.values()){p.bubble?.destroy();p.bubble=null;}this.updateStatus();}
   moveTo(id,target,options={}){
     const {status='Taking a short walk',onArrival=null,preserveSeatReservation=false}=options;
@@ -161,6 +166,7 @@ class Studio extends Phaser.Scene {
   }
   greetNearby(){this.updateStatus();}
   update(_time,delta){if(!this.ready)return;const dt=Math.min(delta/1000,.05);
+    this.worldTime+=dt;
     if(!this.paused){this.elapsed+=dt;}
     const previous=new Map([...this.people.values()].map(p=>[p.id,{x:p.x,y:p.y,posture:!!(p.seated||p.transition)}]));
     this.walkHuman(dt);
@@ -206,15 +212,17 @@ class Studio extends Phaser.Scene {
       const texture=this.lighting.characterKey(p);
       if(p.sprite.texture.key!==texture)p.sprite.setTexture(texture,frame);
       p.sprite.setPosition(Math.round(p.x),Math.round(p.y)).setDepth(Math.round(p.y)).setFrame(frame);
-      const labelOffset=this.conversation?.a===p.id?-4:this.conversation?.b===p.id?4:0;
-      p.nameTag.setPosition(Math.round(p.x)+labelOffset,Math.round(p.y)+9).setVisible(p.id==='human'||this.selected===p.id||this.hovered===p.id||[this.conversation?.a,this.conversation?.b].includes(p.id));
-      if(p.bubble){p.bubble.setPosition(Math.round(p.x),Math.round(p.y)-43);if(this.elapsed>=p.bubbleUntil){p.bubble.destroy();p.bubble=null;}}
+      const partner=this.conversation?.a===p.id?this.people.get(this.conversation.b):this.conversation?.b===p.id?this.people.get(this.conversation.a):null;
+      const labelOffset=partner?(p.x<partner.x?-6:6):0;
+      p.nameTag.setPosition(Math.round(p.x)+labelOffset,Math.round(p.y)+9).setVisible(p.id==='human'||this.selected===p.id||this.hovered===p.id||[this.conversation?.a,this.conversation?.b,this.handoffs?.active?.sender,this.handoffs?.active?.recipient].includes(p.id));
+      if(p.bubble){p.bubble.setPosition(Math.round(p.x),Math.round(p.y)-43);if(this.worldTime>=p.bubbleUntil){p.bubble.destroy();p.bubble=null;}}
     }
+    this.handoffs?.update(dt);
     if(this.selected){const p=this.people.get(this.selected);this.selection.setPosition(Math.round(p.x),Math.round(p.y)+1);}
     const c=this.conversation;if(c){const a=this.people.get(c.a),b=this.people.get(c.b);this.talkDots.setPosition(Math.round((a.x+b.x)/2),Math.round(Math.min(a.y,b.y))-36).setVisible(!a.bubble&&!b.bubble);}
   }
   walkHuman(dt){if(document.activeElement!==$('game'))return;const k=this.keys,dx=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),dy=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown);if(!dx&&!dy)return;const p=this.people.get('human');this.seating.cancelApproach(p);this.updateSeatUI();if(p.seated){this.seating.stand(p);return;}p.route=[];p.onArrival=null;this.destination.setVisible(false);const speed=44*dt/Math.hypot(dx,dy),nx=p.x+dx*speed,ny=p.y+dy*speed;const can=(x,y)=>this.nav.free(x,y)&&![...this.people.values()].some(other=>other!==p&&Math.hypot(x-other.x,y-other.y)<11);if(can(nx,p.y))p.x=nx;if(can(p.x,ny))p.y=ny;p.keyboardIntent=true;}
-  inspect(){return {ready:this.ready,mood:this.mood,paused:this.paused,time:this.elapsed,selected:this.selected,conversation:this.conversation,physicalScale:this.physicalScale,people:[...this.people.values()].map(p=>({id:p.id,x:p.x,y:p.y,direction:p.direction,walking:p.route.length>0,status:p.status,seating:this.seating.inspect(p)})),furniture:WORLD.furniture.length,tileLayers:this.map.layers.length};}
+  inspect(){return {ready:this.ready,mood:this.mood,paused:this.paused,time:this.elapsed,selected:this.selected,conversation:this.conversation,physicalScale:this.physicalScale,people:[...this.people.values()].map(p=>({id:p.id,x:p.x,y:p.y,direction:p.direction,walking:p.route.length>0,status:p.status,seating:this.seating.inspect(p)})),furniture:WORLD.furniture.length,tileLayers:this.map.layers.length,board:this.board?.inspect(),handoffs:this.handoffs?.inspect()};}
 }
 
 new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:WORLD.width,height:WORLD.height,transparent:true,pixelArt:true,roundPixels:true,antialias:false,antialiasGL:false,banner:false,audio:{noAudio:true},fps:{target:30,forceSetTimeOut:true},input:{keyboard:true,touch:{capture:false}},scene:Studio,render:{pixelArt:true,roundPixels:true,antialias:false}});

@@ -1,6 +1,7 @@
 // Original, replaceable pixel artwork. These small canvases are texture sources,
 // never DOM scenery. Phaser owns the tilemap, sprites, depth, input and animation.
-import { WORLD, PEOPLE } from './world.js';
+import { WORLD } from './world.js';
+import { CHARACTER_DESIGNS, drawCharacter as character, drawSeatedCharacter as seatedCharacter, drawBlinkCharacter as blinkCharacter } from './characters.js';
 import { colorFor } from './palettes.js';
 
 // Seating aligns this hip point with the chair's seat, independently of the
@@ -165,9 +166,8 @@ function architecture(p){
   const window=(x)=>{box(p,x,30,86,31,'#a1c0b8');r(x+3,33,80,23,'#c4d9ce');r(x+3,46,80,10,'#a1bba0');leaf(p,x+3,42,20,14,'#90ac91');leaf(p,x+17,47,23,9,'#829f80');leaf(p,x+54,39,23,17,'#a8bd9c');leaf(p,x+63,45,20,11,'#819f84');r(x+8,34,2,10,'#e2ede0');r(x+12,34,1,7,'#e2ede0');r(x+41,31,3,27,'#e5e5cd');r(x+2,45,82,2,'#e6e7d2');r(x+1,57,84,4,'#efe5c8');r(x-2,61,90,3,'#b9b298');r(x,60,86,2,'#f7edd6');};
   window(85);window(342);
   if(p.mood==='night')for(const x of [85,342]){r(x+22,37,1,1,'#c6d3e1');r(x+65,35,1,1,'#c6d3e1');}
-  // Noticeboard and a small analog clock, all raster pixels.
-  box(p,211,33,39,23,C.wood);r(213,35,35,19,'#c1b08c');r(216,39,11,11,'#efe5c5');r(218,38,2,2,'#af765d');r(219,43,6,1,'#b5b296');r(231,38,11,7,'#d4dabc');r(233,37,2,2,'#839e7c');r(233,42,6,1,'#a7b393');r(231,47,8,5,'#dfba8a');
-  r(284,35,12,18,C.edge);r(281,38,18,12,C.edge);r(284,36,12,16,'#f0e8d0');r(282,39,16,10,'#f0e8d0');r(290,39,1,6,'#7f826d');r(290,44,4,1,'#7f826d');r(289,38,2,1,'#b6af93');r(289,50,2,1,'#b6af93');
+  // The live task board occupies the central wall. Keep a small clock by coffee.
+  r(458,35,12,18,C.edge);r(455,38,18,12,C.edge);r(458,36,12,16,'#f0e8d0');r(456,39,16,10,'#f0e8d0');r(464,39,1,6,'#7f826d');r(464,44,4,1,'#7f826d');r(463,38,2,1,'#b6af93');r(463,50,2,1,'#b6af93');
   // Side walls and low cutaway front wall. The entrance stays open.
   r(29,65,7,257,'#b7bea4');r(30,65,2,255,'#d6dcc0');r(36,65,2,255,'#bdac8d');r(524,65,7,257,'#a3b093');r(524,65,2,255,'#c4cdae');
   for(const [x,w] of [[29,232],[314,217]]){r(x,319,w,9,C.edge);r(x+1,319,w-2,5,'#b7c1a6');r(x+1,319,w-2,2,'#e0e2c8');r(x+1,324,w-2,3,'#95a58a');}
@@ -206,63 +206,6 @@ export function labelTexture(scene,text,{background=null,color='ink',bubble=fals
   pixelText(p,text,accent?9:4,3,color);scene.textures.addCanvas(key,c);return key;
 }
 
-function character(p,person,dir,frame){
-  const {r}=p,s=person,walk=frame===1?-1:frame===3?1:0;
-  // 16×28 figure inside a 32×36 animation frame; feet stay anchored at y=33.
-  shadow(p,7,31,19,4);
-  r(11,25,4,7+walk,'#565a52');r(18,25,4,7-walk,'#565a52');r(12,26,2,4+walk,'#858878');r(19,26,2,4-walk,'#858878');r(10,31+walk,5,2,'#454941');r(18,31-walk,6,2,'#454941');r(11,31+walk,3,1,'#c9c6ad');r(19,31-walk,3,1,'#c9c6ad');
-  // The head, hair and torso share exactly the idle registration in every
-  // walking frame. Only arms and legs move; turning never adds a head bob.
-  const yy=0;
-  r(11,16+yy,11,11,'#665e50');r(12,16+yy,9,10,s.shirt);r(12,17+yy,3,7,s.shirtLight);r(15,16+yy,3,3,'#efe3c8');r(16,18+yy,1,6,'#b3b197');r(12,25+yy,9,1,'#616f60');
-  r(8,18+yy+walk,4,7,'#665e50');r(9,18+yy+walk,3,5,s.shirt);r(9,23+yy+walk,3,3,s.skin);r(22,18+yy-walk,3,7,'#665e50');r(21,18+yy-walk,3,5,s.shirt);r(22,23+yy-walk,3,3,s.skin);
-  r(14,13+yy,5,5,s.skinShadow);r(10,5+yy,13,9,s.hair);r(9,7+yy,15,5,s.hair);r(12,4+yy,9,12,s.hair);r(11,7+yy,11,8,s.skinShadow);r(12,6+yy,9,9,s.skin);r(13,15+yy,7,1,s.skinShadow);r(10,10+yy,2,3,s.skin);r(22,10+yy,2,3,s.skinShadow);
-  if(dir==='up'){r(10,6+yy,13,9,s.hair);r(12,4+yy,9,3,s.hair);r(12,6+yy,8,2,s.hairLight);r(11,8+yy,3,3,s.hairLight);r(13,14+yy,8,1,s.hairLight);r(12,16+yy,9,9,s.shirt);r(13,16+yy,7,1,s.shirtLight);r(12,18+yy,1,5,s.shirtLight);r(16,19+yy,1,5,'#616f6045');r(14,24+yy,5,1,'#616f60');}
-  else {r(11,5+yy,11,4,s.hair);r(12,4+yy,9,2,s.hair);r(12,5+yy,7,2,s.hairLight);r(11,8+yy,2,3,s.hair);r(21,7+yy,2,4,s.hair);
-    if(dir==='down'){r(13,11+yy,1,2,'#423f34');r(19,11+yy,1,2,'#423f34');r(16,14+yy,2,1,s.skinShadow);if(s.style==='short'){r(12,10+yy,4,3,'#655d52');r(18,10+yy,4,3,'#655d52');r(16,11+yy,2,1,'#655d52');r(13,11+yy,2,1,s.skin);r(19,11+yy,2,1,s.skin);}}
-    else {const right=dir==='right';r(right?10:19,7+yy,4,7,s.hair);r(right?20:12,11+yy,1,2,'#423f34');r(right?22:10,12+yy,2,2,s.skin);r(right?12:21,11+yy,2,2,s.skinShadow);if(s.style==='short')r(right?18:11,10+yy,4,1,'#655d52');}
-  }
-  if(s.style==='bob'){r(9,7+yy,2,10,s.hair);r(22,7+yy,2,10,s.hair);r(10,14+yy,2,4,s.hair);r(21,14+yy,2,4,s.hair);r(9,10+yy,1,4,s.hairLight);}
-  if(s.style==='curly'){r(10,4+yy,3,3,s.hair);r(14,3+yy,4,3,s.hair);r(19,4+yy,4,3,s.hair);r(9,6+yy,3,3,s.hair);r(12,4+yy,2,1,s.hairLight);r(17,4+yy,2,1,s.hairLight);}
-  if(s.style==='swept'){r(11,4+yy,9,2,s.hair);r(13,3+yy,6,2,s.hair);r(11,6+yy,4,3,s.hairLight);r(14,5+yy,5,2,s.hairLight);}
-  // Small highlights, folded cuffs and a clear profile at the same sprite scale.
-  r(12,5+yy,3,1,s.hairLight);r(20,8+yy,1,2,s.hair);
-  r(9,22+yy+walk,2,1,s.shirtLight);r(22,22+yy-walk,2,1,s.shirtLight);
-  if(dir==='down'){r(16,14+yy,2,1,s.skinShadow);r(12,13+yy,1,1,s.skinShadow);}
-  if(dir==='left')r(11,12+yy,1,1,s.skinShadow);
-  if(dir==='right')r(23,12+yy,1,1,s.skinShadow);
-  // A small role pin; the wardrobe remains quiet and human.
-  r(19,19+yy,2,2,s.id);
-}
-
-function seatedCharacter(p,person,dir,frame){
-  character(p,person,dir,0);
-  // Bent knees, short shins, and forward hands are a distinct sitting pose.
-  // Hip pixel (16,25), ground/feet pixel (16,33): the chair owns the placement.
-  p.c.clearRect(0,24,32,12);
-  shadow(p,6,32,21,3);
-  box(p,9,24,7,5,'#858878','#565a52');box(p,17,24,7,5,'#858878','#565a52');
-  p.r(10,25,4,1,'#a6ae9b');p.r(18,25,4,1,'#a6ae9b');
-  p.r(10,28,4,4,'#565a52');p.r(21,28,3,4,'#565a52');
-  p.r(8,31,7,2,'#454941');p.r(20,31,6,2,'#454941');
-  p.r(9,31,4,1,'#c9c6ad');p.r(21,31,4,1,'#c9c6ad');
-  p.r(12,23,9,3,person.shirt);p.r(13,23,2,2,person.shirtLight);
-  // Clear hanging hands, then rest forearms toward the desk / on the armrests.
-  p.c.clearRect(8,21,4,3);p.c.clearRect(22,21,4,3);
-  const shift=frame%2;
-  p.r(8,20,4,3,person.shirt);p.r(21,20,4,3,person.shirt);
-  p.r(9,20+shift,3,2,person.skin);p.r(22,21-shift,3,2,person.skin);
-}
-
-function blinkCharacter(p,person,dir){
-  character(p,person,dir,0);
-  if(dir==='down'&&person.style!=='short'){
-    p.r(13,11,1,2,person.skin);p.r(19,11,1,2,person.skin);p.r(13,12,2,1,person.skinShadow);p.r(18,12,2,1,person.skinShadow);
-  }else if(dir==='left'||dir==='right'){
-    const x=dir==='left'?12:20;p.r(x,11,1,2,person.skin);p.r(x,12,2,1,person.skinShadow);
-  }
-}
-
 export function createArt(scene,mood){
   const add=(name,w,h,fn)=>{
     const c=make(w,h);fn(painter(c,mood));scene.textures.addCanvas(`${mood}:${name}`,c);
@@ -284,7 +227,8 @@ export function createArt(scene,mood){
   add('lighting',WORLD.width,WORLD.height,()=>{});
   add('selection',26,10,p=>{for(const [x,y,w,h]of[[4,0,18,1],[1,2,4,1],[21,2,4,1],[0,4,3,2],[23,4,3,2],[2,7,4,1],[20,7,4,1],[6,9,14,1]])p.r(x,y,w,h,'#faf1ca');});
   add('destination',13,9,p=>{for(const [x,y,w,h]of[[0,2,3,1],[0,2,1,3],[10,2,3,1],[12,2,1,3],[0,6,3,1],[10,6,3,1],[6,4,1,1]])p.r(x,y,w,h,'#f9f0ce');});
-  for(const person of PEOPLE){
+  for(const id of Object.keys(CHARACTER_DESIGNS)){
+    const person={id};
     const c=make(128,252),p=painter(c,mood,true);['down','left','right','up','sit-up','sit-down','blink'].forEach((dir,row)=>{for(let frame=0;frame<4;frame++){p.c.save();p.c.translate(frame*32,row*36);if(dir==='blink')blinkCharacter(p,person,['down','left','right','up'][frame]);else if(dir.startsWith('sit-'))seatedCharacter(p,person,dir.slice(4),frame);else character(p,person,dir,frame);p.c.restore();}});
     scene.textures.addSpriteSheet(`${mood}:person-${person.id}`,c,{frameWidth:32,frameHeight:36});
   }

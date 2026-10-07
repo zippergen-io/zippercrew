@@ -38,8 +38,8 @@ export const WORLD = {
   ],
 };
 export const PEOPLE = [
-  {id:'planner',name:'Mira',role:'Planner',kind:'AI agent',color:'#7898aa',shirt:'#b7a087',shirtLight:'#d5c2a6',skin:'#e6b58b',skinShadow:'#bc835f',hair:'#724b36',hairLight:'#956745',style:'bob',x:368,y:201,home:{x:112,y:194},chairId:'chair-0',direction:'right',description:'Makes a little order out of big ideas.',status:'Comparing notes with Jules'},
-  {id:'worker',name:'Theo',role:'Worker',kind:'AI agent',color:'#708a62',shirt:'#849198',shirtLight:'#a7b2b8',skin:'#b77e5a',skinShadow:'#8e5e46',hair:'#3d3733',hairLight:'#594a3b',style:'curly',x:244,y:194,home:{x:244,y:194},chairId:'chair-1',direction:'up',description:'Turns the plan into something you can try.',status:'Working through the first draft'},
-  {id:'reviewer',name:'Jules',role:'Reviewer',kind:'AI agent',color:'#d7836e',shirt:'#b2a49b',shirtLight:'#d3c5ba',skin:'#edc3a0',skinShadow:'#c49572',hair:'#58483d',hairLight:'#78604b',style:'short',x:394,y:201,home:{x:112,y:285},chairId:'chair-2',direction:'left',description:'A fresh pair of eyes and a thoughtful second pass.',status:'Comparing notes with Mira'},
-  {id:'human',name:'You',role:'Human',kind:'That’s you',color:'#d2a34f',shirt:'#a9a7a0',shirtLight:'#ccc8bd',skin:'#dba480',skinShadow:'#b77957',hair:'#423c35',hairLight:'#625349',style:'swept',x:320,y:281,home:{x:244,y:285},chairId:'chair-3',direction:'down',description:'Walk around. Say hello. Make yourself at home.',status:'Taking it all in'},
+  {id:'planner',name:'Mira',role:'Planner',kind:'AI agent',color:'#7898aa',x:368,y:201,home:{x:112,y:194},chairId:'chair-0',direction:'right',description:'Makes a little order out of big ideas.',status:'Comparing notes with Jules'},
+  {id:'worker',name:'Theo',role:'Worker',kind:'AI agent',color:'#708a62',x:244,y:194,home:{x:244,y:194},chairId:'chair-1',direction:'up',description:'Turns the plan into something you can try.',status:'Working through the first draft'},
+  {id:'reviewer',name:'Jules',role:'Reviewer',kind:'AI agent',color:'#d7836e',x:394,y:201,home:{x:112,y:285},chairId:'chair-2',direction:'left',description:'A fresh pair of eyes and a thoughtful second pass.',status:'Comparing notes with Mira'},
+  {id:'human',name:'You',role:'Human',kind:'That’s you',color:'#d2a34f',x:320,y:281,home:{x:244,y:285},chairId:'chair-3',direction:'down',description:'Walk around. Say hello. Make yourself at home.',status:'Taking it all in'},
 ];

@@ -59,6 +59,7 @@ world uses an original 3 × 5 bitmap alphabet.
 | --- | --- |
 | `world.js` | Room metadata, floor bounds, zones, furniture instances and footprints, cast and home positions |
 | `art.js` | Original pixel textures, sprite sheets, and bitmap labels |
+| `../../src/zippercrew/static/office/characters.js` | Shared four-role character designs and pose drawing, also used by the live office |
 | `palettes.js` | Day/night material colors and restrained role accents |
 | `lighting.js` | Local material lighting, soft furniture shadows, and character light response |
 | `seating.js` | Chair ownership, hip/foot anchors, seated poses and sit/stand transitions |
@@ -76,7 +77,18 @@ down/left/right/up/seated-up/seated-down rows followed by a row of four directio
 blink poses; the foot anchor is (16, 33), and
 the seated hip anchor is (16, 25). The restrained role accents are dusty blue for
 Planner, muted green for Worker, coral for Reviewer, and amber for Human. They
-appear in small pins, name labels, and UI badges rather than filling the room.
+appear in wardrobe details, accessories, name labels, and UI badges.
+
+The cast shares a single renderer with the live office. Mira wears a tailored
+dusty-blue jacket and carries a notebook, with a clipped auburn bob. Theo has a
+broader chore-shirt silhouette, short textured curls, rolled cuffs, and a green
+pocket. Jules has a silver-swept crop, glasses, a coral vest, and a marked-up
+sheet. You wear a relaxed oat-colored knit with amber trim and pale sneakers,
+with one hand tucked in a pocket. All four have matching directional, seated,
+and blink poses. Accessories rest aside while seated so hands meet the desk.
+The live client generates all four designs but only instantiates the roles
+supported by its existing workflow; the Planner remains available in this preview.
+See `captures/cast-day.png` and `captures/cast-night.png` for pose sheets.
 
 Furniture uses a top-left origin and an independent floor footprint. Every chair
 declares a local `seat` hip contact point, facing, and walkable approach point.
