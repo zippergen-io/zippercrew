@@ -40,6 +40,10 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     state["version"] = event["id"]
     if kind == "room.started":
         state["status"] = "running"
+    elif kind == "room.paused":
+        state["status"] = "paused"
+    elif kind == "room.resumed":
+        state["status"] = "running"
     elif kind == "assistant.invocation":
         if state["participants"].get(event["role"]) in {"working", "reviewing"}:
             state["invocations"][event["role"]] = event["invocation_id"]

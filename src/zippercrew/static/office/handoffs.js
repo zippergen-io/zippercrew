@@ -69,7 +69,7 @@ export class OfficeHandoffs {
     }
     // A stopped or failed task must not keep acting busy. Completion allows the
     // current, already-observed handoff to finish, but drops any backlog.
-    if(['stopped','failed'].includes(run.status)){this.cancel();return;}
+    if(['stopped','failed','paused'].includes(run.status)){this.cancel();return;}
     if(terminal(run)){
       this.queue=[];
       if(!this.active)for(const p of this.scene.people.values())if(!(p.reactionUntil>this.scene.worldTime)){p.bubble?.destroy();p.bubble=null;}

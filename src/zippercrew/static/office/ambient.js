@@ -7,7 +7,7 @@ export class OfficeAmbient {
   eligible(){
     const s=this.scene,run=s.session?.taskRun;
     return !!(s.session?.initialized&&s.session.room&&s.session.connected&&!s.paused&&!s.handoffs.active&&!s.handoffs.queue.length&&!run?.pending&&
-      !['stopped','failed'].includes(run?.status));
+      !['stopped','failed','paused'].includes(run?.status));
   }
   cancel(){
     const trip=this.trip;if(!trip)return;

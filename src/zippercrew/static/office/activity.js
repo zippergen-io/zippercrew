@@ -1,7 +1,7 @@
 // Public backend progress only. Abstract screen marks represent activity, never
 // fabricated commands, output, percentages, or inferred private reasoning.
 export const ROLES={worker:'Implementer',reviewer:'Reviewer',human:'Human'};
-const active=run=>run&&!['completed','stopped','failed'].includes(run.status);
+const active=run=>run&&!['completed','stopped','failed','paused'].includes(run.status);
 // Copy is a deliberate room-facing description, not a clipped command/output.
 export function activityCopy(event){
   if(event.source==='assistant.ui_status')return event.text;

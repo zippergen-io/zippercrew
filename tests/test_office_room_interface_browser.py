@@ -137,7 +137,7 @@ def test_studio_room_workflow_objects_and_direct_execution(service):
             "Implementer",
             "Human",
         }
-        page.locator("#room-action").click()
+        page.locator("#scene-state").click()
         expect(page.locator(".decision")).to_contain_text("Demo proposal")
         page.get_by_role("button", name="Done", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()

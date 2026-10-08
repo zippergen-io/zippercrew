@@ -23,29 +23,21 @@ export class OfficeDecisions {
   open(){
     if(!this.pending){this.session.showTask();return;}
     const s=this.session;s.window('decision',`Round ${s.taskRun.round||1}`,'Your decision');
-    const host=node('div','','decision');$('detail-body').append(host);this.render(host,false);
+    const host=node('div','','decision');$('detail-body').append(host);this.render(host);
   }
   update(){
     if(this.session.mode!=='decision')return;
     if(!this.pending){$('detail-dialog').close();return;}
-    this.render($('detail-body').querySelector('.decision'),false);
+    this.render($('detail-body').querySelector('.decision'));
   }
-  humanCard(){
-    const host=$('human-decision'),visible=this.session.scene.selected==='human'&&!!this.pending;
-    host.hidden=!visible;$('person-card').dataset.decision=String(visible);
-    $('person-activity').parentElement.hidden=visible;$('agent-controls').hidden=visible;
-    $('person-task').querySelector('.field-label').textContent=this.session.scene.selected==='human'?'Current task':'Current focus';
-    if(visible)this.render(host,true);else{host.replaceChildren();delete host.dataset.key;}
-  }
-  render(host,compact){
+  render(host){
     if(!host||!this.pending)return;
     const s=this.session,run=s.taskRun,pending=this.pending,summary=this.summary();
     const key=JSON.stringify([run.id,pending.id,s.connected,summary]);if(host.dataset.key===key)return;
     host.dataset.key=key;host.replaceChildren();
     const select=pending.spec.kind==='select',choices=(pending.spec.rendered?.prefill||'').split('\n').filter(Boolean);
     const recommended=choices.includes(summary.recommendation)?summary.recommendation:null;
-    if(compact)host.append(node('p','Decision required','decision-eyebrow'));
-    const title=recommended?`Reviewer recommends: ${recommended}`:run.config.workflow==='direct'?'The Worker’s result is ready':'Review needs your decision';
+    const title=recommended?`Reviewer recommends ${recommended.toLowerCase()}`:run.config.workflow==='direct'?'The Worker’s result is ready':'Review needs your decision';
     host.append(node('h3',select?title:'Add any final guidance','decision-recommendation'));
     if(summary.reason)host.append(node('p',summary.reason,'decision-reason'));
     if(!s.connected)host.append(node('p','Reconnecting. Your decision will be available when the room is connected.','field-help'));
@@ -53,43 +45,39 @@ export class OfficeDecisions {
     const noteKey=`${run.id}:${pending.id}`,savedNote=s.guidanceDrafts.get(noteKey)||'';
     const limit=run.round>=run.config.max_rounds;
     if(select){
-      // Put the recommendation first; the other choices remain equally accessible.
-      const ordered=recommended?[recommended,...choices.filter(v=>v!==recommended)]:choices;
-      for(const choice of ordered){
-        const action=button(choice,()=>s.answer(pending.id,choice,{note:s.guidanceDrafts.get(noteKey)||'',noteKey,errorHost:compact?host:null}),choice===(recommended||'Done'));
-        action.disabled=!s.connected||(choice==='Another round'&&limit);actions.append(action);
-      }
-      host.append(actions);
+      const primary=recommended||(choices.includes('Done')?'Done':choices.includes('Ship it')?'Ship it':choices[0]);
+      const label=choice=>choice==='Another round'?'Run next round':choice;
+      const makeAction=(choice,main=false)=>{
+        const action=button(label(choice),()=>s.answer(pending.id,choice,{note:s.guidanceDrafts.get(noteKey)||'',noteKey}),main);
+        action.disabled=!s.connected||(choice==='Another round'&&limit);return action;
+      };
+      actions.append(makeAction(primary,true));host.append(actions);
+      const alternatives=node('details','','decision-alternatives');alternatives.append(node('summary','Other choices'));
+      const options=node('div','','decision-actions');
+      for(const choice of choices.filter(choice=>choice!==primary))options.append(makeAction(choice));
+      alternatives.append(options);host.append(alternatives);
       if(limit&&choices.includes('Another round'))host.append(node('p','The round limit is reached. Finish or abandon this run.','field-help'));
     }
     if(!select||(choices.includes('Another round')&&!limit)){
       const details=node('details','','decision-note');details.open=!!savedNote;
       details.append(node('summary','Add a note for the Worker'));
-      const note=input(compact?'human-decision-note':'decision-note',savedNote,true);note.rows=3;note.maxLength=30000;note.disabled=!s.connected;
+      const note=input('decision-note',savedNote,true);note.rows=3;note.maxLength=30000;note.disabled=!s.connected;
       note.placeholder='What would you like the Worker to focus on?';
       note.oninput=()=>s.guidanceDrafts.set(noteKey,note.value);
-      details.append(field('Optional note',note),node('p',run.config.workflow==='direct'?'Optional. Add emphasis, corrections, or extra instructions.':'Optional. Add emphasis, corrections, or extra instructions. The reviewer feedback is already included automatically.','field-help'));
+      details.append(field('Optional note',note),node('p',run.config.workflow==='direct'?'Optional. Add emphasis, corrections, or extra instructions.':'Optional. The reviewer feedback will already be passed to the Worker automatically.','field-help'));
       host.append(details);
       // Compatibility for a pre-upgrade run already waiting at ask_note.
       if(!select){const go=button('Run next round',()=>s.answer(pending.id,note.value,{noteKey}),true);go.disabled=!s.connected;host.append(go);}
     }
-    if(compact){
-      const more=button('Review & decide →',()=>this.open());more.className='review-decision';host.append(more);return;
-    }
     if(summary.task_issue){
       const edit=button('Edit task before rerunning',()=>this.editTask(pending.id));edit.className='edit-decision-task';edit.disabled=!s.connected;
-      host.append(edit,node('p','Ends this run and opens the whiteboard. Its review stays in History.','field-help'));
+      host.append(edit,node('p','Clarify the task before starting a fresh run.','field-help'));
     }
-    const why=node('details','','decision-disclosure');why.append(node('summary','Why?'));
+    const why=node('details','','decision-disclosure');why.append(node('summary',recommended==='Another round'?'Why another round?':recommended==='Ship it'?'Why ship it?':'Why is a decision required?'));
     const worker=node('section');worker.append(node('h4','Worker'),node('p',summary.worker||withoutSummary(report(run,'Implementer'))||'No worker summary was returned.','decision-evidence'));why.append(worker);
-    const critique=withoutSummary(report(run,'Reviewer'));
-    if(critique){
-      const review=node('section'),count=summary.findings!=null&&String(summary.findings)!=='?'?` · ${summary.findings} finding${String(summary.findings)==='1'?'':'s'}`:'';
-      review.append(node('h4',`Reviewer${count}`));
-      const lines=critique.split('\n'),body=/^(APPROVE|REVISE)$/i.test(lines[0].trim())?lines.slice(3).join('\n').trim():critique;
-      // The complete findings remain here. Raw invocation output is kept below.
-      review.append(node('p',body||summary.reason,'decision-evidence'));why.append(review);
-    }else if(!summary.worker)why.append(node('p',withoutSummary(pending.spec.rendered?.context),'decision-evidence'));
+    if(run.config.workflow!=='direct'){
+      const review=node('section');review.append(node('h4','Reviewer rationale'),node('p',summary.reason||'No concise rationale was returned. Full findings are in Technical details.','decision-evidence'));why.append(review);
+    }
     host.append(why);
     const technical=node('details','','decision-disclosure'),content=node('div');technical.append(node('summary','Technical details'),content);
     let loaded=false;technical.ontoggle=()=>{
@@ -97,17 +85,31 @@ export class OfficeDecisions {
       content.append(node('p',run.config.workspace,'repository-path'));
       const progress=node('div'),reports=node('div'),tools=node('div');
       s.scene.activity.renderRecent(progress,null,12,run);s.renderReports(reports,run);s.renderToolLog(tools,run);
-      const stop=button('Stop run',()=>s.stopRun());stop.disabled=!s.connected;
-      content.append(progress,reports,tools,stop);
+      content.append(progress,reports,tools);
     };
     host.append(technical);
   }
   editTask(requestId){
-    const s=this.session;s.perform(async()=>{
-      const state=await api(`/api/runs/${s.run.id}/stop`,{request_id:requestId});
-      // Replace this same sheet with the whiteboard; no intermediary confirmation.
-      s.mode=null;s.apply(state);s.stream?.close();s.stream=null;s.connected=true;
-      s.configuration.editTask();
-    });
+    const s=this.session,run=s.run,room=s.room,key=`task:${run.id}:${requestId}`;
+    s.window('decision-task-edit',`Round ${run.round} / Task`,'Clarify the task');
+    const form=node('form','','room-form'),task=input('decision-task',s.guidanceDrafts.get(key)??room.brief,true);task.rows=6;task.maxLength=30000;task.required=true;
+    task.oninput=()=>s.guidanceDrafts.set(key,task.value);
+    const back=button('Back to decision',()=>this.open());
+    const save=button('Save task and start new run',null,true);save.type='submit';
+    const actions=node('div','','form-actions');actions.append(save,back);
+    form.append(field('Task',task),node('p','Saving ends this run and starts a fresh run with the revised task. Existing edits and the review remain in History. Going back keeps your pending decision.','field-help'),actions);
+    form.onsubmit=event=>{event.preventDefault();s.perform(async()=>{
+      // Editing alone never consumes the pending decision. Only this explicit
+      // restart replaces the immutable execution snapshot.
+      if(s.run.id!==run.id)throw Error('The active room has changed.');
+      if(!terminal(s.run)){
+        const state=await api(`/api/runs/${run.id}/stop`,{request_id:requestId});s.apply(state);
+        s.stream?.close();s.stream=null;s.connected=true;
+      }
+      await s.configuration.save({brief:task.value});
+      s.guidanceDrafts.delete(key);
+      await s.configuration.launch();
+    });};
+    $('detail-body').append(form);task.focus();
   }
 }

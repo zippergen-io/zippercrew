@@ -34,22 +34,33 @@ setup, task messages, and decisions open in small modern windows.
 4. Click the **whiteboard** and define the task. Edits save automatically after a short
    pause and when leaving the editor. Choose **Run** in the top bar when ready.
    The Worker edits the repository. Review adds an independent, read-only Reviewer.
-5. When the Human is highlighted, click **You** to see the recommendation and reason.
-   **Another round**, **Ship it** (or **Done** for Direct), and **Abandon** act immediately.
+5. When the Human is highlighted, click **You** to open the single decision panel.
+   The recommended action—**Run next round**, **Ship it**, or **Done** for Direct—acts
+   immediately. Alternative decisions, including **Abandon**, expand under **Other choices**.
    Expand **Add a note for the Worker** only if you want to add guidance; the full
    reviewer findings are passed on automatically. Finishing a run does not commit or push.
 
-**Review & decide** opens a compact decision sheet. **Why?** holds the Worker summary
-and reviewer findings; **Technical details** holds reports, shell output and traces.
+The same panel opens from the warm **Your decision** status in the room header.
+**Why another round?** (or **Why ship it?**) expands the Worker summary and reviewer
+rationale in place; **Technical details** holds full reports, shell output and traces.
 If the Reviewer explicitly identifies a task-specification problem, **Edit task before
-rerunning** ends the current run and opens the whiteboard in the same sheet. Existing
-edits and review history remain available; run the revised task when ready.
+rerunning** opens an editor in the same sheet. **Back to decision** retains the pending
+decision and draft. **Save task and start new run** explicitly ends the old run and
+starts a fresh run with the revised task; existing edits and review history are kept.
 
-The room title and status are one clickable target. Setup uses muted red; ready
-rooms use muted green. **Run** becomes **Stop** during execution and **Your decision**
-when the workflow needs you. Stop ends the process group, retaining edits and history;
-Run starts a fresh run. ZipperGen supports durable execution, but this app currently
-uses its in-memory runner: resumable pause is not exposed.
+The room title opens room options; the status opens the decision when the workflow
+needs you. Setup uses muted red, ready uses muted green, and **Your decision** uses
+warm amber. The header shows compact SVG **Pause / Resume / Stop** controls only
+while applicable. Pause disappears at a Human decision; completed runs have no
+transport controls. Start a fresh run from the whiteboard.
+
+Pause suspends the local worker process group, including CLI children; Resume
+continues the same process and session. Stop requires confirmation and ends the
+group, retaining edits and history. Pausing does not cancel requests already sent
+to remote providers. This is local process suspension, not durable recovery across
+service restarts: a stopped or interrupted run must be started afresh. A watchdog
+also cleans up suspended workers if the service disappears. Older running servers
+need a restart to expose pause/resume; the UI does not offer unsupported controls.
 
 The task editor shows saving/saved status and keeps failed drafts available for retry.
 Run waits for all pending task edits to save before taking its execution snapshot.

@@ -37,6 +37,7 @@ export function boardStatus(run,connected,hasRoom){
   if(!run)return {text:hasRoom?'READY TO START':'TASK BOARD',accent:'blue'};
   const round=run.round?`R${run.round} - `:'';
   if(!terminal(run)&&!connected)return {text:'RECONNECTING...',accent:'amber'};
+  if(run.status==='paused')return {text:round+'PAUSED',accent:'blue'};
   if(run.status==='failed')return {text:round+'NEEDS ATTENTION',accent:'coral'};
   if(run.status==='stopped')return {text:round+'STOPPED',accent:'amber'};
   if(run.status==='completed')return {text:round+'COMPLETED',accent:'blue'};

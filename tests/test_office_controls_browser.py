@@ -88,16 +88,19 @@ def test_task_autosave_serializes_retries_and_run_uses_latest_draft(service):
         task.fill("Use this latest task for the run")
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
-        expect(page.get_by_role("button", name="Stop", exact=True)).to_be_enabled()
+        expect(page.locator("#run-stop")).to_be_enabled()
         run_id = page.evaluate("studio.session.run.id")
         assert app.runs.get(run_id).config["task"] == "Use this latest task for the run"
-        page.get_by_role("button", name="Stop", exact=True).click()
+        page.locator("#run-stop").click()
+        page.locator("#confirm-stop").click()
         expect(page.locator("#scene-state")).to_contain_text("Stopped")
         assert app.runs.get(run_id).snapshot()["status"] == "stopped"
-        page.get_by_role("button", name="Run", exact=True).click()
-        expect(page.get_by_role("button", name="Stop", exact=True)).to_be_enabled()
+        page.evaluate("() => studio.session.configuration.editTask()")
+        page.get_by_role("button", name="Run task", exact=True).click()
+        expect(page.locator("#run-stop")).to_be_enabled()
         assert page.evaluate("studio.session.run.id") != run_id
-        page.get_by_role("button", name="Stop", exact=True).click()
+        page.locator("#run-stop").click()
+        page.locator("#confirm-stop").click()
         expect(page.locator("#scene-state")).to_contain_text("Stopped")
         assert len(app.rooms.get(room["id"])["runs"]) == 2
         assert not errors

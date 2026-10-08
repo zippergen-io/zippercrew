@@ -63,7 +63,7 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("() => {studio.session.showTask();}")
-        expect(page.get_by_role("button", name="Another round", exact=True)).to_be_visible(
+        expect(page.get_by_role("button", name="Run next round", exact=True)).to_be_visible(
             timeout=45000
         )
         assert (
@@ -84,7 +84,7 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.locator("#back-to-office").click()
         page.evaluate("() => {studio.session.showTask();}")
         expect(guidance).to_have_value("Also test very small fractions.")
-        page.get_by_role("button", name="Another round", exact=True).click()
+        page.get_by_role("button", name="Run next round", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.wait_for_function("() => studio.session.run.round===2 && !!studio.session.run.pending")
         page.evaluate("() => {studio.session.showTask();}")
@@ -113,7 +113,8 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("() => {studio.session.showTask();}")
-        page.get_by_role("button", name="Stop run", exact=True).click()
+        page.locator(".run-actions").get_by_role("button", name="Stop run", exact=True).click()
+        page.locator("#confirm-stop").click()
         expect(page.locator("#scene-state")).to_contain_text("Stopped")
         page.evaluate("() => {studio.session.showTask();}")
         assert len(app.rooms.get(room["id"])["runs"]) == 2
@@ -196,18 +197,24 @@ def test_office_reconnect_restores_pending_decision_and_room_switch(service):
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("() => {studio.session.showTask();}")
-        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=45000)
+        expect(page.get_by_role("button", name="Run next round", exact=True)).to_be_visible(
+            timeout=45000
+        )
         run_id = page.evaluate("window.studio.session.run.id")
         context.set_offline(True)
         expect(page.locator("#scene-state")).to_contain_text("Reconnecting", timeout=20000)
-        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_disabled()
+        expect(page.get_by_role("button", name="Run next round", exact=True)).to_be_disabled()
         context.set_offline(False)
-        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=20000)
+        expect(page.get_by_role("button", name="Run next round", exact=True)).to_be_visible(
+            timeout=20000
+        )
         page.reload()
-        expect(page.locator("#room-action")).to_have_text("Your decision")
+        expect(page.locator("#scene-state")).to_contain_text("Your decision")
         page.evaluate("() => {studio.session.showTask();}")
+        page.get_by_text("Other choices", exact=True).click()
         page.get_by_role("button", name="Abandon", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.wait_for_function("() => studio.session.run.status==='completed'")
         page.evaluate("() => {studio.session.showTask();}")
         expect(page.locator(".run-summary")).to_contain_text("Abandoned")
         page.locator("#back-to-office").click()

@@ -67,7 +67,14 @@ export class OfficeSession {
     this.preferences={motion:"full",appearance:"day"};
     this.guidanceDrafts = new Map();
     this.mode = null;
-    $('room-action').onclick = () => !this.room ? this.configuration.newRoom() : terminal(this.run) ? this.configuration.start() : this.run.pending ? this.showTask() : this.stopRun();
+    $('room-action').onclick=()=>!this.room?this.configuration.newRoom():this.configuration.start();
+    $('scene-state').onclick=()=>this.decisions.pending?this.decisions.open():this.configuration.roomPanel();
+    $('run-pause').onclick=()=>this.transport(this.run?.status==='paused'?'resume':'pause');
+    $('run-stop').onclick=()=>this.stopRun();
+    $('cancel-stop').onclick=()=>this.cancelStop();
+    $('confirm-stop').onclick=()=>this.terminateRun();
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('stop-confirmation').hidden)this.cancelStop();});
+    $('detail-dialog').addEventListener('close',()=>{if(!$('detail-dialog').open)this.cancelStop();});
     this.configuration=new OfficeConfiguration(this);
     this.decisions=new OfficeDecisions(this);
     $('detail-dialog').addEventListener('close', () => { if(!$('detail-dialog').open)this.mode = null; });
@@ -135,6 +142,7 @@ export class OfficeSession {
   }
 
   window(mode, kind, title, description = '') {
+    this.cancelStop();
     this.scene.ui.dismiss(false);
     this.scene.ui.explored();
     this.mode = mode;
@@ -216,7 +224,7 @@ export class OfficeSession {
     for (const [id, role] of Object.entries(roles)) {
       const person = this.scene.people.get(id);if(!person)continue;
       const status = state.participants[role];
-      person.liveStatus = status === 'needs human' ? 'Your decision' : status;
+      person.liveStatus = state.status==='paused'?'Paused':status === 'needs human' ? 'Your decision' : status;
     }
     this.scene.handoffs.observe(state,{replay});
     this.scene.activity.observe(state,{replay});
@@ -231,17 +239,28 @@ export class OfficeSession {
     this.scene.attention?.update();
     $('room-name').textContent = this.room?.name || 'The studio';
     const missing=this.room?this.configuration.missing():[],active=!terminal(this.run);
-    $('room-action').disabled = this.busy||!this.initialized||(active?!this.connected:!!missing.length);
+    const pending=!!this.decisions.pending,paused=this.run?.status==='paused';
+    $('room-action').hidden=!!run;
+    $('room-action').disabled=this.busy||!this.initialized||!!missing.length;
+    $('room-action').textContent=this.room?'Run':'New room';
+    $('room-action').dataset.state='ready';
+    $('room-action').title=missing.length?missing.join(' · '):'Run the current task';
     $('room-header').disabled=this.busy||!this.initialized;
-    $('room-action').textContent = !this.room ? 'New room' : active ? this.run.pending ? 'Your decision' : 'Stop' : 'Run';
-    $('room-action').dataset.state=active?'active':'ready';
-    $('room-action').title=active?'':missing.length?missing.join(' · '):'Run the current task';
-    $('scene-state').dataset.state=!this.initialized||!this.connected?'neutral':missing.length?'setup':'ready';
-    const prefix = (this.bootstrap?.demo?'Demo · ':'')+(this.room?`${this.configuration.workflow==='direct'?'Direct':'Review'} · `:'');
-    let status = !this.bootstrap ? 'Connecting…' : !this.room ? 'Ready for your first room' : !run ? this.configuration.missing().length?'Setup needed':'Ready to start' : run.pending ? 'Your decision' : run.status;
-    if (run && !terminal(run) && !this.connected) status = 'Reconnecting…';
-    const round = run?.round ? ` · round ${run.round}` : '';
-    $('scene-state').textContent = prefix + status.charAt(0).toUpperCase() + status.slice(1) + round;
+    $('scene-state').disabled=this.busy||!this.initialized||(pending&&!this.connected);
+    $('scene-state').dataset.state=!this.initialized||!this.connected?'neutral':pending?'attention':missing.length?'setup':'ready';
+    $('scene-state').title=pending?'Your decision': 'Room options';
+    const prefix=(this.bootstrap?.demo?'Demo · ':'')+(this.room?`${this.configuration.workflow==='direct'?'Direct':'Review'} · `:'');
+    let status=!this.bootstrap?'Connecting…':!this.room?'Ready for your first room':!run?missing.length?'Setup needed':'Ready to start':pending?'Your decision':run.status;
+    if(run&&!terminal(run)&&!this.connected)status='Reconnecting…';
+    const round=run?.round?` · round ${run.round}`:'';
+    $('scene-state').replaceChildren(document.createTextNode(prefix),node('span',status.charAt(0).toUpperCase()+status.slice(1),pending?'attention-state':''),document.createTextNode(round));
+    $('run-transport').hidden=!active;
+    $('run-pause').hidden=pending||!this.bootstrap?.run_pause;
+    const pauseLabel=paused?'Resume run':'Pause run';
+    $('run-pause').setAttribute('aria-label',pauseLabel);$('run-pause').title=pauseLabel;
+    $('run-pause').querySelector('use').setAttribute('href',paused?'#i-play':'#i-pause');
+    for(const id of ['run-pause','run-stop','confirm-stop','cancel-stop'])$(id).disabled=this.busy||!this.connected;
+    if(!active||this.stopTarget&&this.stopTarget!==this.run?.id)this.cancelStop();
 
     if (this.run && !run) for (const person of this.scene.people.values()) person.liveStatus = 'Ready';
     if (this.scene.selected) this.scene.ui.updatePerson();
@@ -313,9 +332,30 @@ export class OfficeSession {
     }
   }
 
-  stopRun(){
+  transport(action){
+    const id=this.run?.id;if(!id)return;
     return this.perform(async()=>{
-      const state=await api(`/api/runs/${this.run.id}/stop`,{});this.apply(state);
+      const state=await api(`/api/runs/${id}/${action}`,{});this.apply(state);
+      if(action==='pause'){this.scene.handoffs.cancel();this.scene.ambient.cancel();}
+      this.scene.activity.react('worker',action==='pause'?'Run paused.':'Resuming the task.');
+    });
+  }
+
+  cancelStop(){
+    $('stop-confirmation').hidden=true;this.stopTarget=null;
+    document.querySelector('.controls-bar').append($('stop-confirmation'));
+  }
+  stopRun(){
+    if(terminal(this.run))return;
+    this.stopTarget=this.run.id;
+    if($('detail-dialog').open)$('detail-body').append($('stop-confirmation'));
+    $('cancel-stop').textContent=this.run.status==='paused'?'Stay paused':'Keep running';
+    $('stop-confirmation').hidden=false;$('cancel-stop').focus();
+  }
+  terminateRun(){
+    const id=this.stopTarget;if(!id||id!==this.run?.id)return;
+    return this.perform(async()=>{
+      const state=await api(`/api/runs/${id}/stop`,{});this.cancelStop();this.apply(state);
       this.stream?.close();this.stream=null;this.connected=true;this.refreshChrome();
       this.confirmInOffice('worker','Run stopped.\nYour edits and history are kept.');
     });
