@@ -5,7 +5,7 @@ import json
 from conftest import request, wait_state
 
 from zippercrew.catalog import Catalog
-from zippercrew.rooms import Runs
+from zippercrew.rooms import Runs, validate_config
 
 
 def test_room_rerun_history_restart_rename_and_safe_delete(service, config):
@@ -73,3 +73,42 @@ def test_drafts_persist_before_workspace_exists_and_validate_at_start(service):
     assert code == 201
     assert request(base, f"/api/rooms/{room['id']}/runs", {})[0] == 400
     assert request(base, f"/api/rooms/{room['id']}/context")[1]["runs"] == []
+
+
+def test_avatar_and_model_choices_persist_without_changing_role(service, config):
+    app, base, project = service
+    config.update(project=str(project), human_mode="auto", max_rounds=1)
+    config["agents"]["Implementer"].update(
+        avatar="planner",
+        instructions="Keep the change focused.",
+        settings={"model": "chosen-model"},
+    )
+    code, room = request(
+        base, "/api/rooms", {"name": "Team", "config": config, "brief": config["task"]}
+    )
+    assert code == 201
+    path = f"/api/rooms/{room['id']}"
+    restored = Catalog(app.rooms.root, Runs(app.runs.root)).get(room["id"])
+    binding = restored["config"]["agents"]["Implementer"]
+    assert binding["avatar"] == "planner"
+    assert binding["instructions"] == "Keep the change focused."
+    assert binding["settings"] == {"model": "chosen-model"}
+    invalid = json.loads(json.dumps(restored["config"]))
+    invalid["agents"]["Implementer"]["avatar"] = "unknown-sprite"
+    assert request(base, path + "/save", {"config": invalid})[0] == 400
+    assert request(base, path + "/context")[1]["config"] == restored["config"]
+    assert (
+        request(
+            base, "/api/profiles", {"project": str(project), "name": "coding", "backend": "codex"}
+        )[0]
+        == 201
+    )
+    real_config = validate_config({**restored["config"], "task": room["brief"]})
+    assert real_config["agents"]["Implementer"]["model"] == "chosen-model"
+    assert "avatar" not in real_config["agents"]["Implementer"]
+    code, run = request(base, path + "/runs", {})
+    assert code == 201
+    execution = run["config"]["agents"]["Implementer"]
+    assert execution["instructions"] == "Keep the change focused."
+    assert "avatar" not in execution
+    wait_state(base, run["id"], lambda state: state["status"] == "completed")

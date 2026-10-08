@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+from office_helpers import prepare_room
 from playwright.sync_api import expect, sync_playwright
 
 pytestmark = pytest.mark.browser
@@ -28,12 +29,11 @@ def test_office_tool_feedback_ambient_priority_and_clock(service):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(base + "/office/")
         page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
-        page.locator("#setup-name").fill("The workshop")
-        page.locator("#setup-workspace").fill(str(project))
+        prepare_room(page, project, "", "The workshop")
         page.locator("#setup-brief").fill(
             "Refine the workspace\nMake activity legible\nKeep the office calm"
         )
-        page.get_by_role("button", name="Save room", exact=True).click()
+        page.locator("#back-to-office").click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("""() => {
           studio.game.loop.stop();
@@ -98,6 +98,9 @@ def test_office_tool_feedback_ambient_priority_and_clock(service):
           s.surfaces.update(new Date(2026,9,7,15,43));
           check(clock!==s.surfaces.clock.source.toDataURL(),'Paused clock frozen');s.paused=false;
           s.session.apply({...s.session.run,version:4,status:'completed',participants:{Implementer:'completed',Reviewer:'completed'},local_activity:{}});
+          // The longer object-based setup may have already started a solo break.
+          // Return that agent home before testing a fresh two-person conversation.
+          s.ambient.cancel();s.ambient.next=Infinity;tick(350);
           s.ambient.next=s.elapsed;s.ambient.turn=0;tick(1);
           check(s.ambient.trip?.ids.length===2,'No idle conversation');
           const start=s.elapsed;

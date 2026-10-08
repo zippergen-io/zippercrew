@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+from office_helpers import prepare_room
 from playwright.sync_api import expect, sync_playwright
 
 pytestmark = pytest.mark.browser
@@ -28,7 +29,7 @@ def test_task_board_and_real_message_couriers(service):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(base + "/office/")
         page.wait_for_function("() => window.studio?.session?.initialized && !studio.session.busy")
-        page.locator("#setup-workspace").fill(str(project))
+        prepare_room(page, project, "", "The workshop")
         brief = (
             "Prepare small release\n"
             "- Tighten workspace layout\n"
@@ -36,9 +37,9 @@ def test_task_board_and_real_message_couriers(service):
             "- Keep this full final line in the overlay: café <script>not HTML</script>"
         )
         page.locator("#setup-brief").fill(brief)
-        page.get_by_role("button", name="Start task", exact=True).click()
+        page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
-        page.locator("#room-action").click()
+        page.evaluate("() => {studio.session.showTask();}")
         expect(page.get_by_role("button", name="Stop run", exact=True)).to_be_visible()
         page.locator("#back-to-office").click()
         page.wait_for_function("() => studio.handoffs.active?.sender === 'worker'")
@@ -66,7 +67,7 @@ def test_task_board_and_real_message_couriers(service):
           studio.session.apply(studio.session.run);
           assert(studio.handoffs.queue.length===before,'Duplicate snapshot replayed messages');
           let steps=0;
-          while(studio.handoffs.active?.phase!=='offered'&&steps++<700){
+          while(studio.handoffs.active?.phase!=='received'&&steps++<700){
             tick(1);
             for(const person of studio.people.values()) {
               assert(studio.nav.free(person.x,person.y,person.seated),'Walk through furniture');
@@ -75,7 +76,8 @@ def test_task_board_and_real_message_couriers(service):
             }
           }
           const h=studio.handoffs,trip=h.active;
-          assert(trip?.phase==='offered'&&trip.acknowledged,'No received handoff');
+          assert(trip?.phase==='received'&&trip.acknowledged&&trip.noteOwner===trip.recipient,
+            'No received handoff');
           assert(Math.hypot(studio.people.get(trip.sender).x-studio.people.get(trip.recipient).x,
             studio.people.get(trip.sender).y-studio.people.get(trip.recipient).y)<49,
             'Remote acknowledgment');
@@ -85,6 +87,12 @@ def test_task_board_and_real_message_couriers(service):
           assert([h.note,h.caption,studio.board.sprite].every(s=>
             Number.isInteger(s.x)&&Number.isInteger(s.y)&&s.frame.source.scaleMode===1),
             'Smoothed or fractional props');
+          tick(40);
+          assert(h.active?.noteOwner===trip.recipient&&h.note.visible,'Recipient dropped note');
+          const receiver=studio.people.get(trip.recipient),sender=studio.people.get(trip.sender);
+          assert(Math.abs(h.note.y-(Math.round(receiver.y)-24))<=1,'Note did not follow recipient');
+          assert(sender.route.length||sender.transition||sender.seated,
+            'Empty-handed sender did not return to work');
           return h.inspect();
         }""")
         assert result["active"]["from"] == "worker"

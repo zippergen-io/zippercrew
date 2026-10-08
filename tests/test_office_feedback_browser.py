@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import pytest
+from office_helpers import prepare_room
 from playwright.sync_api import expect, sync_playwright
 
 pytestmark = pytest.mark.browser
@@ -29,11 +30,11 @@ def test_deliberate_status_idle_poses_and_decision_indicator(service):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(base + "/office/")
         page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
-        page.locator("#setup-workspace").fill(str(project))
+        prepare_room(page, project, "", "The workshop")
         page.locator("#setup-brief").fill(
             "Refine office feedback\nKeep the room layout\nMake work easier to follow"
         )
-        page.get_by_role("button", name="Save room", exact=True).click()
+        page.locator("#back-to-office").click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("""async () => {
           studio.game.loop.stop();
@@ -99,11 +100,43 @@ def test_deliberate_status_idle_poses_and_decision_indicator(service):
                 + "\n",
             ),
         )
+        page.route(
+            "**/api/rooms",
+            lambda route: route.fulfill(
+                content_type="application/json",
+                body=json.dumps([page.evaluate("({...studio.session.room,runs:['feedback']})")]),
+            ),
+        )
+        page.route(
+            "**/api/rooms/*/runs",
+            lambda route: route.fulfill(
+                content_type="application/json",
+                body=json.dumps(
+                    [
+                        {
+                            "id": "feedback",
+                            "number": 1,
+                            "status": "running",
+                            "task": "Refine feedback",
+                        }
+                    ]
+                ),
+            ),
+        )
+        page.route(
+            "**/api/runs/feedback",
+            lambda route: route.fulfill(
+                content_type="application/json",
+                body=json.dumps(page.evaluate("feedback")),
+            ),
+        )
         page.evaluate("() => {studio.select('worker');}")
         page.locator("#person-task").click()
+        page.get_by_role("button", name="Open activity history", exact=True).click()
+        page.get_by_role("button", name="Run 1 · running", exact=True).click()
         page.get_by_text("Shell output", exact=True).click()
-        expect(page.locator(".shell-log pre")).to_contain_text("<script>safe text</script>")
-        assert page.locator(".shell-log script").count() == 0
+        expect(page.locator("#detail-body pre")).to_contain_text("<script>safe text</script>")
+        assert page.locator("#detail-body script").count() == 0
         page.locator("#back-to-office").click()
         page.evaluate("""() => {
           const s=studio;
@@ -139,13 +172,13 @@ def test_confirm_closes_only_on_success_and_preserves_visible_reaction(service):
         page = browser.new_page()
         page.goto(base + "/office/")
         page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
-        page.locator("#setup-workspace").fill(str(project))
+        prepare_room(page, project, "", "The workshop")
         page.locator("#setup-brief").fill("Fix the rounding error")
-        page.get_by_role("button", name="Start task", exact=True).click()
+        page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         assert page.evaluate("studio.people.get('worker').bubbleText").startswith("Task received.")
         page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
-        page.locator("#room-action").click()
+        page.evaluate("() => {studio.session.showTask();}")
         page.route(
             "**/api/runs/*/answer",
             lambda route: route.fulfill(

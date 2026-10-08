@@ -19,6 +19,7 @@ from zippergen.human_tasks import human_task_result_from_value
 from zippergen.workspace import Workspace
 
 from zippercrew.state import TERMINAL, apply_event, initial_state
+from zippercrew.workflows import agent_roles, workflow_id
 
 
 class Conflict(ValueError):
@@ -53,7 +54,7 @@ def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, An
     if type(rounds) is not int or not 1 <= rounds <= 100:
         raise ValueError("Maximum rounds must be an integer between 1 and 100.")
     agents = {}
-    for role in ("Implementer", "Reviewer"):
+    for role in agent_roles(data):
         binding = data.get("agents", {}).get(role, {})
         name = binding.get("profile")
         if demo:
@@ -81,6 +82,7 @@ def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, An
             selection.update({key: value for key, value in overrides.items() if value})
             agents[role].update(assistant_settings(selection))
     return {
+        "workflow": workflow_id(data),
         "workspace": str(workspace),
         "project": str(project),
         "task": text_field(data.get("task"), "Task", required=True),

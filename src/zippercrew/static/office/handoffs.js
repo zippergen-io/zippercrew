@@ -130,13 +130,21 @@ export class OfficeHandoffs {
   acknowledge(trip){
     const message=this.receipts.get(trip.id);
     if(!message?.receive_id||trip.acknowledged)return;
-    trip.acknowledged=true;trip.receiptTime=this.clock;
+    trip.acknowledged=true;trip.transferStarted=this.clock;trip.phase='transferring';
+    trip.noteOwner=trip.sender;
+  }
+  receive(trip){
+    trip.noteOwner=trip.recipient;trip.phase='received';trip.receiptTime=this.clock;
+    // Leave the document in the recipient's hand while the empty-handed sender
+    // returns to work. Clearing the shared pose preserves the receipt bubble.
+    this.scene.conversation=null;this.scene.talkDots.setVisible(false);
+    this.home(trip.sender);
+    this.scene.people.get(trip.sender).exchangeStatus='Handover complete';
     const recipient=this.scene.people.get(trip.recipient);
     recipient.exchangeStatus=`Received ${trip.label.toLowerCase()} from ${this.scene.people.get(trip.sender).name}`;
     this.speak(trip.recipient,`${trip.label.toUpperCase()} RECEIVED.`,{force:true,duration:3});
     this.completed.push({id:trip.id,from:trip.sender,to:trip.recipient,received:true});
-    this.completed=this.completed.slice(-20);
-    this.scene.ui.updatePerson();
+    this.completed=this.completed.slice(-20);this.scene.ui.updatePerson();
   }
   home(id){
     const p=this.scene.people.get(id);if(!p||id==='human')return;
@@ -161,9 +169,15 @@ export class OfficeHandoffs {
       this.speak('worker','WAITING FOR REVIEW.');
   }
   paint(trip){
-    const p=this.scene.people.get(trip.sender),left=p.direction==='left';
-    const x=Math.round(p.x)+(left?-19:10),y=Math.round(p.y)-25;
-    this.note.setTexture(this.noteKey(trip.sender)).setPosition(x,y).setVisible(true);
+    const hand=id=>{const p=this.scene.people.get(id);return {x:Math.round(p.x)+(p.direction==='left'?-17:9),y:Math.round(p.y)-24};};
+    const sender=this.scene.people.get(trip.sender),from=hand(trip.sender),to=hand(trip.recipient);
+    let position=trip.noteOwner===trip.recipient?to:from;
+    if(trip.phase==='transferring'){
+      const t=Math.min(1,(this.clock-trip.transferStarted)/.45);
+      position={x:Math.round(from.x+(to.x-from.x)*t),y:Math.round(from.y+(to.y-from.y)*t-Math.sin(t*Math.PI)*3)};
+    }
+    this.note.setTexture(this.noteKey(trip.sender)).setPosition(position.x,position.y).setVisible(true);
+    const p=sender;
     const title=['Proposal','Review','Guidance','Task'].includes(trip.label)?trip.label.toUpperCase():'NOTE';
     this.caption.setTexture(labelTexture(this.scene,title,{color:'bubbleInk',background:'bubble',accent:trip.sender}));
     this.caption.setPosition(Math.round(p.x-this.caption.width/2),Math.round(p.y)+17)
@@ -198,11 +212,13 @@ export class OfficeHandoffs {
       }
     }else if(trip.phase==='greeting'){
       if(this.clock-trip.arrived>4){this.finish();return;}
+    }else if(trip.phase==='transferring'){
+      if(this.clock-trip.transferStarted>=.45)this.receive(trip);
     }else{
       this.acknowledge(trip);
       if(this.clock-(trip.receiptTime??trip.arrived)>3){this.finish();return;}
     }
     this.paint(trip);
   }
-  inspect(){return {active:this.active?{id:this.active.id,from:this.active.sender,to:this.active.recipient,phase:this.active.phase,acknowledged:!!this.active.acknowledged}:null,queued:this.queue.length,completed:this.completed,noteVisible:this.note.visible};}
+  inspect(){return {active:this.active?{id:this.active.id,from:this.active.sender,to:this.active.recipient,phase:this.active.phase,acknowledged:!!this.active.acknowledged,noteOwner:this.active.noteOwner||this.active.sender}:null,queued:this.queue.length,completed:this.completed,noteVisible:this.note.visible};}
 }

@@ -16,10 +16,11 @@ from zippergen.human_tasks import build_human_task_spec, human_task_result_from_
 from zippergen.runtime import run
 
 from zippercrew.adapter import assistant_backend, load_process
+from zippercrew.workflows import agent_roles, workflow_id
 
 
 def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None) -> str:
-    workflow, module = load_process()
+    workflow, module = load_process(workflow_id(config))
 
     def trace(event: dict[str, Any]) -> None:
         emit({"type": "runtime", "event": event})
@@ -47,7 +48,7 @@ def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None)
 
     result = run(
         workflow,
-        [module.Human, module.Implementer, module.Reviewer],
+        [module.Human, *(getattr(module, role) for role in agent_roles(config))],
         {
             "Human": {
                 "task": config["task"],

@@ -20,8 +20,11 @@ from zippergen.workspace import Workspace, WorkspaceError
 
 from zippercrew.adapter import source_root
 from zippercrew.catalog import Catalog
+from zippercrew.models import model_choices
+from zippercrew.preferences import Preferences
 from zippercrew.rooms import Conflict, Runs, directory, text_field, validate_config
 from zippercrew.state import TERMINAL
+from zippercrew.workflows import WORKFLOWS
 
 STATIC = Path(__file__).parent / "static"
 
@@ -48,8 +51,10 @@ class Application(ThreadingHTTPServer):
             ) from exc
         self.runs = Runs(data_dir / "rooms")
         self.rooms = Catalog(data_dir / "catalog", self.runs)
+        self.preferences = Preferences(data_dir / "preferences.json")
         self.project = str(project.resolve())
         self.demo = demo
+        self.models = [] if demo else model_choices()
         self.checks: dict[str, dict[str, Any]] = {}
         if not demo:
             with ThreadPoolExecutor(max_workers=2) as pool:
@@ -169,10 +174,34 @@ class Handler(BaseHTTPRequestHandler):
                     {
                         "project": self.server.project,
                         "demo": self.server.demo,
+                        "workflows": WORKFLOWS,
+                        "preferences": self.server.preferences.get(),
+                        "models": self.server.models,
                         "checks": self.server.checks,
                         "capabilities": {
                             s.name: list(s.setting_options) for s in ASSISTANT_BACKEND_SPECS
                         },
+                    },
+                )
+            elif path == "/api/preferences":
+                self.reply(200, self.server.preferences.get())
+            elif path == "/api/directories":
+                folder = directory(parse_qs(url.query).get("path", [str(Path.home())])[0])
+                children = []
+                for child in folder.iterdir():
+                    if child.name.startswith("."):
+                        continue
+                    try:
+                        if child.is_dir():
+                            children.append({"name": child.name, "path": str(child)})
+                    except OSError:
+                        continue
+                self.reply(
+                    200,
+                    {
+                        "path": str(folder),
+                        "parent": str(folder.parent) if folder.parent != folder else None,
+                        "directories": sorted(children, key=lambda child: child["name"].casefold()),
                     },
                 )
             elif path == "/api/profiles":
@@ -247,7 +276,9 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data, dict):
                 raise ValueError("Request must be an object.")
             path = urlsplit(self.path).path
-            if path == "/api/profiles":
+            if path == "/api/preferences":
+                self.reply(200, self.server.preferences.save(data))
+            elif path == "/api/profiles":
                 project = directory(data.get("project"))
                 name = text_field(data.get("name"), "Profile name", required=True)
                 backend = data.get("backend")

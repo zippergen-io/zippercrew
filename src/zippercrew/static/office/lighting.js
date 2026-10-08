@@ -101,16 +101,16 @@ export class NightLighting {
   }
 
   characterKey(person) {
-    if(this.scene.mood!=='night')return `day:person-${person.id}`;
+    if(this.scene.mood!=='night')return `day:person-${(person.appearance||person.id)}`;
     const sample=this.sample(person.x,person.y-15);
     const warm=Math.round(sample.warm*8),cool=Math.round(sample.cool*12);
-    if(!warm&&!cool)return `night:person-${person.id}`;
-    const key=`night:lit-person:${person.id}:${warm}:${cool}`;
+    if(!warm&&!cool)return `night:person-${(person.appearance||person.id)}`;
+    const key=`night:lit-person:${(person.appearance||person.id)}:${warm}:${cool}`;
     if(this.scene.textures.exists(key))return key;
-    const original=this.scene.textures.get(`night:person-${person.id}`).getSourceImage();
+    const original=this.scene.textures.get(`night:person-${(person.appearance||person.id)}`).getSourceImage();
     const c=surface(original.width,original.height),ctx=c.getContext('2d');ctx.drawImage(original,0,0);
     const night=ctx.getImageData(0,0,c.width,c.height);
-    ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(this.scene.textures.get(`day:person-${person.id}`).getSourceImage(),0,0);
+    ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(this.scene.textures.get(`day:person-${(person.appearance||person.id)}`).getSourceImage(),0,0);
     const day=ctx.getImageData(0,0,c.width,c.height);
     for(let i=0;i<night.data.length;i+=4)if(night.data[i+3]>180)this.shade(night.data,day.data,i,{warm:warm/8,cool:cool/12});
     ctx.putImageData(night,0,0);

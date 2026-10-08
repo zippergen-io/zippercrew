@@ -22,11 +22,11 @@ export class OfficeAmbient {
   }
   start(){
     if(!this.eligible())return false;
-    const s=this.scene,people=['worker','reviewer'].map(id=>s.people.get(id));
-    const available=people.filter(p=>!s.activity.isWorking(p)&&!p.route.length&&!p.transition&&!p.seatApproach);
+    const s=this.scene,people=['worker','reviewer'].map(id=>s.people.get(id)).filter(Boolean);
+    const available=people.filter(p=>s.session.configuration.isReady(p.id)&&!s.activity.isWorking(p)&&!p.route.length&&!p.transition&&!p.seatApproach);
     if(!available.length)return false;
     const spot=SOCIAL_SPOTS[this.turn%SOCIAL_SPOTS.length],pair=available.length===2&&this.turn%3===0;
-    const ids=pair?people.map(p=>p.id):[available[this.turn%available.length].id];
+    const ids=pair?available.map(p=>p.id):[available[this.turn%available.length].id];
     const trip={ids,spot:spot.id,arrivals:new Set(),phase:'walking',started:s.elapsed};this.trip=trip;this.turn++;
     ids.forEach((id,index)=>{
       const p=s.people.get(id);p.ambientStatus=spot.label;
@@ -50,7 +50,7 @@ export class OfficeAmbient {
     return true;
   }
   update(){
-    if(!this.eligible()||this.trip?.ids.some(id=>this.scene.activity.isWorking(this.scene.people.get(id)))){this.cancel();return;}
+    if(!this.eligible()||this.trip?.ids.some(id=>!this.scene.session.configuration.isReady(id)||this.scene.activity.isWorking(this.scene.people.get(id)))){this.cancel();return;}
     const s=this.scene,trip=this.trip;
     if(!trip){
       if(s.elapsed>=this.next){this.next=s.elapsed+20;this.start();}

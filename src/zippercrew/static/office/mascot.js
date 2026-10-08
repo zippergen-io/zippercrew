@@ -36,7 +36,7 @@ export class OfficeMascot {
     }
     return !moving&&!s.paused&&!document.hidden&&!s.conversation&&!s.selected
       &&!s.handoffs?.active&&!s.handoffs?.queue.length&&!s.session?.taskRun?.pending
-      &&!document.querySelector('dialog[open],.popover:not([hidden]),.context-card:not([hidden])');
+      &&!document.querySelector('dialog[open],.popover:not([hidden]),.context-card:not([hidden]),.studio-drawer:not([hidden])');
   }
 
   beginWalk(){

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import pytest
+from office_helpers import prepare_room
 from playwright.sync_api import expect, sync_playwright
 from test_office_activity_browser import capture
 
@@ -20,17 +21,16 @@ def test_companion_yields_to_workspace_and_rests_between_short_walks(service):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(base + "/office/")
         page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
-        page.locator("#setup-name").fill("The workshop")
-        page.locator("#setup-workspace").fill(str(project))
+        prepare_room(page, project, "", "The workshop")
         page.locator("#setup-brief").fill("Refine the office companion\nKeep the workspace calm")
-        page.get_by_role("button", name="Save room", exact=True).click()
+        page.locator("#back-to-office").click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("""() => {
           studio.game.loop.stop();
           window.tick=n=>{for(let i=0;i<n;i++)studio.update(0,1000/30);};
           window.check=(ok,message)=>{if(!ok)throw Error(message);};
           const s=studio,m=s.mascot;
-          s.ambient.next=Infinity;tick(150);
+          s.ambient.cancel();s.ambient.next=Infinity;m.nextWalk=s.elapsed+28;tick(150);
           check(s.people.size===3&&!m.sprite.input,'Mascot changed the roster or hit tests');
           check(!m.route.length&&m.x===448,'Mascot did not start resting');
           tick(750);

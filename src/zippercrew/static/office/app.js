@@ -21,7 +21,7 @@ const pixelCenter=sprite=>sprite.setOrigin(Math.floor(sprite.width/2)/sprite.wid
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 
 class Studio extends Phaser.Scene {
-  constructor(){super('Studio');this.people=new Map();this.paused=reducedMotion.matches;this.elapsed=0;this.worldTime=0;this.selected=null;this.hovered=null;this.conversation=null;this.ready=false;this.mood=new URLSearchParams(location.search).get('mood')==='night'?'night':'day';this.themedImages=[];this.zoneLabels=[];}
+  constructor(){super('Studio');this.people=new Map();this.paused=reducedMotion.matches;this.elapsed=0;this.worldTime=0;this.selected=null;this.hovered=null;this.conversation=null;this.ready=false;this.mood=new URLSearchParams(location.search).get('mood')==='night'?'night':'day';this.explicitMood=new URLSearchParams(location.search).has('mood');this.themedImages=[];this.zoneLabels=[];}
   themedImage(x,y,key){const sprite=this.add.image(x,y,this.lighting.textureKey(this.mood,key,x,y));this.themedImages.push({sprite,key,x,y});return sprite;}
   create(){
     this.cameras.main.setRoundPixels(true).setScroll(VIEW.x,VIEW.y);
@@ -67,6 +67,7 @@ class Studio extends Phaser.Scene {
       p.nameTag=pixelCenter(this.add.image(p.x,p.y+9,this.nameTexture(p))).setDepth(700).setVisible(p.id==='human');
       this.people.set(p.id,p);
     }
+    this.cast=new Map(this.people);
     this.seating.sit(this.people.get('worker'),this.seating.chairs.get('chair-1'),true);
     this.talkDots=pixelCenter(this.add.image(0,0,labelTexture(this,'...',{background:'bubble',color:'bubbleInk',bubble:true}))).setDepth(810).setVisible(false);
     this.seating.sit(this.people.get('reviewer'),this.seating.chairs.get('chair-2'),true);
@@ -88,18 +89,34 @@ class Studio extends Phaser.Scene {
     this.buildUI();this.setMood(this.mood);this.resize(true);this.ready=true;window.studio=this;
     new ResizeObserver(()=>this.resize()).observe($('scene-scroll'));
     window.addEventListener('resize',()=>this.resize());
-    reducedMotion.addEventListener('change',event=>{this.paused=event.matches;this.updatePauseUI();});
+    reducedMotion.addEventListener('change',event=>{this.paused=event.matches||this.session?.preferences?.motion==='reduced';this.updatePauseUI();});
     this.updatePauseUI();
     this.handoffs=new OfficeHandoffs(this);
     this.activity=new OfficeActivity(this);this.ambient=new OfficeAmbient(this);
     this.mascot=new OfficeMascot(this);
     this.session=new OfficeSession(this);this.session.boot();
   }
+  setWorkflow(workflow){
+    const include=workflow!=='direct',present=this.people.has('reviewer');
+    if(include===present)return;
+    this.ambient?.cancel();this.handoffs?.cancel();
+    const p=this.cast.get('reviewer');
+    if(!include){
+      if(this.selected===p.id)this.select(null);
+      this.seating.cancelApproach(p);
+      for(const chair of this.seating.chairs.values())if(chair.occupant===p.id)chair.occupant=null;
+      p.route=[];p.transition=null;p.onArrival=null;p.seated=null;p.bubble?.destroy();p.bubble=null;
+      p.sprite.setVisible(false).disableInteractive();p.nameTag.setVisible(false);this.people.delete(p.id);
+    }else{
+      this.people.set(p.id,p);p.sprite.setVisible(true).setInteractive();p.liveStatus='Ready';
+      this.seating.sit(p,this.seating.chairs.get(p.chairId),true);
+    }
+  }
   resize(fit=false){
     const view=$('scene-scroll'),dpr=window.devicePixelRatio||1;
     this.game.canvas.getContext('2d').imageSmoothingEnabled=false;
-    // Every source pixel occupies an integer number of physical display pixels,
-    // including browser zoom and Retina displays. Small screens can scroll.
+    // Fit uses integer physical pixels. Manual zoom uses smaller unfiltered
+    // steps; sprites retain their integer world coordinates and textures.
     const padding=getComputedStyle(view),availableWidth=view.clientWidth-parseFloat(padding.paddingLeft)-parseFloat(padding.paddingRight),availableHeight=view.clientHeight-parseFloat(padding.paddingTop)-parseFloat(padding.paddingBottom);
     // Keep avatars readable on phones; pan the native-size office instead of
     // fitting the entire world into a tiny Retina thumbnail.
@@ -111,13 +128,14 @@ class Studio extends Phaser.Scene {
     if(fit||!this.manualZoom)this.physicalScale=fitted;
     const maxScale=Math.max(1,Math.floor(8*dpr));
     this.physicalScale=Math.max(1,Math.min(maxScale,this.physicalScale));
-    const cssScale=this.physicalScale/dpr,w=VIEW.width*cssScale,h=VIEW.height*cssScale;
+    const cssScale=this.physicalScale/dpr,w=Math.round(VIEW.width*this.physicalScale)/dpr,h=Math.round(VIEW.height*this.physicalScale)/dpr;
     this.game.canvas.style.width=`${w}px`;this.game.canvas.style.height=`${h}px`;
     $('game').style.width=`${w}px`;$('game').style.height=`${h}px`;
     view.style.justifyItems=w>availableWidth?'start':'center';view.style.alignItems=h>availableHeight?'start':'center';
     if(fit||!this.manualZoom){view.scrollLeft=Math.max(0,(w-availableWidth)/2);view.scrollTop=Math.max(0,(h-availableHeight)/2);}
     this.scale.updateBounds();$('zoom-out').disabled=this.physicalScale<=1;$('zoom-in').disabled=this.physicalScale>=maxScale;
-    $('fit').textContent=this.manualZoom?`${Number(cssScale.toFixed(2))}×`:'Fit';
+    $('fit').textContent=this.manualZoom?`${Math.round(cssScale*100)}%`:'Fit';
+    $('fit').title=`Fit office to view · current zoom ${Math.round(cssScale*100)}%`;
     this.ui?.reposition();
   }
   nameTexture(p){return labelTexture(this,p.name,{background:p.id==='human'?'#f3edd7':null,color:p.id==='human'?'bubbleInk':'ink',accent:p.id});}
@@ -142,26 +160,26 @@ class Studio extends Phaser.Scene {
     document.querySelector('meta[name="theme-color"]').content=mood==='night'?'#262e39':'#f8f5ef';
     const url=new URL(location.href);url.searchParams.set('mood',mood);history.replaceState(null,'',url);
   }
-  portrait(canvas,id){const texture=this.textures.get(`${this.mood}:person-${id}`);const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(texture.getSourceImage(),0,0,32,36,0,0,32,36);}
+  portrait(canvas,id){const texture=this.textures.get(`${this.mood}:person-${this.people.get(id)?.appearance||id}`);const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(texture.getSourceImage(),0,0,32,36,0,0,32,36);}
   buildUI(){
-    for(const person of PEOPLE){
-      const portrait=document.createElement('canvas');portrait.width=32;portrait.height=36;portrait.dataset.portrait=person.id;portrait.title=`${person.name} · ${person.role}`;this.portrait(portrait,person.id);
-      const button=document.createElement('button');button.dataset.person=person.id;button.setAttribute('aria-label',`${person.name}, ${person.role}`);button.setAttribute('aria-pressed','false');
-      const canvas=portrait.cloneNode();this.portrait(canvas,person.id);button.append(canvas);
-      const copy=document.createElement('span');const name=document.createElement('span');name.className='crew-name';name.textContent=person.name;const role=document.createElement('span');role.className='crew-role';role.textContent=person.role;copy.append(name,role);button.append(copy);button.addEventListener('click',()=>this.select(this.selected===person.id?null:person.id));$('crew').append(button);
-    }
-    $('pause').onclick=()=>{this.paused=!this.paused;this.updatePauseUI();};
-    $('zoom-in').onclick=()=>{this.manualZoom=true;this.physicalScale++;this.resize();};
-    $('zoom-out').onclick=()=>{this.manualZoom=true;this.physicalScale--;this.resize();};
+    const zoom=step=>{
+      const view=$('scene-scroll'),viewport=view.getBoundingClientRect(),before=this.game.canvas.getBoundingClientRect();
+      const centerX=viewport.left+view.clientWidth/2,centerY=viewport.top+view.clientHeight/2;
+      const anchorX=(centerX-before.left)/before.width,anchorY=(centerY-before.top)/before.height;
+      this.manualZoom=true;this.physicalScale+=step*(window.devicePixelRatio||1);this.resize();
+      const after=this.game.canvas.getBoundingClientRect();
+      view.scrollLeft+=after.left+anchorX*after.width-centerX;view.scrollTop+=after.top+anchorY*after.height-centerY;
+    };
+    $('zoom-in').onclick=()=>zoom(.125);
+    $('zoom-out').onclick=()=>zoom(-.125);
     $('fit').onclick=()=>{this.manualZoom=false;this.resize(true);};
     $('close-person').onclick=()=>this.select(null);
     document.querySelectorAll('[data-mood-choice]').forEach(button=>button.onclick=()=>this.setMood(button.dataset.moodChoice));
-    $('sit').onclick=()=>{const p=this.people.get('human');if(p.seated){this.seating.cancelApproach(p);this.seating.stand(p);p.status='Taking it all in';}else if(!this.requestSit('human',p.chairId,'Settling in at your desk'))this.say('human','THAT SEAT IS TAKEN.',2.5);this.updateStatus();this.ui.closePopovers();$('game').focus({preventScroll:true});};
     this.ui=new OfficeInterface(this);this.updateSeatUI();
   }
   requestSit(id,chairId,status){return this.seating.request(id,chairId,status);}
-  updateSeatUI(){const p=this.people.get('human');if(!p||!$('sit'))return;$('sit').textContent=p.seated?'Stand up':p.seatApproach?'Taking a seat…':'Take a seat';$('sit').disabled=!!(p.seatApproach||p.transition);$('sit').setAttribute('aria-pressed',String(!!p.seated));this.ui?.updatePerson();}
-  updatePauseUI(){$('pause').setAttribute('aria-pressed',String(this.paused));$('pause').setAttribute('aria-label',this.paused?'Resume activity':'Pause activity');$('pause-label').textContent=this.paused?'Resume activity':'Pause activity';$('pause-icon').textContent=this.paused?'▷':'Ⅱ';this.updateStatus();}
+  updateSeatUI(){this.ui?.updatePerson();}
+  updatePauseUI(){this.updateStatus();}
   updateStatus(){if(this.session){this.session.refreshChrome();return;}const c=this.conversation;$('scene-state').textContent=this.paused?'A quiet moment · paused':c?`${this.people.get(c.a).name} & ${this.people.get(c.b).name} · comparing notes`:'A little focus, a little company';if(this.selected)this.updatePerson();}
   updatePerson(){const p=this.people.get(this.selected);if(!p)return;$('person-name').textContent=p.name;$('person-role').textContent=`${p.role} · ${p.kind}`;$('person-role').style.setProperty('--role-accent',PALETTES[this.mood][p.id]);$('person-description').textContent=p.description;this.ui?.updatePerson();}
   select(id){this.selected=id;$('person-card').hidden=!id;this.selection.setVisible(!!id);document.querySelectorAll('[data-person]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.person===id)));if(id){this.updatePerson();this.portrait($('person-portrait'),id);}this.ui?.onSelect(id);}
@@ -174,18 +192,21 @@ class Studio extends Phaser.Scene {
       Math.round(Math.max(VIEW.x+half+3,Math.min(VIEW.x+VIEW.width-(sprite.width-half)-3,p.x))),
       Math.round(Math.max(VIEW.y+sprite.height+2,p.y-36)));
   }
-  endConversation(){this.conversation=null;this.talkDots?.setVisible(false);for(const p of this.people.values()){p.bubble?.destroy();p.bubble=null;}this.updateStatus();}
+  endConversation(){this.conversation=null;this.talkDots?.setVisible(false);for(const p of this.people.values())if(!(p.reactionUntil>this.worldTime)){p.bubble?.destroy();p.bubble=null;}this.updateStatus();}
   moveTo(id,target,options={}){
     const {status='Taking a short walk',onArrival=null,preserveSeatReservation=false}=options;
     const p=this.people.get(id);
     if(!preserveSeatReservation)this.seating.cancelApproach(p);
     if(p.seated){p.goal=target;this.seating.stand(p,()=>this.moveTo(id,target,options));this.updateSeatUI();return true;}
-    const path=this.nav.route(p,target,[...this.people.values()].filter(other=>other!==p));
+    const path=this.nav.route(p,target,this.collisionBodies(p));
     if(!path.length)return false;
     if(this.conversation&&(this.conversation.a===id||this.conversation.b===id))this.endConversation();
-    p.route=path;p.goal=target;p.blockedFor=0;p.onArrival=onArrival;p.status=status;p.bubble?.destroy();p.bubble=null;
+    p.route=path;p.goal=target;p.blockedFor=0;p.onArrival=onArrival;p.status=status;
+    // A pending return-to-desk transition must not erase a fresh confirmation.
+    if(!(p.reactionUntil>this.worldTime)){p.bubble?.destroy();p.bubble=null;}
     this.updateSeatUI();this.updateStatus();return true;
   }
+  collisionBodies(person){return [...this.people.values()].filter(p=>p!==person).concat(this.mascot?[this.mascot]:[]);}
   greetNearby(){this.updateStatus();}
   update(_time,delta){if(!this.ready)return;const dt=Math.min(delta/1000,.05);
     this.worldTime+=dt;
@@ -203,11 +224,11 @@ class Studio extends Phaser.Scene {
           const target=p.route[0],dx=target.x-p.x,dy=target.y-p.y,d=Math.hypot(dx,dy),step=Math.min(d,budget);
           const nx=p.x+(d?dx/d*step:0),ny=p.y+(d?dy/d*step:0);
           // Pause briefly for somebody already occupying the next few pixels.
-          const blocked=[...this.people.values()].some(other=>other!==p&&Math.hypot(nx-other.x,ny-other.y)<11&&Math.hypot(nx-other.x,ny-other.y)<Math.hypot(p.x-other.x,p.y-other.y));
+          const blocked=this.collisionBodies(p).some(other=>Math.hypot(nx-other.x,ny-other.y)<11&&Math.hypot(nx-other.x,ny-other.y)<Math.hypot(p.x-other.x,p.y-other.y));
           if(blocked){
             p.blockedFor+=dt;
             if(p.blockedFor>.6){
-              const reroute=this.nav.route(p,p.goal,[...this.people.values()].filter(other=>other!==p));
+              const reroute=this.nav.route(p,p.goal,this.collisionBodies(p));
               if(reroute.length)p.route=reroute;
               p.blockedFor=0;
             }
@@ -240,12 +261,12 @@ class Studio extends Phaser.Scene {
       if(p.bubble){this.placeBubble(p);if(this.worldTime>=p.bubbleUntil){p.bubble.destroy();p.bubble=null;}}
     }
     this.handoffs?.update(dt);
-    this.ambient?.update(dt);this.activity?.update(dt);this.surfaces.update();this.attention.update();
+    this.ambient?.update(dt);this.activity?.update(dt);this.surfaces.update();this.attention.update();this.session?.configuration.updateAttention();
     this.mascot?.update(dt);
     if(this.selected){const p=this.people.get(this.selected);this.selection.setPosition(Math.round(p.x),Math.round(p.y)+1);}
     const c=this.conversation;if(c){const a=this.people.get(c.a),b=this.people.get(c.b);this.talkDots.setPosition(Math.round((a.x+b.x)/2),Math.round(Math.min(a.y,b.y))-36).setVisible(!a.bubble&&!b.bubble);}
   }
-  walkHuman(dt){if(document.activeElement!==$('game'))return;const k=this.keys,dx=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),dy=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown);if(!dx&&!dy)return;const p=this.people.get('human');this.seating.cancelApproach(p);this.updateSeatUI();if(p.seated){this.seating.stand(p);return;}p.route=[];p.onArrival=null;this.destination.setVisible(false);const speed=WALK_SPEED.human*dt/Math.hypot(dx,dy),nx=p.x+dx*speed,ny=p.y+dy*speed;const can=(x,y)=>this.nav.free(x,y)&&![...this.people.values()].some(other=>other!==p&&Math.hypot(x-other.x,y-other.y)<11);if(can(nx,p.y))p.x=nx;if(can(p.x,ny))p.y=ny;p.keyboardIntent=true;}
+  walkHuman(dt){if(document.activeElement!==$('game'))return;const k=this.keys,dx=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),dy=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown);if(!dx&&!dy)return;const p=this.people.get('human');this.seating.cancelApproach(p);this.updateSeatUI();if(p.seated){this.seating.stand(p);return;}p.route=[];p.onArrival=null;this.destination.setVisible(false);const speed=WALK_SPEED.human*dt/Math.hypot(dx,dy),nx=p.x+dx*speed,ny=p.y+dy*speed;const can=(x,y)=>this.nav.free(x,y)&&!this.collisionBodies(p).some(other=>Math.hypot(x-other.x,y-other.y)<11);if(can(nx,p.y))p.x=nx;if(can(p.x,ny))p.y=ny;p.keyboardIntent=true;}
   inspect(){return {ready:this.ready,mood:this.mood,paused:this.paused,time:this.elapsed,selected:this.selected,conversation:this.conversation,physicalScale:this.physicalScale,people:[...this.people.values()].map(p=>({id:p.id,x:p.x,y:p.y,direction:p.direction,walking:p.route.length>0,status:p.status,seating:this.seating.inspect(p)})),furniture:WORLD.furniture.length,tileLayers:this.map.layers.length,board:this.board?.inspect(),handoffs:this.handoffs?.inspect(),ambient:this.ambient?.inspect(),clock:this.surfaces?.clockTime};}
 }
 

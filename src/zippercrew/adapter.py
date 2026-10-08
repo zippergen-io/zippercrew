@@ -31,7 +31,9 @@ def source_root() -> Path:
     return root
 
 
-def load_process() -> tuple[Any, ModuleType]:
+def load_process(workflow: str = "review") -> tuple[Any, ModuleType]:
+    if workflow == "direct":
+        return load_workflow_spec(f"{Path(__file__).with_name('direct_workflow.py')}:direct")
     # Example prompt files are project-relative. Room workers isolate this cwd
     # change from the HTTP service and from every other execution.
     with project_directory(source_root()):

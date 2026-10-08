@@ -22,17 +22,14 @@
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
     <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-9 9M8 4H4v16h16v-4"/></symbol>
     <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6m3-4v6l4 2"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5"/></symbol>
   </defs></svg>
   <main class="workspace" aria-label="The studio workspace">
-    <div class="scene-scroll" id="scene-scroll"><div id="game" role="application" aria-label="Pixel office. Click an agent or desk to inspect it. Click the floor or use arrow keys or W A S D to walk. The People button also lets you select an agent with the keyboard." tabindex="0"></div></div>
+    <div class="scene-scroll" id="scene-scroll"><div id="game" role="application" aria-label="Pixel office. Click an agent or desk to inspect it. Click the floor or use arrow keys or W A S D to walk. Click the room name for its workflow and options. Open the Studio menu for rooms and history." tabindex="0"></div></div>
   </main>
-  <header class="corner-bar studio-bar">
-    <span class="brand-mark"><svg class="icon"><use href="#i-studio"/></svg></span>
-    <h1 id="room-name">The studio</h1><button id="room-action" class="room-action" disabled>Connecting…</button>
-  </header>
   <nav class="corner-bar controls-bar" aria-label="Studio controls">
-    <button id="people-toggle" class="people-toggle" aria-label="People in the studio, 3 present" aria-expanded="false" aria-controls="people-popover"><svg class="icon"><use href="#i-people"/></svg><span>3</span><span class="presence-dot"></span></button>
-    <span class="divider"></span>
+    <button id="room-header" class="room-presence" aria-label="Room options"><span id="room-name" class="room-name-trigger">The studio</span><span id="scene-state" class="room-status">Connecting…</span></button>
+    <button id="room-action" class="room-action" disabled>Run</button>
     <div class="mood-switch" role="group" aria-label="Office mood">
       <button data-mood-choice="day" aria-label="Day mode" title="Day mode" aria-pressed="true"><svg class="icon"><use href="#i-sun"/></svg></button>
       <button data-mood-choice="night" aria-label="Night mode" title="Night mode" aria-pressed="false"><svg class="icon"><use href="#i-moon"/></svg></button>
@@ -40,21 +37,11 @@
     <span class="divider"></span>
     <button id="menu-toggle" class="icon-button" aria-label="Studio menu" title="Studio menu" aria-expanded="false" aria-controls="studio-menu"><svg class="icon"><use href="#i-more"/></svg></button>
   </nav>
-  <section id="people-popover" class="popover people-popover" aria-label="People in the studio" hidden>
-    <div class="popover-heading"><strong>In the studio</strong><span>2 agents + you</span></div><div class="crew" id="crew"></div>
-  </section>
-  <section id="studio-menu" class="popover studio-menu" aria-label="Studio menu" hidden>
-    <div class="popover-heading"><strong>Your studio</strong></div>
-    <button id="show-rooms" class="menu-item">Rooms</button>
-    <button id="edit-room" class="menu-item">Room setup</button>
-    <button id="sit" class="menu-item" aria-pressed="false">Take a seat</button>
-    <button id="pause" hidden class="menu-item" aria-pressed="false"><span id="pause-icon" aria-hidden="true">Ⅱ</span><span id="pause-label">Pause activity</span></button>
-    <button id="show-history" class="menu-item"><svg class="icon"><use href="#i-history"/></svg>Run history</button>
-    <div class="menu-help"><span>Move</span><span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span><span>or WASD</span></div>
-    <p class="preview-note">Worker → Reviewer → You</p>
-  </section>
-  <button class="status-pill" id="status-action" aria-label="Open current task"><span class="presence-dot"></span><span id="scene-state">Connecting to your rooms…</span></button>
-  <p class="world-hint" id="world-hint">Click an agent or a desk to explore<span> · </span>Click the floor to walk</p>
+  <aside id="studio-menu" class="studio-drawer" role="dialog" aria-label="Studio menu" hidden>
+    <div class="drawer-heading"><strong>Your studio</strong><button id="close-menu" class="icon-button" aria-label="Close menu"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <nav class="drawer-tabs" aria-label="Studio sections"><button id="show-rooms" data-section="rooms">Rooms</button><button id="show-history" data-section="history">History</button></nav>
+    <div id="drawer-content"></div><p id="drawer-error" class="session-error" role="alert" hidden></p>
+  </aside>
   <div class="zoom-controls corner-bar" role="group" aria-label="Office zoom"><button id="zoom-out" aria-label="Zoom out">−</button><button id="fit" title="Fit office to view">Fit</button><button id="zoom-in" aria-label="Zoom in">+</button></div>
   <section class="context-card person-card" id="person-card" role="dialog" aria-labelledby="person-name" aria-describedby="person-description" hidden>
     <button id="close-person" class="icon-button close-card" aria-label="Close character details"><svg class="icon"><use href="#i-close"/></svg></button>
@@ -63,7 +50,7 @@
     <div class="person-activity"><span class="presence-dot"></span><span id="person-activity"></span></div>
     <div id="person-recent" class="person-recent" aria-live="polite"></div>
     <button class="focus-task" id="person-task"><span class="field-label">Current focus</span><span class="task-link"><span id="person-task-title"></span><svg class="icon"><use href="#i-arrow"/></svg></span></button>
-    <button class="primary-action" id="walk-over">Walk over<svg class="icon"><use href="#i-arrow"/></svg></button>
+    <div id="agent-controls"></div>
   </section>
   <section class="context-card task-card" id="task-card" role="dialog" aria-labelledby="task-title" hidden>
     <button id="close-task" class="icon-button close-card" aria-label="Close desk details"><svg class="icon"><use href="#i-close"/></svg></button>
@@ -75,7 +62,7 @@
   <dialog id="detail-dialog" class="detail-window" aria-labelledby="detail-title">
     <div class="window-heading"><span id="detail-kind" class="field-label"></span><button id="close-detail" class="icon-button" aria-label="Close window"><svg class="icon"><use href="#i-close"/></svg></button></div>
     <div class="window-content"><h2 id="detail-title"></h2><p id="detail-description" class="description"></p><div id="detail-body"></div><p id="session-error" class="session-error" role="alert" hidden></p></div>
-    <div class="window-footer"><span id="detail-note"></span><button id="back-to-office" class="secondary-action">Back to the office</button></div>
+    <div class="window-footer"><span id="detail-note" hidden></span><button id="back-to-office" class="quiet-return">Back to the office</button></div>
   </dialog>
 </body>
 </html>

@@ -16,11 +16,13 @@ from typing import Any
 
 from zippercrew.rooms import Conflict, Runs, text_field
 from zippercrew.state import TERMINAL
+from zippercrew.workflows import WORKFLOWS, agent_roles, workflow_id
 
 
 def room_config(data: dict[str, Any]) -> dict[str, Any]:
     """Allow incomplete setup; execution performs full upstream validation."""
     result: dict[str, Any] = {}
+    result["workflow"] = workflow_id(data)
     for field in ("workspace", "project"):
         result[field] = text_field(data.get(field, ""), field)
     result["human_mode"] = data.get("human_mode", "brief")
@@ -31,7 +33,7 @@ def room_config(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Maximum rounds must be between 1 and 100.")
     result["max_rounds"] = rounds
     result["agents"] = {}
-    for role in ("Implementer", "Reviewer"):
+    for role in agent_roles(data):
         binding = data.get("agents", {}).get(role, {})
         settings = binding.get("settings", {})
         if not isinstance(settings, dict) or set(settings) - {"model", "reasoning_effort"}:
@@ -41,6 +43,10 @@ def room_config(data: dict[str, Any]) -> dict[str, Any]:
             "instructions": text_field(binding.get("instructions", ""), "Instructions"),
             "settings": {key: text_field(value, key) for key, value in settings.items()},
         }
+        if "avatar" in binding:
+            if binding["avatar"] not in ("planner", "worker", "reviewer", "human"):
+                raise ValueError("Choose an office avatar.")
+            result["agents"][role]["avatar"] = binding["avatar"]
     motion = data.get("motion", "full")
     if motion not in {"full", "reduced"}:
         raise ValueError("Choose full or reduced animation.")
@@ -104,7 +110,7 @@ class Catalog:
             record: dict[str, Any] = {
                 "id": room_id or uuid.uuid4().hex,
                 "name": self._name(name),
-                "process": "Pair Programming",
+                "process": WORKFLOWS[config["workflow"]]["name"],
                 "config": config,
                 "brief": text_field(data.get("brief", ""), "Brief"),
                 "created_at": time.time(),
@@ -133,7 +139,23 @@ class Catalog:
             if "config" in data or "brief" in data:
                 self._idle(record)
                 if "config" in data:
-                    record["config"] = room_config(data["config"])
+                    config = room_config(data["config"])
+                    removed = set(agent_roles(record["config"])) - set(agent_roles(config))
+                    for role in removed:
+                        old = record["config"]["agents"].get(role, {})
+                        meaningful = (
+                            old.get("instructions")
+                            or old.get("settings")
+                            or old.get("avatar")
+                            or old.get("profile") not in (None, "", "demo")
+                        )
+                        if meaningful and data.get("confirm_workflow") is not True:
+                            raise Conflict(
+                                "Confirm the workflow change to remove "
+                                "the Reviewer's configuration."
+                            )
+                    record["config"] = config
+                    record["process"] = WORKFLOWS[config["workflow"]]["name"]
                 if "brief" in data:
                     record["brief"] = text_field(data["brief"], "Brief")
             if "motion" in data:

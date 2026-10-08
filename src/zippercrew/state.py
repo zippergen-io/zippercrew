@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from zippercrew.workflows import WORKFLOWS, agent_roles, workflow_id
+
 TERMINAL = {"completed", "failed", "stopped"}
 ROLES = ("Implementer", "Reviewer", "Human")
 
@@ -12,13 +14,13 @@ ROLES = ("Implementer", "Reviewer", "Human")
 def initial_state(room_id: str, config: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": room_id,
-        "process": "Pair Programming",
+        "process": WORKFLOWS[workflow_id(config)]["name"],
         "environment": "The corner café",
         "config": config,
         "status": "starting",
         "round": 0,
         "version": 0,
-        "participants": {role: "waiting" for role in ROLES},
+        "participants": {role: "waiting" for role in [*agent_roles(config), "Human"]},
         "pending": None,
         "outcome": None,
         "error": None,
@@ -98,7 +100,7 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         state["pending"] = None
         state["outcome"] = event.get("outcome")
         state["error"] = event.get("error")
-        state["participants"] = {role: state["status"] for role in ROLES}
+        state["participants"] = {role: state["status"] for role in state["participants"]}
         state["local_activity"] = {}
         state["room_status"] = {}
         state["invocations"] = {}

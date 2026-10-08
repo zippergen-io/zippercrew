@@ -8,7 +8,7 @@ export class DecisionAttention {
       for(let i=0;i<144;i++){
         const angle=i*Math.PI/72,x=24+Math.round(Math.cos(angle)*21),y=24+Math.round(Math.sin(angle)*21);
         const distance=(i-frame*6+144)%144;
-        c.fillStyle=distance<27?(mood==='night'?'#ecc17e':'#b28238'):(mood==='night'?'#d2a34f45':'#ac792d40');
+        c.fillStyle=distance<27?(mood==='night'?'#a79573':'#b28238'):(mood==='night'?'#8f87752b':'#ac792d40');
         c.fillRect(x,y,1,1);
       }
       scene.textures.addCanvas(`${mood}:decision-ring:${frame}`,canvas);

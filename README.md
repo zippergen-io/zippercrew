@@ -22,29 +22,57 @@ uv run zippercrew
 Open **http://127.0.0.1:8765/office/** for the pixel office. The world stays full-screen;
 setup, task messages, and decisions open in small modern windows.
 
-1. Choose **New room** (or **⋯ → Rooms → New room**).
-2. Enter a room name, repository path, and task. Choose a Worker and Reviewer.
-   Existing profiles are available; selecting default Codex or Claude creates a
-   reusable profile when you save. Authenticate the chosen CLI beforehand.
-3. Optionally add separate role instructions under **Agent instructions & options**.
-4. Choose **Start task**. Worker edits the repository; Reviewer checks it read-only.
-   The **Task** button or any desk opens progress, messages, and **Stop run**.
-5. When **Your decision** appears, open it to ship, request another round, or abandon.
-   **Ship it** finishes the process; it does not commit or push.
+1. Open **⋯ → Rooms → + New room**. Optionally name it, then choose a workflow:
+   **Direct** (You → Worker → You) or **Review** (You → Worker → Reviewer → You).
+   Choosing a workflow creates and enters the room immediately.
+2. Click the **room name** to rename it or browse for its repository folder. This compact panel also holds the
+   workflow, a collapsed Team overview, and advanced room options.
+3. Click each **agent** to choose its avatar, model, and reasoning effort inline.
+   Model names come from local CLI metadata and existing bindings; profile nicknames
+   stay hidden. Custom instructions are optional, in a collapsed section.
+   Authenticate the chosen CLI beforehand. Quiet room markers show missing models.
+4. Click the **whiteboard** and define the task. Edits save automatically after a short
+   pause and when leaving the editor. Choose **Run** in the top bar when ready.
+   The Worker edits the repository. Review adds an independent, read-only Reviewer.
+5. When **Your decision** appears, open the result and finish or request another round.
+   Direct returns the Worker's result to you; Review includes the review. Finishing a
+   run does not commit or push.
 
-**Save room** saves setup without launching agents. **⋯ → Rooms** reopens saved rooms;
-**⋯ → Run history** opens previous runs read-only. Closing a window or switching rooms
-does not stop a run. To edit a task after completion, choose **Edit task & run again**.
-The live crew is Worker, Reviewer, and you; Planner is not part of this workflow yet.
+The room title and status are one clickable target. Setup uses muted red; ready
+rooms use muted green. **Run** becomes **Stop** during execution and **Your decision**
+when the workflow needs you. Stop ends the process group, retaining edits and history;
+Run starts a fresh run. ZipperGen supports durable execution, but this app currently
+uses its in-memory runner: resumable pause is not exposed.
+
+The task editor shows saving/saved status and keeps failed drafts available for retry.
+Run waits for all pending task edits to save before taking its execution snapshot.
+
+The hierarchy is **Studio → Room → Workflow → Roles / Agents + Task**. The Studio
+menu contains only **Rooms** and **History**. Day/night stays in the top bar, and
+ambient motion respects the system’s reduced-motion preference. Repository, workflow,
+round limits and human involvement belong to the room panel. History groups previous
+runs by room and provides full conversations, activity, shell output and traces.
+
+Click a room name in the list to enter it; the current room is highlighted. Rename
+it in its room options. The trash button confirms deletion. Changing workflows keeps the Worker and task; removing
+configured Reviewer settings requires confirmation. Existing rooms default to Review.
+Past run snapshots and conversations retain their original workflow and participants.
+Direct always returns the result to the Human; Review additionally offers automatic
+review decisions in its advanced room options.
+
+Creating rooms and saving configuration never launch agents. Closing a panel or entering
+another room does not stop a run. Running tasks use immutable configuration; edit roles
+and workflows after the run finishes or is stopped. Starting again creates fresh agent
+sessions. The office has no global agent administration or workflow graph editor.
 Day/night lighting, movement, and seating use the approved pixel-office artwork.
 Agent states and work bubbles follow backend events, with no scripted work fallback.
 
-The office fills more of the viewport, retaining integer physical-pixel scaling
-and panning on smaller screens. Agents walk at 64 art pixels/second (formerly 25);
+Fit retains integer physical-pixel scaling; manual zoom uses finer 12.5% steps with
+nearest-neighbor rendering and no sprite smoothing. Small screens can pan. Agents walk at 64 art pixels/second (formerly 25);
 your avatar moves at 76. The wall clock follows your computer's local time.
 Working agents type and their monitors animate; idle agents turn away and stretch,
 occasionally visit the coffee corner or lounge, and exchange short social bubbles.
-These ambient breaks yield to real work and handoffs. Pause/reduced motion freezes
+Agents needing configuration stay at their desks. Ambient breaks yield to real work and handoffs. Pause/reduced motion freezes
 ambient movement and typing, while the clock and actual task feedback stay live.
 
 A crocodile companion stands quietly along the lounge edge, occasionally peeking or
@@ -79,7 +107,10 @@ magnets, marker tray, and slim supports use native pixel art in both moods.
 Click it to read the full brief and open task controls.
 Real protocol messages trigger visible handoffs: the sending agent carries a note
 over, the recipient briefly acknowledges it, and the crew returns to their desks.
-A slow amber ring marks a pending human decision, becoming static with reduced motion.
+A quiet amber arc marks a pending human decision, subdued at night and static with
+reduced motion. The carried note crosses from sender to recipient in a short transfer;
+the sender returns empty-handed while the recipient briefly holds the document.
+The crocodile has a small collision body and yields to moving office inhabitants.
 Accepted Start, Save, Stop and decision actions close the dialog and show a brief agent
 acknowledgment; failed requests keep the dialog and draft intact. If another input is
 required (such as guidance), use **Your decision** to reopen it.

@@ -19,7 +19,7 @@ function excerpt(text,width){
 }
 export function boardCopy(brief){
   const lines=plain(brief||'').split('\n').map(line=>line.replace(/^\s*[-+]+\s*/,'').trim()).filter(Boolean);
-  if(!lines.length)return {title:'YOUR NEXT TASK',lines:['GIVE THE CREW A BRIEF','CLICK TO GET STARTED']};
+  if(!lines.length)return {title:'ADD TASK',lines:['WHAT SHOULD THE TEAM DO?','CLICK TO DEFINE THE TASK']};
   if((lines.join('').match(/\?/g)||[]).length>lines.join('').length/4)
     return {title:'CURRENT TASK',lines:['OPEN THE BOARD','TO READ THE FULL BRIEF']};
   const title=excerpt(lines[0],TITLE_CHARS),rest=lines.slice(1);
@@ -57,13 +57,14 @@ export class TaskBoard {
     this.sprite.on('pointerout',()=>{this.hover=false;this.draw();});
     this.sprite.on('pointerup',(pointer,_x,_y,event)=>{
       if(document.getElementById('detail-dialog').open||pointer.event?.target!==scene.game.canvas||pointer.getDistance()>6)return;
-      event.stopPropagation();scene.session?.openCurrent();
+      event.stopPropagation();if(scene.session?.configuration.editable)scene.session.configuration.editTask();else scene.session?.openCurrent();
     });
     this.update(null,null,false);
   }
   update(room,run,connected){
     this.copy=boardCopy(room?.brief);
     this.status=boardStatus(run,connected,!!room);
+    if(room&&!run&&this.scene.session?.configuration.missing().length)this.status={text:'SETUP NEEDED',accent:'blue'};
     const signature=JSON.stringify([this.copy,this.status,this.scene.mood]);
     if(signature!==this.signature){this.signature=signature;this.draw();}
   }
