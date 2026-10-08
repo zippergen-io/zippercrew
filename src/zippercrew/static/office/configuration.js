@@ -221,7 +221,8 @@ export class OfficeConfiguration {
     const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':draft.value!==draft.saved?'Unsaved changes':'Saved automatically';status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;start.disabled=!!this.missing().length;start.title=this.missing().join(' · ');};
     draft.listeners.clear();draft.listeners.add(update);update();
     brief.oninput=()=>this.drafts.edit(draft,brief.value);brief.onblur=()=>this.drafts.flush(draft.id).catch(()=>{});
-    form.append(field('Task',brief),saveLine,start);
+    const editor=node('div','','form-field');brief.setAttribute('aria-label','Task');brief.setAttribute('aria-describedby','detail-description');editor.append(brief);
+    form.append(editor,saveLine,start);
     form.onsubmit=e=>{e.preventDefault();this.start();};$('detail-body').append(form);brief.focus();
   }
   start(){return this.session.perform(()=>this.launch());}
