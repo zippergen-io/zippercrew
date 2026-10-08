@@ -75,7 +75,7 @@ export class OfficeConfiguration {
   }
   agentCard(person){
     const host=$('agent-controls');
-    if(person.id==='human'){host.replaceChildren(node('p','Walk with the arrow keys or WASD.','field-help'));return;}
+    if(person.id==='human'){host.dataset.key='';host.replaceChildren(node('p','Walk with the arrow keys or WASD.','field-help'));return;}
     const key=`${this.session.room?.id}:${person.id}:${this.editable}`;if(host.dataset.key===key)return;host.dataset.key=key;host.replaceChildren();
     if(!this.session.room){host.append(button('+ New room',()=>this.newRoom(),true));return;}
     const s=this.session,id=person.id,b=this.binding(id),profile=s.profiles[b.profile];

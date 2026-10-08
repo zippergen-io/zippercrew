@@ -177,6 +177,7 @@ class Handler(BaseHTTPRequestHandler):
                         "workflows": WORKFLOWS,
                         "preferences": self.server.preferences.get(),
                         "models": self.server.models,
+                        "decision_notes": True,
                         "checks": self.server.checks,
                         "capabilities": {
                             s.name: list(s.setting_options) for s in ASSISTANT_BACKEND_SPECS
@@ -325,9 +326,9 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 room = self.server.runs.get(room_id)
                 if action == ["answer"]:
-                    room.respond(data.get("request_id", ""), data.get("value"))
+                    room.respond(data.get("request_id", ""), data.get("value"), data.get("note"))
                 elif action == ["stop"]:
-                    room.stop()
+                    room.stop(expected_request_id=data.get("request_id"))
                 else:
                     self.reply(404, {"error": "Not found."})
                     return

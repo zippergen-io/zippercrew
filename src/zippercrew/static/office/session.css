@@ -98,3 +98,17 @@ summary{cursor:pointer;font-size:12px;line-height:1.7}
 #agent-controls .agent-form>.primary-action{margin-top:0}
 .autosave-line{display:flex;gap:12px;align-items:baseline;margin-top:-7px;min-height:18px}.autosave-status{color:var(--muted);font-size:11px;line-height:1.5}.autosave-status[data-error=true]{color:#ad7368}.retry-save{color:var(--accent);font-size:11px;white-space:nowrap;padding:0}
 @media(max-width:650px){.controls-bar .room-presence{min-width:0;padding-left:4px;padding-right:7px;flex:1}.room-name-trigger{max-width:135px}.room-status{max-width:165px}.controls-bar{max-width:calc(100vw - 24px)}.controls-bar .room-action{padding:0 7px;margin-right:2px}.controls-bar .mood-switch button{width:26px}}
+/* One decision surface: recommendation and actions first, evidence on demand. */
+#human-decision{margin-top:18px}.person-card[data-decision=true]{width:356px}.person-card[data-decision=true] .focus-task{border-top:1px solid var(--line);padding-top:14px;margin-top:17px}
+.decision:not(:empty){border:0;margin:18px 0 0;padding:0}.decision-eyebrow{color:#a47b48;font-size:11px;font-weight:600;letter-spacing:.1px;margin-bottom:10px}:root[data-mood=night] .decision-eyebrow{color:#bba27d}
+#detail-body h3.decision-recommendation,.decision-recommendation{font-size:16px;font-weight:600;line-height:1.45;letter-spacing:-.15px;margin:0 0 9px}
+.decision-reason{font-size:13px;line-height:1.7;color:var(--muted);margin-bottom:18px;overflow-wrap:anywhere}
+.decision-actions{display:flex;align-items:stretch;gap:7px;margin:16px 0}.decision-actions>button{flex:1;min-width:0;padding:10px 8px;font-size:11px;white-space:nowrap;width:auto;min-height:37px;border-radius:8px}
+.decision-actions .secondary-action{border:1px solid var(--line);background:var(--paper)}.decision-actions .secondary-action:hover{background:var(--panel)}
+.decision-note{margin:17px 0}.decision-note>summary{color:var(--accent);font-size:11px;list-style:none}.decision-note>summary::-webkit-details-marker{display:none}.decision-note>summary::before{content:'+ ';font-size:13px}.decision-note[open]>summary::before{content:'− '}.decision-note .form-field{margin:13px 0 8px}.decision-note textarea{min-height:82px}.decision-note .field-help{font-size:10px;line-height:1.65}
+.review-decision{width:100%;text-align:left;padding:12px 0 0;border-top:1px solid var(--line);font-size:12px;font-weight:550;color:var(--accent)}
+.decision-disclosure{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}.decision-disclosure>summary{font-size:12px;color:var(--muted)}
+.decision-disclosure section{margin:17px 0}#detail-body .decision-disclosure h4{font-size:12px;color:var(--ink);font-weight:550;margin:13px 0 7px;text-transform:none}
+.decision-evidence{font-size:12px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}.decision-disclosure .repository-path{margin-top:15px;font-size:10px}
+.edit-decision-task{display:block;padding:2px 0;margin:16px 0 5px;text-align:left;color:var(--accent);font-size:11px}.edit-decision-task+.field-help{font-size:10px}
+@media(max-width:650px){.person-card[data-decision=true]{width:auto}.decision-actions>button{padding:10px 6px}}

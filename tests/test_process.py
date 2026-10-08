@@ -49,6 +49,38 @@ def test_another_round_preserves_full_review_and_human_note(config):
     assert [e["verdict"] for e in events if e["type"] == "review.verdict"] == ["REVISE", "APPROVE"]
 
 
+@pytest.mark.parametrize("note", ["", "Also test zero."])
+@pytest.mark.parametrize("workflow", ["direct", "review"])
+def test_bundled_decision_never_requests_a_second_human_step(config, note, workflow):
+    config["workflow"] = workflow
+    decision = "Done" if workflow == "direct" else "Ship it"
+    _, calls, events, requests = run_script(
+        config, [REVISE, APPROVE], [{"value": "Another round", "note": note}, decision]
+    )
+    assert [r["action"] for r in requests] == ["judge_turn", "judge_turn"]
+    workers = [inputs for action, inputs in calls if action == "implement"]
+    assert len(workers) == 2 and note in workers[1]["guidance"]
+    if workflow == "review":
+        assert REVISE in workers[1]["guidance"]
+        assert requests[0]["summary"]["recommendation"] == "Another round"
+        assert requests[0]["summary"]["reason"] == "Missing the regression test."
+        if not note:
+            assert "The human adds" not in workers[1]["guidance"]
+    else:
+        assert requests[0]["summary"]["recommendation"] is None
+    notes = [event for event in events if event["type"] == "human.note_applied"]
+    assert notes == [{"type": "human.note_applied", "request_id": requests[0]["id"], "value": note}]
+
+
+def test_bundled_note_is_not_requested_or_reused_past_round_limit(config):
+    config["max_rounds"] = 1
+    result, calls, events, requests = run_script(
+        config, [REVISE], [{"value": "Another round", "note": "Should not run"}]
+    )
+    assert "1-round limit" in result and len(calls) == 2 and len(requests) == 1
+    assert not any(event["type"] == "human.note_applied" for event in events)
+
+
 @pytest.mark.parametrize("mode", ["full", "brief"])
 @pytest.mark.parametrize("decision,ending", [("Ship it", "Shipped"), ("Abandon", "Abandoned")])
 def test_human_can_finish_even_when_reviewer_objects(config, mode, decision, ending):

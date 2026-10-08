@@ -19,8 +19,13 @@ def enter_office(page, base):
 
 
 def fill_room(page, project):
-    prepare_room(page, project, "Fix rounding. Test zero and negative values.",
-                 "Rounding workshop", real=not page.evaluate("studio.session.bootstrap.demo"))
+    prepare_room(
+        page,
+        project,
+        "Fix rounding. Test zero and negative values.",
+        "Rounding workshop",
+        real=not page.evaluate("studio.session.bootstrap.demo"),
+    )
 
 
 def capture(page, name):
@@ -70,20 +75,18 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.get_by_role("button", name="Night mode", exact=True).click()
         page.evaluate("() => {studio.session.showTask();}")
         capture(page, "office-decision-night")
-        page.get_by_role("button", name="Another round", exact=True).click()
-        expect(page.locator("#detail-dialog")).not_to_be_visible()
-        page.evaluate("() => {studio.session.showTask();}")
-        guidance = page.locator("#decision-guidance")
-        expect(guidance).to_be_visible()
+        page.locator(".decision-note summary").click()
+        guidance = page.get_by_label("Optional note", exact=True)
         guidance.fill("Also test very small fractions.")
-        # New snapshots must not replace a focused input or its draft.
+        # Snapshots and reopening the same decision preserve the optional note.
         page.evaluate("window.studio.session.apply(window.studio.session.run)")
         expect(guidance).to_have_value("Also test very small fractions.")
         page.locator("#back-to-office").click()
         page.evaluate("() => {studio.session.showTask();}")
         expect(guidance).to_have_value("Also test very small fractions.")
-        page.get_by_role("button", name="Continue", exact=True).click()
+        page.get_by_role("button", name="Another round", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
+        page.wait_for_function("() => studio.session.run.round===2 && !!studio.session.run.pending")
         page.evaluate("() => {studio.session.showTask();}")
         expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=45000)
         assert page.evaluate("window.studio.session.run.round") == 2
@@ -197,7 +200,7 @@ def test_office_reconnect_restores_pending_decision_and_room_switch(service):
         run_id = page.evaluate("window.studio.session.run.id")
         context.set_offline(True)
         expect(page.locator("#scene-state")).to_contain_text("Reconnecting", timeout=20000)
-        expect(page.get_by_role("button", name="Ship it", exact=True)).not_to_be_visible()
+        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_disabled()
         context.set_offline(False)
         expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=20000)
         page.reload()

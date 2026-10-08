@@ -16,14 +16,21 @@ from zippergen.human_tasks import build_human_task_spec, human_task_result_from_
 from zippergen.runtime import run
 
 from zippercrew.adapter import assistant_backend, load_process
+from zippercrew.decisions import decision_summary
 from zippercrew.workflows import agent_roles, workflow_id
 
 
 def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None) -> str:
     workflow, module = load_process(workflow_id(config))
+    proposal, critique, header = "", "", None
+    bundled_note: tuple[str, str] | None = None
 
     def trace(event: dict[str, Any]) -> None:
+        nonlocal proposal, critique, header
         emit({"type": "runtime", "event": event})
+        if event["type"] == "act" and event.get("action") == "implement":
+            proposal = str(next(iter(event["outputs"].values())))
+            critique, header = "", None
         if event["type"] == "act" and event.get("action") == "review":
             critique = next(iter(event["outputs"].values()))
             header = module.review_header.fn(critique)
@@ -38,12 +45,30 @@ def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None)
             )
 
     def human(action: Any, inputs: dict[str, object]) -> dict[str, object]:
+        nonlocal bundled_note
         spec = build_human_task_spec(action, inputs)
+        if action.name == "ask_note" and bundled_note is not None:
+            parent, saved_note = bundled_note
+            bundled_note = None
+            result = human_task_result_from_value(spec, saved_note)
+            emit({"type": "human.note_applied", "request_id": parent, "value": saved_note})
+            return result
         request = {"id": uuid.uuid4().hex, "action": action.name, "spec": spec}
+        if spec["kind"] == "select":
+            request["summary"] = decision_summary(proposal, critique, header)
         emit({"type": "human.required", "request": request})
         value = answer(request)
+        note = None
+        if isinstance(value, dict):
+            value, note = value["value"], value.get("note")
+            if value != "Another round" or not isinstance(note, str):
+                raise ValueError("Only Another round accepts a bundled text note.")
+            bundled_note = (request["id"], note)
         result = human_task_result_from_value(spec, value)
-        emit({"type": "human.responded", "request_id": request["id"], "value": value})
+        event = {"type": "human.responded", "request_id": request["id"], "value": value}
+        if note is not None:
+            event["note"] = note
+        emit(event)
         return result
 
     result = run(
@@ -88,7 +113,7 @@ def main() -> None:
         payload = responses.get()
         if payload["request_id"] != request["id"]:
             raise ValueError("Response belongs to a different human request.")
-        return payload["value"]
+        return payload if "note" in payload else payload["value"]
 
     round_number = 0
 

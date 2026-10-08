@@ -1,4 +1,5 @@
 import { OfficeConfiguration } from './configuration.js';
+import { OfficeDecisions } from './decisions.js';
 // The office is a client of the existing Room API, not a second orchestrator.
 // The visual spike stays in spikes/pixel-office; this scene has no simulated work.
 const $ = id => document.getElementById(id);
@@ -68,6 +69,7 @@ export class OfficeSession {
     this.mode = null;
     $('room-action').onclick = () => !this.room ? this.configuration.newRoom() : terminal(this.run) ? this.configuration.start() : this.run.pending ? this.showTask() : this.stopRun();
     this.configuration=new OfficeConfiguration(this);
+    this.decisions=new OfficeDecisions(this);
     $('detail-dialog').addEventListener('close', () => { if(!$('detail-dialog').open)this.mode = null; });
     // A save/start is one operation. Keep its destination stable until it finishes.
     $('detail-dialog').addEventListener('cancel', event => { if (this.busy) event.preventDefault(); });
@@ -104,15 +106,20 @@ export class OfficeSession {
     this.refreshChrome();
   }
 
-  async perform(action) {
+  async perform(action,{errorHost=null}={}) {
     if (this.busy) return;
     this.setBusy(true);
     $('session-error').hidden = true;
+    errorHost?.querySelector('.decision-error')?.remove();
     try { await action(); }
     catch (error) {
-      if (!$('detail-dialog').open) this.window('error', 'Connection', 'Something needs attention', 'Your files and saved rooms are unchanged.');
-      $('session-error').textContent = error.message;
-      $('session-error').hidden = false;
+      if(errorHost?.isConnected&&!$('detail-dialog').open){
+        const message=node('p',error.message,'decision-error session-error');message.setAttribute('role','alert');errorHost.append(message);
+      }else{
+        if (!$('detail-dialog').open) this.window('error', 'Connection', 'Something needs attention', 'Your files and saved rooms are unchanged.');
+        $('session-error').textContent = error.message;
+        $('session-error').hidden = false;
+      }
       if (!this.initialized) $('detail-body').replaceChildren(button('Try again', () => this.boot()));
     } finally { this.setBusy(false); }
   }
@@ -266,6 +273,7 @@ export class OfficeSession {
 
   showTask(owner) {
     if (!this.room) { this.editRoom(null); return; }
+    if(this.decisions.pending){this.decisions.open();return;}
     if(!this.room.brief?.trim()){this.configuration.editTask();return;}
     this.window('task', 'Current task', this.room.name);
     this.owner = owner;
@@ -278,37 +286,12 @@ export class OfficeSession {
   }
 
   updateRunWindow() {
+    if(this.mode==='decision'){this.decisions.update();return;}
     if (this.mode !== 'task') return;
+    if(this.decisions.pending){this.decisions.open();return;}
     const run = this.taskRun;
     const summary = document.querySelector('.run-summary');
     summary.textContent = run ? run.error || run.outcome || `${this.connected ? run.pending ? 'Your decision' : run.status : 'Reconnecting…'} · Round ${run.round || 1}` : 'Ready to start';
-    const pending = this.connected && !terminal(run) ? run.pending : null;
-    const pendingKey = pending?.id || null;
-    if (this.pendingKey !== pendingKey) {
-      this.pendingKey = pendingKey;
-      const panel = document.querySelector('.decision'); panel.replaceChildren();
-      if (pending) {
-        const {kind, rendered} = pending.spec;
-        panel.append(node('h3', 'Over to you'));
-        if (rendered.context) {
-          const details = node('details'); details.open = true;
-          details.append(node('summary', run.config.workflow==='direct'?'Worker’s result':'Review & context'), node('pre', rendered.context, 'message-text')); panel.append(details);
-        }
-        const actions = node('div', '', 'form-actions');
-        if (kind === 'select') {
-          panel.append(node('p', `${run.config.workflow==='direct'?'Done keeps this result. Another round lets you give the worker more guidance.':'Ship it completes this run without committing. Another round sends the review back for changes.'} ${run.round >= run.config.max_rounds ? 'The round limit is reached; another round will end this run unresolved.' : ''}`, 'field-help'));
-          for (const value of (rendered.prefill || '').split('\n').filter(Boolean)) actions.append(button(value, () => this.answer(pending.id, value), ['Ship it','Done'].includes(value)));
-        } else {
-          const guidance = input('decision-guidance', this.guidanceDrafts.get(pending.id) || '', true);
-          guidance.maxLength = 30000;
-          guidance.oninput = () => this.guidanceDrafts.set(pending.id, guidance.value);
-          panel.append(field(rendered.instruction || 'Your guidance', guidance));
-          actions.append(button('Continue', () => this.answer(pending.id, guidance.value), true));
-          guidance.focus();
-        }
-        panel.append(actions);
-      }
-    }
     this.scene.activity.renderRecent(document.querySelector('.run-progress'),this.owner,1,run);
     const reports = document.querySelector('.run-reports');
     const reportKey = `${run?.id}:${run?.transcript.length || 0}:${this.owner}`;
@@ -343,20 +326,41 @@ export class OfficeSession {
     this.scene.activity.react(id,text);this.scene.ui.explored();
   }
 
-  answer(requestId, value) {
+  answer(requestId, value, {note='',noteKey=requestId,errorHost=null}={}) {
     return this.perform(async () => {
-      const state = await api(`/api/runs/${this.run.id}/answer`, {request_id: requestId, value});
-      this.guidanceDrafts.delete(requestId);
-      this.apply(state);
+      const id=this.run.id,round=this.run.round,legacy=value==='Another round'&&!this.bootstrap.decision_notes;
+      if(legacy)this.decisionContinuation={id,round};
+      try{
+        const state = await api(`/api/runs/${id}/answer`, {request_id: requestId, value,...(value==='Another round'&&!legacy?{note}:{})});
+        this.apply(state);
+        if(legacy)await this.completeLegacyDecision(id,round,note);
+        this.guidanceDrafts.delete(noteKey);
+      }finally{this.decisionContinuation=null;}
       const reactions={
         'Done':['worker','Result accepted.\nFinishing this run.'],
         'Ship it':[this.configuration.workflow==='direct'?'worker':'reviewer','Approval received.\nFinishing this run.'],
         'Abandon':[this.configuration.workflow==='direct'?'worker':'reviewer','Decision recorded.\nEnding this run.'],
-        'Another round':['worker','Another round requested.\nAdd any guidance when ready.'],
+        'Another round':['worker',this.configuration.workflow==='direct'?'Another round requested.\nReturning to the task.':'Review received.\nStarting the next round.'],
       };
-      const [id,text]=reactions[value]||['worker','Guidance received.\nReturning to the task.'];
-      this.confirmInOffice(id,text);
-    });
+      const [actor,text]=reactions[value]||['worker','Guidance received.\nReturning to the task.'];
+      this.confirmInOffice(actor,text);
+    },{errorHost});
+  }
+
+  async completeLegacyDecision(id,round,note){
+    // A live pre-upgrade worker still exposes ask_note. Complete that exact
+    // request on behalf of the same click; never answer a later round or run.
+    for(let attempt=0;attempt<40;attempt++){
+      const state=await api(`/api/runs/${id}`);
+      if(terminal(state)||state.round>round)return;
+      if(state.round===round&&state.pending?.action==='ask_note'){
+        const key=`${id}:${state.pending.id}`;this.guidanceDrafts.set(key,note);
+        const next=await api(`/api/runs/${id}/answer`,{request_id:state.pending.id,value:note});
+        this.guidanceDrafts.delete(key);if(this.run?.id===id)this.apply(next);return;
+      }
+      await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    throw Error('The room has not accepted the next round yet. Reopen the current decision to retry.');
   }
 
   renderToolLog(container,run,owner){

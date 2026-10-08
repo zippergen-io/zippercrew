@@ -52,7 +52,7 @@ export class OfficeInterface {
     this.closePopovers();if(focus)$('game').focus({preventScroll:true});
   }
   onSelect(id){
-    if(!id){if(this.panel==='person-card'){this.panel=null;this.anchor=null;}return;}
+    if(!id){if(this.panel==='person-card'){this.panel=null;this.anchor=null;}this.scene.session?.decisions?.humanCard();return;}
     this.closePopovers();$('task-card').hidden=true;this.explored();
     const p=this.scene.people.get(id);
     const neighbors=[...this.scene.people.values()].filter(other=>Math.hypot(other.x-p.x,other.y-p.y)<40);
@@ -70,6 +70,7 @@ export class OfficeInterface {
     this.scene.activity?.renderRecent($('person-recent'),p.id,3);
     $('person-task-title').textContent=this.scene.session?.room?.brief||'Define the task on the whiteboard';
     this.scene.session?.configuration.agentCard(p);
+    this.scene.session?.decisions.humanCard();
     this.reposition();
   }
   showTask(owner){this.scene.session?.showTask(owner);}

@@ -34,9 +34,16 @@ setup, task messages, and decisions open in small modern windows.
 4. Click the **whiteboard** and define the task. Edits save automatically after a short
    pause and when leaving the editor. Choose **Run** in the top bar when ready.
    The Worker edits the repository. Review adds an independent, read-only Reviewer.
-5. When **Your decision** appears, open the result and finish or request another round.
-   Direct returns the Worker's result to you; Review includes the review. Finishing a
-   run does not commit or push.
+5. When the Human is highlighted, click **You** to see the recommendation and reason.
+   **Another round**, **Ship it** (or **Done** for Direct), and **Abandon** act immediately.
+   Expand **Add a note for the Worker** only if you want to add guidance; the full
+   reviewer findings are passed on automatically. Finishing a run does not commit or push.
+
+**Review & decide** opens a compact decision sheet. **Why?** holds the Worker summary
+and reviewer findings; **Technical details** holds reports, shell output and traces.
+If the Reviewer explicitly identifies a task-specification problem, **Edit task before
+rerunning** ends the current run and opens the whiteboard in the same sheet. Existing
+edits and review history remain available; run the revised task when ready.
 
 The room title and status are one clickable target. Setup uses muted red; ready
 rooms use muted green. **Run** becomes **Stop** during execution and **Your decision**
@@ -112,8 +119,8 @@ reduced motion. The carried note crosses from sender to recipient in a short tra
 the sender returns empty-handed while the recipient briefly holds the document.
 The crocodile has a small collision body and yields to moving office inhabitants.
 Accepted Start, Save, Stop and decision actions close the dialog and show a brief agent
-acknowledgment; failed requests keep the dialog and draft intact. If another input is
-required (such as guidance), use **Your decision** to reopen it.
+acknowledgment; failed requests keep the dialog and draft intact. Office decisions
+include optional guidance in the same action, without a second Continue step.
 These animations never delay execution or invent a receipt. Reloading and reconnecting
 do not replay old exchanges; reduced motion uses brief bubbles without courier walks.
 

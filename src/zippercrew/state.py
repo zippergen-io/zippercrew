@@ -90,7 +90,10 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
                 "role": "Human",
                 "round": state["round"],
                 "action": "response",
-                "outputs": {"answer": event["value"]},
+                "outputs": {
+                    "answer": event["value"],
+                    **({"note": event["note"]} if "note" in event else {}),
+                },
             }
         )
     elif kind == "review.verdict":

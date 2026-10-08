@@ -96,6 +96,22 @@ def assistant_backend(
         if action.access != ("write" if role == "Implementer" else "read-only"):
             raise ValueError("The upstream pair-programming permission contract changed.")
         instructions = action.instructions
+        if role == "Reviewer":
+            instructions += (
+                "\n\n## Human decision summary\n"
+                "Keep the required APPROVE/REVISE, FINDINGS, and headline header unchanged. "
+                "Make the headline a short plain-language explanation of the main reason "
+                "for your verdict, without shell commands or internal jargon. After the full "
+                "findings, append <decision-summary> followed by a JSON object and "
+                "</decision-summary>. Use these fields: reason (one short sentence explaining "
+                "the main reason), worker (one short sentence describing the actual result), "
+                "task_needs_clarification (a boolean). Set that flag true only when the task "
+                "itself lacks the objective or requirements needed to proceed. Base every "
+                "statement on the proposal and evidence you inspected. Do not infer that "
+                "no files changed merely because the task was vague. Keep both sentences "
+                "under 240 characters. This summary supplements, never replaces, your full "
+                "findings; those will still reach the Worker automatically."
+            )
         if emit and supports_progress and hasattr(assistant_progress, "UI_STATUS_VERSION"):
             instructions += (
                 "\n\n## Public office status\n"

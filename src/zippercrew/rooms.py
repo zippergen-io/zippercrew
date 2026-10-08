@@ -173,7 +173,7 @@ class Run:
             if self.process.stdin:
                 self.process.stdin.close()
 
-    def respond(self, request_id: str, value: Any) -> None:
+    def respond(self, request_id: str, value: Any, note: Any = None) -> None:
         with self.condition:
             pending = self.state["pending"]
             if (
@@ -189,11 +189,16 @@ class Run:
                 raise ValueError("A human response must be text, up to 30,000 characters.")
             result = human_task_result_from_value(pending["spec"], value)
             canonical = result[pending["spec"]["output"]]
+            payload = {"request_id": request_id, "value": canonical}
+            if note is not None:
+                if pending["spec"]["kind"] != "select" or canonical != "Another round":
+                    raise ValueError("A note can only accompany Another round.")
+                if not isinstance(note, str) or len(note) > 30000:
+                    raise ValueError("A note must be text, up to 30,000 characters.")
+                payload["note"] = note
             assert self.process is not None and self.process.stdin is not None
             try:
-                self.process.stdin.write(
-                    json.dumps({"request_id": request_id, "value": canonical}) + "\n"
-                )
+                self.process.stdin.write(json.dumps(payload) + "\n")
                 self.process.stdin.flush()
             except (OSError, ValueError) as exc:
                 raise Conflict("The room worker is no longer accepting answers.") from exc
@@ -204,8 +209,15 @@ class Run:
         reason: str = "Stopped by the Human. Edits remain in the workspace.",
         *,
         failed: bool = False,
+        expected_request_id: Any = None,
     ) -> None:
         with self.condition:
+            if expected_request_id is not None and (
+                not self.state["pending"]
+                or self.state["pending"]["id"] != expected_request_id
+                or self.answer_in_flight
+            ):
+                raise Conflict("This decision is no longer waiting. Reopen the current task.")
             if self.state["status"] in TERMINAL:
                 return
             if self.process is not None:
