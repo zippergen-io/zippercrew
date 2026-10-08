@@ -1,6 +1,8 @@
 """Pause must suspend real local work, retain context, and remain stoppable."""
 
 import json
+import os
+import signal
 import subprocess
 import sys
 import time
@@ -8,7 +10,7 @@ import time
 import pytest
 from conftest import request, wait_state
 
-from zippercrew.rooms import Run
+from zippercrew.rooms import Conflict, Run
 
 
 def eventually(predicate, timeout=5):
@@ -18,6 +20,86 @@ def eventually(predicate, timeout=5):
             return
         time.sleep(0.03)
     raise AssertionError("Process did not reach expected state")
+
+
+def test_stop_accepts_denied_cleanup_only_after_the_whole_group_has_exited(
+    tmp_path, config, monkeypatch
+):
+    run = Run(tmp_path / "run", config, "cleanup")
+    run.root.mkdir()
+    run.process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    run.record({"type": "room.started"})
+    real_signal = os.killpg
+
+    def deny_final_cleanup(group, sig):
+        if sig == signal.SIGKILL:
+            raise PermissionError(1, "Operation not permitted")
+        real_signal(group, sig)
+
+    monkeypatch.setattr("zippercrew.rooms.os.killpg", deny_final_cleanup)
+    try:
+        run.stop()
+        assert run.process.poll() is not None
+        assert run.snapshot()["status"] == "stopped"
+        assert (
+            json.loads((run.root / "events.jsonl").read_text().splitlines()[-1])["type"]
+            == "room.stopped"
+        )
+    finally:
+        if run.process.poll() is None:
+            run.process.kill()
+            run.process.wait(timeout=3)
+
+
+@pytest.mark.parametrize("action", ["stop", "pause", "resume"])
+def test_denied_process_control_preserves_state_and_reports_a_useful_error(
+    tmp_path, config, monkeypatch, action
+):
+    run = Run(tmp_path / "run", config, "denied")
+    run.root.mkdir()
+    run.process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    run.record({"type": "room.started"})
+    if action == "resume":
+        run.pause()
+    previous = run.snapshot()
+    real_signal = os.killpg
+
+    def denied(*args):
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr("zippercrew.rooms.os.killpg", denied)
+    try:
+        with pytest.raises(Conflict, match="operating system denied permission"):
+            getattr(run, action)()
+        assert run.snapshot() == previous
+        assert run.process.poll() is None
+        if action == "resume":
+            # A buffered Human event must not turn a denied resume into success.
+            with pytest.raises(Conflict, match="operating system denied permission"):
+                run.record({"type": "human.required", "request": {"id": "buffered"}})
+            assert run.snapshot() == previous
+        if action == "pause":
+            assert run.pause_guard is None
+    finally:
+        monkeypatch.setattr("zippercrew.rooms.os.killpg", real_signal)
+        run.stop()
+
+
+@pytest.mark.parametrize("listing", ["123 S\n999 Z\n", "999 S\n", "", "unreadable"])
+def test_cleanup_verification_does_not_ignore_live_members(tmp_path, config, monkeypatch, listing):
+    from types import SimpleNamespace
+
+    run = Run(tmp_path, config, "cleanup")
+    run.process = SimpleNamespace(pid=999)
+    monkeypatch.setattr(
+        "zippercrew.rooms.subprocess.run",
+        lambda *a, **kw: subprocess.CompletedProcess(a, 0, stdout=listing),
+    )
+    assert run._group_is_gone() is (listing == "123 S\n999 Z\n")
 
 
 @pytest.mark.parametrize("finish", ["resume", "human_gate", "stop", "service_lost"])

@@ -1,6 +1,6 @@
 import {api,node,button,field} from './session.js';
 
-// Browse the local server's folders without uploading files or saving the room.
+// Browsing is read-only; choosing a folder commits the field's normal change.
 // Keep the picker inline so all room-option drafts survive navigation/cancel.
 export function repositoryField(path){
   const host=node('div','','repository-field'),label=field('Repository',path),controls=node('div','','repository-controls');
@@ -18,7 +18,7 @@ export function repositoryField(path){
   const location=node('p','','folder-location'),list=node('div','','folder-list'),message=node('p','','field-help');
   message.setAttribute('role','status');
   const close=()=>{generation++;panel.hidden=true;browse.setAttribute('aria-expanded','false');browse.focus();};
-  const actions=node('div','','folder-actions'),cancel=button('Cancel',close),choose=button('Use this folder',()=>{path.value=current.path;close();},true);
+  const actions=node('div','','folder-actions'),cancel=button('Cancel',close),choose=button('Use this folder',()=>{path.value=current.path;path.dispatchEvent(new Event('change',{bubbles:true}));close();},true);
   actions.append(cancel,choose);panel.append(toolbar,location,list,message,actions);
   controls.append(path,browse);host.append(label,controls,panel);
   let current=null,generation=0;

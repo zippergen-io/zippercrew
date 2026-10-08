@@ -6,6 +6,8 @@ import pytest
 from conftest import request, wait_state
 from playwright.sync_api import expect, sync_playwright
 
+from zippercrew.rooms import Conflict
+
 pytestmark = pytest.mark.browser
 
 
@@ -131,7 +133,7 @@ def test_single_decision_sheet_has_optional_note_collapsed_evidence_and_retry(se
             expect(disclosure).not_to_have_attribute("open", "")
         page.locator(".decision-note summary").click()
         capture(page, "human-decision-panel-day")
-        page.locator("#back-to-office").click()
+        page.locator("#close-detail").click()
         page.get_by_role("button", name="Night mode", exact=True).click()
         page.locator("#scene-state").click()
         capture(page, "human-decision-panel-night")
@@ -208,7 +210,10 @@ def test_explicit_task_issue_opens_whiteboard_and_preserves_previous_run(service
         browser.close()
 
 
-def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(service, config):
+@pytest.mark.parametrize("width", [1440, 390])
+def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(
+    service, config, monkeypatch, width
+):
     app, base, project = service
     config.update(project=str(project), workspace=str(project))
     _, room = request(
@@ -218,16 +223,37 @@ def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(se
     )
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page = browser.new_page(viewport={"width": width, "height": 1000})
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(base + "/office/")
         page.wait_for_function("() => window.studio?.session?.connected && !studio.session.busy")
+
+        def transport_positions():
+            expect(page.locator("#scene-state")).not_to_contain_text("round")
+            return page.evaluate("""() => ({
+              buttons:[...document.querySelectorAll('.run-controls button')]
+                .map(el=>el.getBoundingClientRect().x),
+              header:document.querySelector('#room-header').getBoundingClientRect().width
+            })""")
+
+        positions = transport_positions()
+        expect(page.locator(".run-controls button:visible")).to_have_count(3)
+        expect(page.locator("#run-pause")).to_be_disabled()
+        expect(page.locator("#run-stop")).to_be_disabled()
+        padding = page.locator("#room-header").evaluate("""el =>
+          el.getBoundingClientRect().width - Math.max(...[...el.children]
+            .map(child=>child.getBoundingClientRect().width))""")
+        assert 10 <= padding <= 20
+        expect(page.locator("#room-action use")).to_have_attribute("href", "#i-play")
+        expect(page.locator("#room-action")).to_have_text("")
         page.get_by_role("button", name="Run", exact=True).click()
         pause = page.get_by_role("button", name="Pause run", exact=True)
         expect(pause).to_be_visible()
+        assert transport_positions() == positions
         pause.click()
         expect(page.locator("#scene-state")).to_contain_text("Paused")
+        assert transport_positions() == positions
         run_id = page.evaluate("studio.session.run.id")
         pid = app.runs.get(run_id).process.pid
         assert page.evaluate("studio.activity.isWorking(studio.people.get('worker'))") is False
@@ -238,25 +264,49 @@ def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(se
         page.locator("#run-stop").click()
         expect(page.locator("#stop-confirmation")).to_be_visible()
         assert app.runs.get(run_id).snapshot()["status"] == "paused"
+        with monkeypatch.context() as patch:
+
+            def denied_stop(**kwargs):
+                raise Conflict("Could not stop this run: the operating system denied permission.")
+
+            patch.setattr(app.runs.get(run_id), "stop", denied_stop)
+            page.locator("#confirm-stop").click()
+            expect(page.locator("#stop-confirmation .session-error")).to_contain_text(
+                "operating system denied permission"
+            )
+            expect(page.locator("#detail-dialog")).not_to_be_visible()
+            assert app.runs.get(run_id).snapshot()["status"] == "paused"
+            assert transport_positions() == positions
         page.locator("#cancel-stop").click()
         expect(page.locator("#stop-confirmation")).not_to_be_visible()
         page.get_by_role("button", name="Resume run", exact=True).click()
         expect(pause).to_be_visible()
         assert app.runs.get(run_id).process.pid == pid
         page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
-        expect(pause).not_to_be_visible()
+        expect(pause).to_be_visible()
+        expect(pause).to_be_disabled()
         expect(page.locator("#scene-state")).to_have_attribute("data-state", "attention")
-        expect(page.locator("#room-action")).not_to_be_visible()
-        page.locator("#scene-state").click()
+        assert transport_positions() == positions
+        expect(page.locator("#room-action")).to_be_visible()
+        expect(page.locator("#room-action")).to_be_disabled()
+        page.locator("#room-name").click()
         expect(page.locator("#detail-title")).to_have_text("Your decision")
         expect(page.locator("#person-card")).not_to_be_visible()
-        page.locator("#back-to-office").click()
+        assert page.locator("#close-detail").evaluate("""el => {
+          el.focus();const s=getComputedStyle(el);
+          return s.borderTopWidth==='0px'&&s.outlineStyle==='none'&&s.boxShadow==='none';
+        }""")
+        page.locator("#close-detail").click()
         page.locator("#run-stop").click()
         capture(page, "run-stop-confirmation")
         page.locator("#confirm-stop").click()
         expect(page.locator("#scene-state")).to_contain_text("Stopped")
-        expect(page.locator("#run-transport")).not_to_be_visible()
-        expect(page.locator("#room-action")).not_to_be_visible()
+        expect(page.locator(".run-controls button:visible")).to_have_count(3)
+        expect(page.locator("#run-pause")).to_be_disabled()
+        expect(page.locator("#run-stop")).to_be_disabled()
+        expect(page.locator("#room-action")).to_be_visible()
+        expect(page.locator("#room-action")).to_be_enabled()
+        assert transport_positions() == positions
         assert len(app.rooms.get(room["id"])["runs"]) == 1
         assert not errors
         browser.close()

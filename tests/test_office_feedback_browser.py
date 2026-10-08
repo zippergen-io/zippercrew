@@ -34,7 +34,7 @@ def test_deliberate_status_idle_poses_and_decision_indicator(service):
         page.locator("#setup-brief").fill(
             "Refine office feedback\nKeep the room layout\nMake work easier to follow"
         )
-        page.locator("#back-to-office").click()
+        page.locator("#close-detail").click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("""async () => {
           studio.game.loop.stop();
@@ -132,12 +132,12 @@ def test_deliberate_status_idle_poses_and_decision_indicator(service):
         )
         page.evaluate("() => {studio.select('worker');}")
         page.locator("#person-task").click()
-        page.get_by_role("button", name="Open activity history", exact=True).click()
+        page.get_by_role("button", name="View activity history →", exact=True).click()
         page.get_by_role("button", name="Run 1 · running", exact=True).click()
         page.get_by_text("Shell output", exact=True).click()
         expect(page.locator("#detail-body pre")).to_contain_text("<script>safe text</script>")
         assert page.locator("#detail-body script").count() == 0
-        page.locator("#back-to-office").click()
+        page.locator("#close-detail").click()
         page.evaluate("""() => {
           const s=studio;
           s.session.apply({...feedback,version:5,participants:{Implementer:'waiting',Reviewer:'waiting'},
@@ -178,7 +178,8 @@ def test_confirm_closes_only_on_success_and_preserves_visible_reaction(service):
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         assert page.evaluate("studio.people.get('worker').bubbleText").startswith("Task received.")
         page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
-        page.evaluate("() => {studio.session.showTask();}")
+        page.evaluate("() => {studio.session.decisions.open();}")
+        page.get_by_text("Other choices", exact=True).click()
         page.route(
             "**/api/runs/*/answer",
             lambda route: route.fulfill(

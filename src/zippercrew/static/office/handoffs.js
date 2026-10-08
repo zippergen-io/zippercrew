@@ -89,11 +89,16 @@ export class OfficeHandoffs {
   }
   target(sender,recipient){
     const occupied=[...this.scene.people.values()].filter(p=>p!==sender);
-    const candidates=[[28,4],[-28,4],[0,28],[0,-28],[36,16],[-36,16]]
+    const sideEntry=recipient.seated&&this.scene.seating.chairs.get(recipient.seated).seat.approaches;
+    // Leave room beside a desk chair for its occupant to step out and greet
+    // the courier. Standing on the entry point would force the far-side exit.
+    const offsets=sideEntry?[[40,12],[-40,12],[0,36]]:[[28,4],[-28,4],[0,28],[0,-28],[36,16],[-36,16]];
+    const candidates=offsets
       .map(([x,y])=>({x:Math.round(recipient.x+x),y:Math.round(recipient.y+y)}))
       .filter(point=>this.scene.nav.free(point.x,point.y)&&occupied.every(p=>Math.hypot(point.x-p.x,point.y-p.y)>=16));
     candidates.sort((a,b)=>Math.hypot(a.x-sender.x,a.y-sender.y)-Math.hypot(b.x-sender.x,b.y-sender.y));
-    return candidates.find(point=>this.scene.nav.route(sender.seated?this.scene.seating.points(this.scene.seating.chairs.get(sender.seated)).approach:sender,point,occupied).length);
+    const starts=sender.seated?this.scene.seating.points(this.scene.seating.chairs.get(sender.seated)).approaches:[sender];
+    return candidates.find(point=>starts.some(start=>this.scene.nav.route(start,point,occupied).length));
   }
   start(message){
     this.scene.ambient?.cancel();
@@ -121,7 +126,7 @@ export class OfficeHandoffs {
         if(this.active!==trip)return;
         face(recipient,sender);trip.phase='offered';trip.arrived=this.clock;
         this.acknowledge(trip);
-      });
+      },sender);
     }
     if(!recipient.seated&&!recipient.route.length&&!recipient.transition)face(recipient,sender);
     this.scene.conversation={a:sender.id,b:recipient.id};

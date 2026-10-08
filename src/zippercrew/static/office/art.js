@@ -1,6 +1,6 @@
 // Original, replaceable pixel artwork. These small canvases are texture sources,
 // never DOM scenery. Phaser owns the tilemap, sprites, depth, input and animation.
-import { WORLD } from './world.js';
+import { WORLD, TOP_WALL } from './world.js';
 import { CHARACTER_DESIGNS, drawCharacter as character, drawSeatedCharacter as seatedCharacter, drawBlinkCharacter as blinkCharacter } from './characters.js';
 import { colorFor } from './palettes.js';
 
@@ -95,20 +95,21 @@ function desk(p,variant){
 function chair(p,variant,front=false){
   const color=variant===3?'#a7a98b':'#839687';
   if(front){
-    // Armrests and seat lip overlap the seated thighs, never the whole torso.
-    p.r(1,10,3,10,C.edge);p.r(20,10,3,10,C.edge);
-    p.r(2,10,2,2,'#adbaa1');p.r(20,10,2,2,'#adbaa1');
-    // Lip is two pixels higher: it meets the bent knees and leaves shoes clear.
-    p.r(5,17,14,2,'#6d8272');p.r(6,17,12,1,color);return;
+    // Seen from behind: the backrest is on the room side of the seat, covering
+    // the lower back. The open cushion and armrests point toward the keyboard.
+    p.r(1,7,3,12,C.edge);p.r(20,7,3,12,C.edge);
+    p.r(2,7,2,6,'#adbaa1');p.r(20,7,2,6,'#adbaa1');
+    const top=variant===1?8:variant===2?11:10;
+    box(p,3,top,18,21-top,color);p.r(5,top+1,14,1,'#adbaa1');
+    p.r(4,19,16,1,'#6d8272');p.r(5,top+3,1,16-top,'#adbaa1');
+    if(variant===1){p.r(7,6,10,3,C.edge);p.r(8,7,8,1,color);p.r(6,14,12,1,'#6d8272');}
+    if(variant===2){p.c.clearRect(3,11,1,1);p.c.clearRect(20,11,1,1);p.r(11,14,1,4,'#6d8272');}
+    if(variant===3){p.r(7,14,1,1,'#6d8272');p.r(16,14,1,1,'#6d8272');}
+    return;
   }
   shadow(p,0,22,23,4);p.r(10,16,3,8,C.edge);p.r(3,23,18,1,C.edge);
   p.r(2,22,3,4,C.edge);p.r(18,22,3,4,C.edge);
-  const top=variant===1?1:variant===2?4:3;
-  box(p,3,top,18,15-top,color);p.r(5,top+1,14,1,'#adbaa1');
-  if(variant===1){p.r(7,0,10,2,C.edge);p.r(8,1,8,2,color);p.r(6,6,12,1,'#6d8272');}
-  if(variant===2){p.c.clearRect(3,4,1,1);p.c.clearRect(20,4,1,1);p.r(11,7,1,4,'#6d8272');}
-  if(variant===3){p.r(7,6,1,1,'#6d8272');p.r(16,6,1,1,'#6d8272');}
-  box(p,4,11,16,8,color);p.r(6,12,12,1,'#b6c1ab');p.r(6,15,12,1,'#adbaa1');
+  box(p,4,3,16,13,color);p.r(6,4,12,1,'#b6c1ab');p.r(6,12,12,1,'#6d8272');
   p.r(10,21,3,4,C.edge);p.r(10,25,3,1,'#737b6b');
 }
 function sofa(p){
@@ -164,10 +165,12 @@ function architecture(p){
   // Fine plaster texture; deliberately subdued compared with the furniture.
   for(let x=39;x<525;x+=25){r(x,40+(x%11),2,1,'#cbd3b7');}
   const window=(x)=>{box(p,x,30,86,31,'#a1c0b8');r(x+3,33,80,23,'#c4d9ce');r(x+3,46,80,10,'#a1bba0');leaf(p,x+3,42,20,14,'#90ac91');leaf(p,x+17,47,23,9,'#829f80');leaf(p,x+54,39,23,17,'#a8bd9c');leaf(p,x+63,45,20,11,'#819f84');r(x+8,34,2,10,'#e2ede0');r(x+12,34,1,7,'#e2ede0');r(x+41,31,3,27,'#e5e5cd');r(x+2,45,82,2,'#e6e7d2');r(x+1,57,84,4,'#efe5c8');r(x-2,61,90,3,'#b9b298');r(x,60,86,2,'#f7edd6');};
-  window(85);window(342);
-  if(p.mood==='night')for(const x of [85,342]){r(x+22,37,1,1,'#c6d3e1');r(x+65,35,1,1,'#c6d3e1');}
-  // The live task board occupies the central wall. Keep a small clock by coffee.
-  r(458,35,12,18,C.edge);r(455,38,18,12,C.edge);r(458,36,12,16,'#f0e8d0');r(456,39,16,10,'#f0e8d0');r(463,38,2,1,'#b6af93');r(463,50,2,1,'#b6af93');
+  TOP_WALL.windows.forEach(window);
+  if(p.mood==='night')for(const x of TOP_WALL.windows){r(x+22,37,1,1,'#c6d3e1');r(x+65,35,1,1,'#c6d3e1');}
+  // A quiet gap between the board and right window keeps the live clock clear
+  // of the floating controls. Its face and hands share the same world anchor.
+  const {x:cx,y:cy}=TOP_WALL.clock;
+  r(cx+3,cy,12,18,C.edge);r(cx,cy+3,18,12,C.edge);r(cx+3,cy+1,12,16,'#f0e8d0');r(cx+1,cy+4,16,10,'#f0e8d0');r(cx+8,cy+3,2,1,'#b6af93');r(cx+8,cy+15,2,1,'#b6af93');
   // Side walls and low cutaway front wall. The entrance stays open.
   r(29,65,7,257,'#b7bea4');r(30,65,2,255,'#d6dcc0');r(36,65,2,255,'#bdac8d');r(524,65,7,257,'#a3b093');r(524,65,2,255,'#c4cdae');
   for(const [x,w] of [[29,232],[314,217]]){r(x,319,w,9,C.edge);r(x+1,319,w-2,5,'#b7c1a6');r(x+1,319,w-2,2,'#e0e2c8');r(x+1,324,w-2,3,'#95a58a');}

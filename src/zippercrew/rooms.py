@@ -131,7 +131,10 @@ class Run:
                 try:
                     self._signal(signal.SIGCONT)
                 except Conflict:
-                    pass  # A completed worker may already have exited.
+                    # A completed worker may already have exited. A denied
+                    # resume of a live worker must not be recorded as success.
+                    if self.process is not None and self.process.poll() is None:
+                        raise
                 self._release_pause_guard()
                 self.record({"type": "room.resumed"})
             event = {**event, "id": self.state["version"] + 1, "time": time.time()}
@@ -283,6 +286,37 @@ class Run:
             os.killpg(self.process.pid, sig)
         except ProcessLookupError as exc:
             raise Conflict("The room worker is no longer running.") from exc
+        except PermissionError as exc:
+            action = "pause" if sig == signal.SIGSTOP else "resume"
+            raise Conflict(
+                f"Could not {action} this run: the operating system denied permission "
+                "to control its worker process."
+            ) from exc
+
+    def _group_is_gone(self) -> bool:
+        """Verify cleanup after a denied signal; never infer success from EPERM.
+
+        A worker may already have exited when the final group cleanup is sent.
+        In that case there is nothing left to terminate. A live member, or an
+        unavailable process listing, must still be treated as a stop failure.
+        """
+        assert self.process is not None
+        try:
+            listing = subprocess.run(
+                ["ps", "-axo", "pgid=,stat="],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=True,
+            )
+            entries = [line.split() for line in listing.stdout.splitlines() if line.strip()]
+            if not entries:
+                return False
+            return all(
+                int(group) != self.process.pid or state.startswith("Z") for group, state in entries
+            )
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return False
 
     def stop(
         self,
@@ -314,6 +348,12 @@ class Run:
                     os.killpg(self.process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+                except PermissionError as exc:
+                    if self.process.poll() is None or not self._group_is_gone():
+                        raise Conflict(
+                            "Could not stop all run processes: the operating system denied "
+                            "permission. The run has not been confirmed stopped."
+                        ) from exc
                 self.process.wait(timeout=3)
             self._release_pause_guard()
             self.record({"type": "room.failed" if failed else "room.stopped", "error": reason})

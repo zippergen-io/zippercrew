@@ -13,7 +13,7 @@ def prepare_room(page, project, brief, name="My room", *, real=False):
     expect(page.locator("#detail-dialog")).not_to_be_visible()
     page.locator("#room-name").click()
     page.get_by_label("Repository", exact=True).fill(str(project))
-    page.get_by_role("button", name="Save room options", exact=True).click()
+    page.locator("#close-detail").click()
     expect(page.locator("#detail-dialog")).not_to_be_visible()
     for actor, role, prompt in [
         ("worker", "Implementer", "Keep the change small."),

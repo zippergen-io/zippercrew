@@ -25,14 +25,17 @@ setup, task messages, and decisions open in small modern windows.
 1. Open **⋯ → Rooms → + New room**. Optionally name it, then choose a workflow:
    **Direct** (You → Worker → You) or **Review** (You → Worker → Reviewer → You).
    Choosing a workflow creates and enters the room immediately.
-2. Click the **room name** to rename it or browse for its repository folder. This compact panel also holds the
-   workflow, a collapsed Team overview, and advanced room options.
+2. Click the **room name** to open its compact panel. Edit the name directly in
+   the heading or browse for its repository folder. Changes save automatically;
+   the panel also holds the workflow, a collapsed Team overview, and advanced options.
 3. Click each **agent** to choose its avatar, model, and reasoning effort inline.
    Model names come from local CLI metadata and existing bindings; profile nicknames
    stay hidden. Custom instructions are optional, in a collapsed section.
    Authenticate the chosen CLI beforehand. Quiet room markers show missing models.
-4. Click the **whiteboard** and define the task. Edits save automatically after a short
-   pause and when leaving the editor. Choose **Run** in the top bar when ready.
+4. Click the **whiteboard** to read the task, then choose **Edit task** or **Run task**.
+   An empty board opens the editor directly. Edits save automatically after a short
+   pause and when closing with **×**. The **▶ Run** icon is available in the top bar whenever
+   the room is ready, including after a run finishes or stops.
    The Worker edits the repository. Review adds an independent, read-only Reviewer.
 5. When the Human is highlighted, click **You** to open the single decision panel.
    The recommended action—**Run next round**, **Ship it**, or **Done** for Direct—acts
@@ -48,11 +51,14 @@ rerunning** opens an editor in the same sheet. **Back to decision** retains the 
 decision and draft. **Save task and start new run** explicitly ends the old run and
 starts a fresh run with the revised task; existing edits and review history are kept.
 
-The room title opens room options; the status opens the decision when the workflow
-needs you. Setup uses muted red, ready uses muted green, and **Your decision** uses
-warm amber. The header shows compact SVG **Pause / Resume / Stop** controls only
-while applicable. Pause disappears at a Human decision; completed runs have no
-transport controls. Start a fresh run from the whiteboard.
+The room title and status form one clickable heading. It opens room options, or
+the pending decision when the workflow needs you. Setup uses muted red, ready uses muted green, and **Your decision** uses
+warm amber. The heading reserves space for **Your decision**, omits the round,
+and stays the same width as run states change.
+Three compact SVG **Play / Pause / Stop** buttons remain visible and aligned;
+only available actions are emphasized and enabled. Play resumes a paused run.
+At a Human decision, Play and Pause are disabled. After completion, Play becomes
+available again. Start a fresh run there or from the whiteboard.
 
 Pause suspends the local worker process group, including CLI children; Resume
 continues the same process and session. Stop requires confirmation and ends the
@@ -61,9 +67,16 @@ to remote providers. This is local process suspension, not durable recovery acro
 service restarts: a stopped or interrupted run must be started afresh. A watchdog
 also cleans up suspended workers if the service disappears. Older running servers
 need a restart to expose pause/resume; the UI does not offer unsupported controls.
+If a cleanup signal is denied after the worker exits, Stop verifies that no live
+processes remain before accepting it as stopped. Genuine control errors stay in
+the Stop confirmation and do not falsely report success.
 
 The task editor shows saving/saved status and keeps failed drafts available for retry.
-Run waits for all pending task edits to save before taking its execution snapshot.
+Room options likewise show saving/saved status, keep failed drafts for retry, and
+save on edit or leaving a field. Run waits for pending task and room-option edits
+before taking its execution snapshot.
+The compact task panel contains only the brief, Edit/Run actions, and a quiet history
+link. Repository and workflow live in Room settings; run state stays in the header.
 
 The hierarchy is **Studio → Room → Workflow → Roles / Agents + Task**. The Studio
 menu contains only **Rooms** and **History**. Day/night stays in the top bar, and
@@ -71,8 +84,10 @@ ambient motion respects the system’s reduced-motion preference. Repository, wo
 round limits and human involvement belong to the room panel. History groups previous
 runs by room and provides full conversations, activity, shell output and traces.
 
-Click a room name in the list to enter it; the current room is highlighted. Rename
-it in its room options. The trash button confirms deletion. Changing workflows keeps the Worker and task; removing
+Rooms appear as compact rows, with a checkmark and a light tint for the current room.
+Click a row to enter it; click its name to rename inline (Enter or leaving the field
+saves, Escape cancels). Renaming is also available in room options. The trash button
+confirms deletion. Changing workflows keeps the Worker and task; removing
 configured Reviewer settings requires confirmation. Existing rooms default to Review.
 Past run snapshots and conversations retain their original workflow and participants.
 Direct always returns the result to the Human; Review additionally offers automatic
@@ -114,7 +129,7 @@ concrete findings, next actions, and their purpose. New statuses can replace old
 work bubbles after four seconds; reading time scales with message length. Those updates remain separate from shell telemetry and
 private reasoning. Older runtimes use specific tool-based descriptions, never generic
 Working/Thinking bubbles. The detail window has an on-demand shell-output log.
-Agent cards show the latest three activity events; the task window shows twelve,
+Agent cards show the latest three activity events; History shows twelve,
 alongside full turn responses. Screen marks are abstract activity,
 not literal terminal output. Tool details depend on the CLI progress observer;
 without it, the office shows the actual working/reviewing state and final messages.
@@ -123,6 +138,10 @@ The framed project board at the back of the room shows the task title, two short
 excerpt lines, and a separately padded round/status line. Its warm writing surface,
 magnets, marker tray, and slim supports use native pixel art in both moods.
 Click it to read the full brief and open task controls.
+The wall clock sits between the board and the right window, clear of the floating
+controls. The top controls and bottom zoom bar share a 50-pixel height; the office
+keeps its existing scale. Desk chairs face the monitors, with typing hands aligned
+to the keyboards. Characters enter and leave from a free side of the chair.
 Real protocol messages trigger visible handoffs: the sending agent carries a note
 over, the recipient briefly acknowledges it, and the crew returns to their desks.
 A quiet amber arc marks a pending human decision, subdued at night and static with

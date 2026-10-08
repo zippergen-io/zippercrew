@@ -1,4 +1,4 @@
-import { WORLD } from './world.js';
+import { WORLD, TOP_WALL } from './world.js';
 
 const canvas=(w,h)=>Object.assign(document.createElement('canvas'),{width:w,height:h});
 const line=(c,x,y,tx,ty,color)=>{
@@ -17,7 +17,7 @@ export class OfficeSurfaces {
       this.screens.push({...add(`live-screen:${desk.id}`,desk.x+29,desk.y+2,28,14,desk.y+39.1),owner:desk.owner,variant:desk.variant});
       if(desk.variant===1)this.screens.push({...add('live-screen:portrait',desk.x+9,desk.y+3,11,14,desk.y+39.1),owner:desk.owner,variant:4});
     }
-    this.clock=add('live-clock',458,38,13,13,2);
+    this.clock=add('live-clock',TOP_WALL.clock.x+3,TOP_WALL.clock.y+3,13,13,2);
     this.coffee=add('coffee-steam',449,59,10,14,98);
     this.update();
   }

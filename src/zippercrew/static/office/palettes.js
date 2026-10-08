@@ -3,12 +3,12 @@
 export const PALETTES = {
   day: {
     label: 'Day', workBubble:'#e3edf1', idleBubble:'#f0e6d6', ink: '#60574f', zone: '#806a56', bubble: '#fff3da', bubbleInk: '#605148',
-    planner: '#7898aa', worker: '#708a62', reviewer: '#d7836e', human: '#d2a34f',
+    planner: '#7898aa', worker: '#708a62', reviewer: '#d7836e', human: '#d2a34f', humanLabel: '#d2a34f',
     lampShade: '#f1d5a3', lampEdge: '#c69b61', screen: '#96bfcc',
   },
   night: {
     label: 'Night', workBubble:'#b8cbd4', idleBubble:'#c8bba7', ink: '#e0d6c8', zone: '#b3bac5', bubble: '#dfc8a6', bubbleInk: '#463c37',
-    planner: '#8daabb', worker: '#8c9e77', reviewer: '#c87567', human: '#dfb466',
+    planner: '#8daabb', worker: '#8c9e77', reviewer: '#c87567', human: '#dfb466', humanLabel: '#77542d',
     lampShade: '#edbe78', lampEdge: '#e2a85b', screen: '#83b6c5',
   },
 };

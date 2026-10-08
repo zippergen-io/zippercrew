@@ -1,4 +1,4 @@
-import { WORLD } from './world.js';
+import { WORLD, TOP_WALL } from './world.js';
 
 const clamp=(value,min=0,max=1)=>Math.max(min,Math.min(max,value));
 const surface=(width,height)=>{const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;return canvas;};
@@ -91,7 +91,7 @@ export class NightLighting {
       const i=(py*c.width+px)*4;
       if(night.data[i+3]<180)continue; // Contact shadows remain shadows.
       // Sky and the emissive screen faces keep their own colors.
-      if(key==='architecture'&&py>=33&&py<57&&((px>=88&&px<168)||(px>=345&&px<425)))continue;
+      if(key==='architecture'&&py>=33&&py<57&&TOP_WALL.windows.some(x=>px>=x+3&&px<x+83))continue;
       if(key.startsWith('desk-')&&px>=27&&px<60&&py<19)continue;
       if(key==='desk-1'&&px>=7&&px<22&&py<20)continue;
       if(key==='lamp'&&py<12)continue;

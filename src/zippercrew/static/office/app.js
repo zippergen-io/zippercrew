@@ -49,7 +49,7 @@ class Studio extends Phaser.Scene {
       }
       if(f.seat){
         const chair=this.seating.chairs.get(f.id),feet=this.seating.points(chair).feet;
-        // Background/backrest behind the person; lip/armrests just in front.
+        // Seat/base behind the person; desk-chair backrest and arms in front.
         chair.back=sprite.setDepth(feet.y-1);
         chair.front=this.themedImage(f.x,f.y,f.type==='chair'?`chair-${f.variant}-front`:'armchair-front').setOrigin(0).setDepth(feet.y+1);
       }
@@ -138,7 +138,7 @@ class Studio extends Phaser.Scene {
     $('fit').title=`Fit office to view · current zoom ${Math.round(cssScale*100)}%`;
     this.ui?.reposition();
   }
-  nameTexture(p){return labelTexture(this,p.name,{background:p.id==='human'?'#f3edd7':null,color:p.id==='human'?'bubbleInk':'ink',accent:p.id});}
+  nameTexture(p){return labelTexture(this,p.name,{background:p.id==='human'?'#f3edd7':null,color:p.id==='human'?'bubbleInk':'ink',accent:p.id==='human'?'humanLabel':p.id});}
   setMood(mood){
     if(!PALETTES[mood])return;
     this.mood=mood;document.documentElement.dataset.mood=mood;

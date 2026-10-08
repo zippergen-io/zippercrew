@@ -3,6 +3,7 @@ import {BOARD} from './task-board.js';
 import {labelTexture} from './art.js';
 import {repositoryField} from './repository-picker.js';
 import {TaskDrafts} from './task-drafts.js';
+import {RoomOptions} from './room-options.js';
 const $=id=>document.getElementById(id);
 const avatars=[['planner','Mira'],['worker','Theo'],['reviewer','Jules'],['human','Alex']];
 const roleNames={worker:'Worker',reviewer:'Reviewer'};
@@ -11,9 +12,9 @@ const roleNames={worker:'Worker',reviewer:'Reviewer'};
 // Every execution still consumes an immutable snapshot of its room.
 export class OfficeConfiguration {
   constructor(session){
-    this.session=session;this.scene=session.scene;this.section='rooms';this.markers=new Map();this.drafts=new TaskDrafts(session);
+    this.session=session;this.scene=session.scene;this.section='rooms';this.drawerRequest=0;this.markers=new Map();this.drafts=new TaskDrafts(session);this.options=new RoomOptions(session);
     for(const section of ['rooms','history'])$(`show-${section}`).onclick=()=>this.showDrawer(section);
-    $('room-header').onclick=()=>this.roomPanel();
+    $('room-header').onclick=()=>session.decisions.pending?session.decisions.open():this.roomPanel();
   }
   get editable(){return !!this.session.room&&terminal(this.session.run);}
   get workflow(){return this.session.room?.config.workflow||'review';}
@@ -38,24 +39,36 @@ export class OfficeConfiguration {
     if(this.scene.selected)this.scene.ui.updatePerson();
   }
   async save(data){
-    const s=this.session,id=s.room.id;await this.drafts.flush(id);const saved=await api(`/api/rooms/${id}/save`,data);
+    const s=this.session,id=s.room.id;await this.drafts.flush(id);await this.options.flush(id);const saved=await api(`/api/rooms/${id}/save`,data);
     if(s.room?.id!==id)return;
     s.room={...s.room,...saved};this.sync();s.refreshChrome();
   }
   async saveBinding(id,changes){
+    await this.options.flush(this.session.room.id);
     const config=structuredClone(this.session.room.config);
     config.agents[roles[id]]={...this.binding(id),...changes};await this.save({config});
   }
   toggleDrawer(){if(!$('studio-menu').hidden){this.scene.ui.closePopovers();return;}return this.showDrawer(this.section);}
   async showDrawer(section){
     if(this.session.busy&&this.session.room)return;
-    $('detail-dialog').close();this.scene.ui.dismiss(false);this.section=section;
+    $('detail-dialog').close();
+    // Switching sections leaves the drawer and its existing content in place
+    // until the next page is ready. Late responses cannot replace a newer tab.
+    const opening=$('studio-menu').hidden;if(opening)this.scene.ui.dismiss(false);
+    this.section=section;const request=++this.drawerRequest;
     $('studio-menu').hidden=false;$('menu-toggle').setAttribute('aria-expanded','true');
     for(const b of document.querySelectorAll('[data-section]'))b.setAttribute('aria-current',String(b.dataset.section===section));
-    const host=node('div','','drawer-page');$('drawer-content').replaceChildren(host);$('drawer-error').hidden=true;
-    try{if(section==='rooms')await this.rooms(host);else if(section==='history')await this.history(host);}
-    catch(error){if(host.isConnected){$('drawer-error').textContent=error.message;$('drawer-error').hidden=false;}}
-    if(host.isConnected&&!$('studio-menu').hidden)$(`show-${section}`).focus();
+    if(opening)$(`show-${section}`).focus();
+    const host=node('div','','drawer-page'),content=$('drawer-content');host.dataset.section=section;
+    content.setAttribute('aria-busy','true');$('drawer-error').hidden=true;
+    try{
+      if(section==='rooms')await this.rooms(host);else if(section==='history')await this.history(host);
+      if(request!==this.drawerRequest)return;
+      content.replaceChildren(host);
+    }catch(error){
+      if(request!==this.drawerRequest)return;
+      $('drawer-error').textContent=error.message;$('drawer-error').hidden=false;
+    }finally{if(request===this.drawerRequest)content.setAttribute('aria-busy','false');}
   }
   portrait(id,appearance){
     const c=node('canvas');c.width=32;c.height=36;c.dataset.portrait=id;
@@ -155,17 +168,28 @@ export class OfficeConfiguration {
   roomPanel(){
     const s=this.session;if(!s.room){this.newRoom();return;}
     s.window('room','Studio / Room',s.room.name);
-    const current=this.workflows[this.workflow],workflow=button('',()=>this.workflowChooser());workflow.className='room-workflow';workflow.disabled=!this.editable;
+    const draft=this.options.get(s.room);
+    const current=this.workflows[this.workflow],workflow=button('',()=>s.perform(async()=>{await this.options.flush(draft.id);this.workflowChooser();}));workflow.className='room-workflow';workflow.disabled=!this.editable;
     workflow.append(node('small','Workflow'),node('strong',`${current.name}  ›`),node('span',this.workflow==='direct'?'You → Worker → You':'You → Worker → Reviewer → You','formation'));
-    const config=s.room.config,form=node('form','','room-form'),name=input('settings-room-name',s.room.name),path=input('settings-workspace',config.workspace);
-    name.maxLength=120;name.required=true;name.disabled=!this.editable;
+    const form=node('form','','room-form'),name=input('settings-room-name',draft.value.name),path=input('settings-workspace',draft.value.workspace);
+    name.maxLength=120;name.required=true;name.className='room-title-input';name.setAttribute('aria-label','Room name');name.title='Edit room name';
+    $('detail-title').replaceChildren(name);
     path.placeholder='~/projects/my-app';path.disabled=!this.editable;
-    form.append(field('Room name',name),repositoryField(path));
-    const advanced=node('details','','extra-options'),rounds=input('settings-rounds',config.max_rounds);rounds.type='number';rounds.min=1;rounds.max=100;rounds.disabled=!this.editable;
-    const involvement=select('settings-involvement',[['brief','Short review'],['full','Full review'],['auto','Let the reviewer decide']],config.human_mode);involvement.disabled=!this.editable;
+    form.append(repositoryField(path));
+    const advanced=node('details','','extra-options'),rounds=input('settings-rounds',draft.value.max_rounds);rounds.type='number';rounds.min=1;rounds.max=100;rounds.disabled=!this.editable;
+    const involvement=select('settings-involvement',[['brief','Short review'],['full','Full review'],['auto','Let the reviewer decide']],draft.value.human_mode);involvement.disabled=!this.editable;
     advanced.append(node('summary','Advanced'),field('Maximum rounds',rounds));if(this.workflow==='review')advanced.append(field('Your involvement',involvement));
-    const save=button('Save room options',null,true);save.type='submit';save.disabled=!this.editable;form.append(advanced,save);
-    form.onsubmit=e=>{e.preventDefault();s.perform(async()=>{await this.save({name:name.value.trim(),config:{...config,workspace:path.value.trim(),max_rounds:Number(rounds.value),human_mode:involvement.value}});s.confirmInOffice('worker','Room options saved.');});};
+    const status=node('span','','autosave-status'),retry=button('Retry save',()=>this.options.flush(draft.id).catch(()=>{})),saveLine=node('div','','autosave-line room-save-status');
+    status.setAttribute('role','status');retry.className='retry-save';saveLine.append(status,retry);
+    const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':this.options.dirty(draft)?'Unsaved changes':'Saved automatically';status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;};
+    draft.listeners.clear();draft.listeners.add(update);update();
+    for(const [key,control]of Object.entries({name,workspace:path,max_rounds:rounds,human_mode:involvement})){
+      control.oninput=()=>this.options.edit(draft,key,control.value);
+      control.onchange=()=>{if(draft.value[key]!==control.value)this.options.edit(draft,key,control.value);this.options.flush(draft.id).catch(()=>{});};
+      control.onblur=()=>this.options.flush(draft.id).catch(()=>{});
+    }
+    name.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();name.blur();}};
+    form.append(advanced,saveLine);form.onsubmit=e=>{e.preventDefault();this.options.flush(draft.id).catch(()=>{});};
     const team=node('details','','room-team');team.append(node('summary','Team'));const roster=node('div');this.roster(roster);team.append(roster);
     const remove=button('Delete room',()=>this.deleteRoom(s.room));remove.className='quiet-danger';
     $('detail-body').append(workflow,form,team,remove);
@@ -189,50 +213,78 @@ export class OfficeConfiguration {
   editTask(){
     const s=this.session;if(!s.room){this.newRoom();return;}if(!this.editable){s.showTask();return;}
     s.window('task-edit',`${s.room.name} / Whiteboard`,'Your task','The first line becomes the title on the board.');
-    const draft=this.drafts.get(s.room),form=node('form','','room-form'),brief=input('setup-brief',draft.value,true);brief.rows=7;brief.maxLength=30000;brief.placeholder='What should the team do?\n\nDescribe the result you want.';
+    const draft=this.drafts.get(s.room),form=node('form','','room-form'),brief=input('setup-brief',draft.value,true);brief.rows=5;brief.maxLength=30000;brief.placeholder='What should the team do?\n\nDescribe the result you want.';
     const status=node('span','','autosave-status'),retry=button('Retry save',()=>this.drafts.flush(draft.id).catch(()=>{}));
     status.setAttribute('role','status');retry.className='retry-save';
     const saveLine=node('div','','autosave-line');saveLine.append(status,retry);
     const start=button('Run task',null,true);start.type='submit';
-    const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':draft.value!==draft.saved?'Unsaved changes':'Saved automatically';status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;start.disabled=!!this.missing().length;};
+    const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':draft.value!==draft.saved?'Unsaved changes':'Saved automatically';status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;start.disabled=!!this.missing().length;start.title=this.missing().join(' · ');};
     draft.listeners.clear();draft.listeners.add(update);update();
     brief.oninput=()=>this.drafts.edit(draft,brief.value);brief.onblur=()=>this.drafts.flush(draft.id).catch(()=>{});
     form.append(field('Task',brief),saveLine,start);
-    const missing=this.missing().filter(text=>!text.startsWith('Add a task'));
-    if(missing.length){const setup=node('div','','setup-hints');for(const text of missing)setup.append(button(text,()=>s.perform(async()=>{await this.drafts.flush(draft.id);if(text.includes('repository'))this.roomPanel();else{$('detail-dialog').close();this.scene.select(text.includes('reviewer')?'reviewer':'worker');}})));form.append(setup);}
     form.onsubmit=e=>{e.preventDefault();this.start();};$('detail-body').append(form);brief.focus();
   }
   start(){return this.session.perform(()=>this.launch());}
-  async launch(){const id=this.session.room.id;await this.drafts.flush(id);const missing=this.missing();if(missing.length)throw Error(missing.join('\n'));const run=await api(`/api/rooms/${id}/runs`,{});this.session.attach(run,{replay:false});this.session.confirmInOffice('worker','Task received.\nGetting ready to begin.');}
+  async launch(){const id=this.session.room.id;await this.drafts.flush(id);await this.options.flush(id);const missing=this.missing();if(missing.length)throw Error(missing.join('\n'));const run=await api(`/api/rooms/${id}/runs`,{});this.session.attach(run,{replay:false});this.session.confirmInOffice('worker','Task received.\nGetting ready to begin.');}
   async rooms(host){
-    const rooms=await api('/api/rooms');if(!host.isConnected)return;
-    host.append(node('h2','Rooms'));
-    const list=node('div','','room-list');host.append(list);
+    const rooms=await api('/api/rooms');
+    const list=node('ul','','room-list');list.setAttribute('aria-label','Rooms');host.append(list);
     for(const room of rooms){
-      const row=node('div','','room-row'),current=room.id===this.session.room?.id;
+      const row=node('li','','room-row'),current=room.id===this.session.room?.id;
       const enter=button('',()=>this.session.openRoom(room.id));enter.setAttribute('aria-label',`Enter ${room.name}`);enter.className='enter-room';
       const mark=node('span',current?'✓':'','room-current-mark');mark.setAttribute('aria-hidden','true');
-      enter.append(mark,node('span',room.name,'room-entry-name'));if(current)enter.setAttribute('aria-current','location');
+      enter.append(mark);if(current)enter.setAttribute('aria-current','location');
+      const info=node('div','','room-entry'),name=button(room.name,()=>this.renameRoom(room,name,enter,trash));
+      name.className='room-entry-name';name.title='Rename room';name.setAttribute('aria-label',`Rename ${room.name}`);
+      const workflow=room.config.workflow==='direct'?'Direct':'Review',status=room.latest?.status||'idle';
+      info.append(name,node('small',`${workflow} · ${status}`,'room-entry-meta'));
       const trash=button('',()=>this.deleteRoom(room));trash.setAttribute('aria-label',`Delete ${room.name}`);trash.className='delete-room';
       const icon=document.createElementNS('http://www.w3.org/2000/svg','svg'),use=document.createElementNS('http://www.w3.org/2000/svg','use');icon.classList.add('icon');icon.setAttribute('aria-hidden','true');use.setAttribute('href','#i-trash');icon.append(use);trash.append(icon);
-      row.dataset.current=String(current);row.append(enter,trash);list.append(row);
+      row.dataset.current=String(current);row.append(enter,info,trash);list.append(row);
     }
-    if(!rooms.length)list.append(node('p','Your first room starts with a workflow.','empty-state'));
-    host.append(button('+ New room',()=>this.newRoom(),true));
+    if(!rooms.length)host.append(node('p','Your first room starts with a workflow.','empty-state'));
+    const create=button('+ New room',()=>this.newRoom());create.className='new-room';host.append(create);
+  }
+  renameRoom(room,name,enter,trash){
+    const editor=input('',room.name);editor.className='room-rename';editor.maxLength=120;
+    editor.setAttribute('aria-label',`Rename ${room.name}`);name.replaceWith(editor);editor.focus();editor.select();
+    let saving=false,finished=false;
+    const finish=()=>{
+      finished=true;const focused=document.activeElement===editor;
+      name.textContent=room.name;name.setAttribute('aria-label',`Rename ${room.name}`);
+      enter.setAttribute('aria-label',`Enter ${room.name}`);trash.setAttribute('aria-label',`Delete ${room.name}`);
+      editor.replaceWith(name);if(focused)name.focus();
+    };
+    const save=async()=>{
+      if(saving||finished)return;
+      const value=editor.value.trim();if(!value||value===room.name){finish();return;}
+      saving=true;editor.readOnly=true;$('drawer-error').hidden=true;
+      try{
+        await this.options.flush(room.id);const saved=await api(`/api/rooms/${room.id}/save`,{name:value});room.name=saved.name;
+        if(this.session.room?.id===room.id){this.session.room.name=saved.name;this.session.refreshChrome();}
+        finish();
+      }catch(error){if(editor.isConnected){$('drawer-error').textContent=error.message;$('drawer-error').hidden=false;editor.setAttribute('aria-invalid','true');}}
+      finally{saving=false;editor.readOnly=false;}
+    };
+    editor.onblur=save;
+    editor.onkeydown=event=>{
+      if(event.key==='Enter'){event.preventDefault();event.stopPropagation();save();}
+      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!saving)finish();}
+    };
   }
   deleteRoom(room){
     const s=this.session;s.window('delete','Studio / Rooms',`Delete ${room.name}?`,'This removes the room and its history. Repository files remain.');
-    const actions=node('div','','form-actions');actions.append(button('Cancel',()=>{$('detail-dialog').close();this.showDrawer('rooms');}),button('Delete room',()=>s.perform(async()=>{await api(`/api/rooms/${room.id}/delete`,{confirmation:room.name});this.drafts.rooms.delete(room.id);if(s.room?.id===room.id){s.stream?.close();s.stream=null;s.scene.handoffs.reset();s.scene.activity.reset();s.scene.ambient.cancel();s.room=null;s.run=null;history.replaceState(null,'',location.pathname+location.search);const rooms=await api('/api/rooms');if(rooms.length)await s.loadRoom(rooms[0].id);else{this.sync();s.refreshChrome();}}$('detail-dialog').close();setTimeout(()=>this.showDrawer('rooms'),0);}),true));$('detail-body').append(actions);
+    const actions=node('div','','form-actions');actions.append(button('Cancel',()=>{$('detail-dialog').close();this.showDrawer('rooms');}),button('Delete room',()=>s.perform(async()=>{await api(`/api/rooms/${room.id}/delete`,{confirmation:room.name});this.drafts.rooms.delete(room.id);this.options.rooms.delete(room.id);if(s.room?.id===room.id){s.stream?.close();s.stream=null;s.scene.handoffs.reset();s.scene.activity.reset();s.scene.ambient.cancel();s.room=null;s.run=null;history.replaceState(null,'',location.pathname+location.search);const rooms=await api('/api/rooms');if(rooms.length)await s.loadRoom(rooms[0].id);else{this.sync();s.refreshChrome();}}$('detail-dialog').close();setTimeout(()=>this.showDrawer('rooms'),0);}),true));$('detail-body').append(actions);
   }
   async history(host){
     host.append(node('h2','History'),node('p','Past runs and conversations across your studio.','field-help'));
-    const rooms=await api('/api/rooms');if(!host.isConnected)return;let count=0;
-    for(const room of rooms){
-      if(!room.runs.length)continue;count++;host.append(node('h3',room.name,'history-room'));
-      const runs=await api(`/api/rooms/${room.id}/runs`);if(!host.isConnected)return;
+    const rooms=(await api('/api/rooms')).filter(room=>room.runs.length);
+    const histories=await Promise.all(rooms.map(room=>api(`/api/rooms/${room.id}/runs`)));
+    for(const [index,room]of rooms.entries()){
+      host.append(node('h3',room.name,'history-room'));const runs=histories[index];
       for(const run of runs){const link=button('',()=>this.session.perform(async()=>{const state=await api(`/api/runs/${run.id}`);this.session.window('history-run',`${room.name} / History`,`Run ${run.number}`,state.config.task);const progress=node('div'),reports=node('div'),tools=node('div');this.scene.activity.renderRecent(progress,null,12,state);this.session.renderReports(reports,state);this.session.renderToolLog(tools,state);$('detail-body').append(node('p',state.error||state.outcome||state.status,'run-summary'),progress,reports,tools);}));link.className='history-entry';link.setAttribute('aria-label',`Run ${run.number} · ${run.status}`);link.append(node('strong',`Run ${run.number} · ${run.status}`),node('small',run.task.split('\n')[0]));host.append(link);}
     }
-    if(!count)host.append(node('p','Completed work will appear here.','empty-state'));
+    if(!rooms.length)host.append(node('p','Completed work will appear here.','empty-state'));
   }
   updateAttention(){
     const s=this.session,active=!!s.room&&terminal(s.taskRun),frame=this.scene.paused?0:Math.floor(this.scene.elapsed*3)%24;

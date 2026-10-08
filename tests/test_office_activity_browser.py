@@ -33,7 +33,7 @@ def test_office_tool_feedback_ambient_priority_and_clock(service):
         page.locator("#setup-brief").fill(
             "Refine the workspace\nMake activity legible\nKeep the office calm"
         )
-        page.locator("#back-to-office").click()
+        page.locator("#close-detail").click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("""() => {
           studio.game.loop.stop();
@@ -61,10 +61,12 @@ def test_office_tool_feedback_ambient_priority_and_clock(service):
           const reviewer=studio.surfaces.screens.find(s=>s.owner==='reviewer');
           const idle=reviewer.source.toDataURL();tick(50);
           check(idle===reviewer.source.toDataURL(),'Idle monitor pretends to work');
-          const head=(frame)=>{const c=document.createElement('canvas');c.width=32;c.height=17;
+          // Hands now reach the keyboard beside the head; compare the head
+          // itself rather than including the animated fingers in this crop.
+          const head=(frame)=>{const c=document.createElement('canvas');c.width=14;c.height=17;
             c.getContext('2d').drawImage(
               studio.textures.get('day:person-worker').getSourceImage(),
-              frame%4*32,Math.floor(frame/4)*36,32,17,0,0,32,17);return c.toDataURL();};
+              frame%4*32+10,Math.floor(frame/4)*36,14,17,0,0,14,17);return c.toDataURL();};
           check(head(16)===head(17),'Typing changes head alignment');
           progress(3,'completed','12 passed');tick(250);
           check(studio.people.get('worker').bubbleKind==='work','Result bubble missing');
@@ -74,8 +76,9 @@ def test_office_tool_feedback_ambient_priority_and_clock(service):
         expect(page.locator("#person-recent")).to_contain_text("Running tests")
         capture(page, "office-activity-card")
         page.locator("#person-task").click()
-        expect(page.locator(".run-progress")).to_contain_text("12 passed")
-        page.locator("#back-to-office").click()
+        expect(page.locator(".task-brief")).to_be_visible()
+        assert page.locator("#detail-body .run-progress").count() == 0
+        page.locator("#close-detail").click()
         capture(page, "office-activity-day")
         page.get_by_role("button", name="Night mode", exact=True).click()
         capture(page, "office-activity-night")

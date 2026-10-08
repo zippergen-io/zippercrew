@@ -40,8 +40,10 @@ def test_task_board_and_real_message_couriers(service):
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("() => {studio.session.showTask();}")
-        expect(page.get_by_role("button", name="Stop run", exact=True)).to_be_visible()
-        page.locator("#back-to-office").click()
+        expect(
+            page.locator(".task-actions").get_by_role("button", name="Run task", exact=True)
+        ).to_be_disabled()
+        page.locator("#close-detail").click()
         page.wait_for_function("() => studio.handoffs.active?.sender === 'worker'")
         # The courier is carrying an actual backend proposal, not a scripted timer.
         actual = page.evaluate("studio.session.run")
@@ -128,7 +130,7 @@ def test_task_board_and_real_message_couriers(service):
         assert before == page.evaluate(
             "({x:studio.people.get('human').x,y:studio.people.get('human').y})"
         )
-        page.locator("#back-to-office").click()
+        page.locator("#close-detail").click()
         # Reconnect/history snapshots seed the seen set; old handoffs stay quiet.
         page.evaluate("""() => {
           studio.session.apply(studio.session.run,{replay:true});

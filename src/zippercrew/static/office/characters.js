@@ -31,9 +31,16 @@ function shadow(p,seated){
   p.r(11,32,12,2,'#41383025');
 }
 
-function legs(p,s,id,step,seated){
+function legs(p,s,id,step,seated,dir){
   const {r}=p;
   if(seated){
+    if(dir==='up'){
+      // Knees and shoes tuck toward the desk, beside the cushion. The near
+      // backrest hides the hips; no forward-facing feet hang behind the chair.
+      r(8,23,7,5,s.pants);r(18,23,7,5,s.pants);
+      r(8,24,3,2,s.pantsLight);r(23,24,2,2,s.pantsLight);
+      r(7,26,4,2,s.shoe);r(24,26,3,2,s.shoe);return;
+    }
     // Bent knees share a fixed hip contact; the chair lip covers their top edge.
     r(9,24,7,5,s.pants);r(17,24,7,5,s.pants);
     r(10,25,4,2,s.pantsLight);r(18,25,4,2,s.pantsLight);
@@ -102,6 +109,15 @@ function arms(p,s,id,dir,step,seated,rest=false){
       r(8,19,4,5,s.shade);r(21,19,4,5,s.shade);
       r(9,19,3,4,sleeve);r(21,19,3,4,sleeve);
       r(9,24,3,2,s.skin);r(22,24,3,2,s.skin);return;
+    }
+    if(back){
+      // Forearms reach the keyboard, not the lap. The fingers sit outside the
+      // head silhouette; typing changes neither the face nor its registration.
+      r(7,13,4,9,s.shade);r(23,13,4,9,s.shade);
+      r(8,14,3,7,sleeve);r(23,14,3,7,sleeve);
+      r(7,13,3,1,s.light);r(24,13,3,1,s.light);
+      r(7,10+step,3,3,s.skin);r(24,11-step,3,3,s.skin);
+      return;
     }
     // Quiet desk posture. Only fingers move; neither face nor torso bobs.
     r(8,19,4,4,s.shade);r(21,19,4,4,s.shade);
@@ -208,15 +224,16 @@ export function drawCharacter(p,person,dir,frame=0,{seated=false,blink=false}={}
   // Mirror about the same central pixel column, keeping head and feet registered.
   if(dir==='left'){p.c.translate(33,0);p.c.scale(-1,1);dir='right';}
   shadow(p,seated);
-  legs(p,s,id,step,seated);
+  legs(p,s,id,step,seated,dir);
   body(p,s,id,seated&&frame>=2?'right':dir);
   arms(p,s,id,dir,step,seated,seated&&frame>=2);
   // A sustained quarter turn away from the monitor marks rest. The second
   // resting pose looks out into the room; neither pose moves the hip anchor.
   head(p,s,id,seated&&frame>=2?(frame===3?'down':'right'):dir,blink);
   if(seated&&frame===3){
-    p.r(18,28,5,4,s.pants);p.r(20,30,5,2,s.pantsLight);
-    p.r(23,31,5,2,s.shoe);p.r(24,32,4,1,s.sole);
+    const lift=dir==='up'?4:0;
+    p.r(18,28-lift,5,4,s.pants);p.r(20,30-lift,5,2,s.pantsLight);
+    p.r(23,31-lift,5,2,s.shoe);p.r(24,32-lift,4,1,s.sole);
   }
   p.c.restore();
 }

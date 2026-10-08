@@ -58,7 +58,7 @@ export class TaskBoard {
     this.sprite.on('pointerout',()=>{this.hover=false;this.draw();});
     this.sprite.on('pointerup',(pointer,_x,_y,event)=>{
       if(document.getElementById('detail-dialog').open||pointer.event?.target!==scene.game.canvas||pointer.getDistance()>6)return;
-      event.stopPropagation();if(scene.session?.configuration.editable)scene.session.configuration.editTask();else scene.session?.openCurrent();
+      event.stopPropagation();scene.session?.openCurrent();
     });
     this.update(null,null,false);
   }

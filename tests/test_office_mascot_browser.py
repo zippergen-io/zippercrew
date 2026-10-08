@@ -23,7 +23,7 @@ def test_companion_yields_to_workspace_and_rests_between_short_walks(service):
         page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
         prepare_room(page, project, "", "The workshop")
         page.locator("#setup-brief").fill("Refine the office companion\nKeep the workspace calm")
-        page.locator("#back-to-office").click()
+        page.locator("#close-detail").click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("""() => {
           studio.game.loop.stop();
