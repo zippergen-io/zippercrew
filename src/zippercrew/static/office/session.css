@@ -111,17 +111,36 @@ summary{cursor:pointer;font-size:12px;line-height:1.7}
 /* One decision surface: recommendation and actions first, evidence on demand. */
 .decision:not(:empty){border:0;margin:18px 0 0;padding:0}.decision-eyebrow{color:#a47b48;font-size:11px;font-weight:600;letter-spacing:.1px;margin-bottom:10px}:root[data-mood=night] .decision-eyebrow{color:#bba27d}
 #detail-body h3.decision-recommendation,.decision-recommendation{font-size:16px;font-weight:600;line-height:1.45;letter-spacing:-.15px;margin:0 0 9px}
-.decision-reason{font-size:13px;line-height:1.7;color:var(--muted);margin-bottom:18px;overflow-wrap:anywhere}
-.decision-actions{display:flex;align-items:stretch;gap:7px;margin:16px 0}.decision-actions>button{flex:1;min-width:0;padding:10px 8px;font-size:11px;white-space:nowrap;width:auto;min-height:37px;border-radius:8px}
-.decision-actions .secondary-action{border:1px solid var(--line);background:var(--paper)}.decision-actions .secondary-action:hover{background:var(--panel)}
-.decision-note{margin:17px 0}.decision-note>summary{color:var(--accent);font-size:11px;list-style:none}.decision-note>summary::-webkit-details-marker{display:none}.decision-note>summary::before{content:'+ ';font-size:13px}.decision-note[open]>summary::before{content:'− '}.decision-note .form-field{margin:13px 0 8px}.decision-note textarea{min-height:82px}.decision-note .field-help{font-size:10px;line-height:1.65}
-.decision-disclosure{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}.decision-disclosure>summary{font-size:12px;color:var(--muted)}
-.decision-disclosure section{margin:17px 0}#detail-body .decision-disclosure h4{font-size:12px;color:var(--ink);font-weight:550;margin:13px 0 7px;text-transform:none}
-.decision-evidence{font-size:12px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}.decision-disclosure .repository-path{margin-top:15px;font-size:10px}
-.edit-decision-task{display:block;padding:2px 0;margin:16px 0 5px;text-align:left;color:var(--accent);font-size:11px}.edit-decision-task+.field-help{font-size:10px}
-@media(max-width:650px){.decision-actions>button{padding:10px 6px}}
-.decision-actions>.primary-action{flex:none;min-width:144px;padding:11px 20px;font-size:12px}
-.decision-alternatives{margin:-7px 0 17px;font-size:11px;color:var(--muted)}.decision-alternatives>summary{width:max-content}.decision-alternatives .decision-actions{margin:10px 0}
+.decision-reason{font-size:13px;line-height:1.65;color:var(--muted);margin-bottom:16px;overflow-wrap:anywhere}
+/* Decisions form one action group; optional reading has its own quiet group. */
+.decision-controls{margin:16px 0 12px}
+.decision-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.decision-actions>.primary-action{flex:none;width:auto;min-height:37px;padding:9px 15px;font-size:12px;border-radius:8px}
+.decision-alternatives{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:37px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:11px;color:var(--muted)}
+.decision-alternatives:hover,.decision-disclosure:hover{background:var(--hover);color:var(--ink)}
+.decision-options{display:flex;flex-wrap:wrap;gap:8px;padding-top:9px}
+.decision-options .secondary-action{width:auto;min-height:32px;padding:7px 11px;font-size:11px;background:var(--panel)}
+.decision .disclosure-icon{width:13px;height:13px;flex:none;stroke-width:1.7;transition:transform .15s ease}
+.decision [aria-expanded=true]>.disclosure-icon{transform:rotate(90deg)}
+.decision-alternatives>.disclosure-icon{transform:rotate(90deg)}
+.decision-alternatives[aria-expanded=true]>.disclosure-icon{transform:rotate(270deg)}
+.decision-note{margin:12px 0 0}
+.decision-note>summary{display:flex;align-items:center;gap:9px;width:fit-content;padding:3px 0;color:var(--accent);font-size:11px;list-style:none}
+.decision-note>summary::-webkit-details-marker{display:none}
+.decision-note>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+.decision-note .form-field{margin:10px 0 8px}.decision-note textarea{min-height:82px}.decision-note .field-help{font-size:10px;line-height:1.65}
+.decision-information{margin-top:18px;padding-top:13px;border-top:1px solid var(--line)}
+#detail-body .decision-information>h4{margin:0 0 8px;font-size:10px;font-weight:500;letter-spacing:.1px;color:var(--muted);text-transform:none}
+.decision-information-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.decision-disclosure{display:inline-flex;align-items:center;justify-content:space-between;gap:9px;min-height:31px;padding:6px 8px;border-radius:7px;font-size:11px;color:var(--muted);background:var(--panel);text-align:left}
+.decision-disclosure[aria-expanded=true]{color:var(--ink)}
+.decision-detail-panel{margin-top:14px}.decision-detail-panel section{margin:12px 0}
+.decision-nested-summary{display:flex;align-items:center;gap:9px;list-style:none}.decision-nested-summary::-webkit-details-marker{display:none}
+details[open]>.decision-nested-summary>.disclosure-icon{transform:rotate(90deg)}
+#detail-body .decision-detail-panel h4{font-size:11px;font-weight:550;margin:10px 0 6px;text-transform:none}
+.decision-evidence{font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}.decision-detail-panel .repository-path{margin:0 0 13px;font-size:10px}
+.edit-decision-task{display:block;padding:2px 0;margin:13px 0 4px;text-align:left;color:var(--accent);font-size:11px}.edit-decision-task+.field-help{font-size:10px}
+@media(prefers-reduced-motion:reduce){.decision .disclosure-icon{transition:none}}
 .room-presence .room-status{display:block;font-weight:400;font-size:10px}.room-status[data-state=attention]{color:var(--muted)}.attention-state{color:#9c7543;font-weight:600}.attention-state::before{content:'';display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;margin:0 4px 1px 1px}:root[data-mood=night] .attention-state{color:#c1a379}
 .run-controls{flex-shrink:0;display:grid;grid-template-columns:repeat(3,var(--transport-size));gap:4px;width:calc(3 * var(--transport-size) + 8px);height:36px;margin-right:8px;align-items:center}
 .controls-bar>.mood-switch,.controls-bar>.divider,.controls-bar>#menu-toggle{flex-shrink:0}
@@ -132,7 +151,7 @@ summary{cursor:pointer;font-size:12px;line-height:1.7}
 .controls-bar .stop-confirmation button{display:inline-flex}
 /* The task has one job: read, edit, run. Execution state lives in the header. */
 .detail-window[data-view=task]{width:min(360px,calc(100vw - 24px))}
-.detail-window:is([data-view=task],[data-view=task-edit]) .window-footer{display:none}
+.detail-window:is([data-view=task],[data-view=task-edit],[data-view=decision]) .window-footer{display:none}
 .detail-window:is([data-view=task],[data-view=task-edit]) .window-content h2{font-size:17px;line-height:1.4;letter-spacing:-.2px}
 .detail-window[data-view=task] .window-heading{padding:14px 16px 2px}
 .detail-window[data-view=task] .window-content{padding:5px 18px 18px}

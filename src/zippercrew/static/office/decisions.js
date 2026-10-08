@@ -4,6 +4,24 @@ const $=id=>document.getElementById(id);
 const withoutSummary=text=>String(text||'').replace(/<decision-summary>[\s\S]*?<\/decision-summary>/g,'').trim();
 const report=(run,role)=>Object.values((run.transcript||[]).findLast(entry=>entry.role===role&&entry.round===run.round)?.outputs||{}).join('\n\n');
 const concise=text=>String(text||'').replace(/[*_`#]/g,'').replace(/\s+/g,' ').trim().slice(0,280);
+const icon=id=>{
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.classList.add('icon','disclosure-icon');svg.setAttribute('aria-hidden','true');
+  const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href',`#${id}`);svg.append(use);return svg;
+};
+let disclosureId=0;
+// The controls stay together; the requested content expands below them in the
+// same sheet. Native buttons keep Enter/Space and focus behavior predictable.
+const disclosure=(label,className,onOpen=()=>{})=>{
+  const content=node('div','','decision-detail-panel');content.id=`decision-detail-${++disclosureId}`;content.hidden=true;
+  const control=button('',()=>{
+    content.hidden=!content.hidden;control.setAttribute('aria-expanded',String(!content.hidden));
+    if(!content.hidden)onOpen(content);
+  });
+  control.className=className;control.setAttribute('aria-expanded','false');control.setAttribute('aria-controls',content.id);
+  control.append(node('span',label),icon('i-chevron'));
+  return {control,content};
+};
 
 export class OfficeDecisions {
   constructor(session){this.session=session;}
@@ -51,16 +69,23 @@ export class OfficeDecisions {
         const action=button(label(choice),()=>s.answer(pending.id,choice,{note:s.guidanceDrafts.get(noteKey)||'',noteKey}),main);
         action.disabled=!s.connected||(choice==='Another round'&&limit);return action;
       };
-      actions.append(makeAction(primary,true));host.append(actions);
-      const alternatives=node('details','','decision-alternatives');alternatives.append(node('summary','Other choices'));
-      const options=node('div','','decision-actions');
-      for(const choice of choices.filter(choice=>choice!==primary))options.append(makeAction(choice));
-      alternatives.append(options);host.append(alternatives);
+      const controls=node('div','','decision-controls');actions.append(makeAction(primary,true));controls.append(actions);
+      const otherChoices=choices.filter(choice=>choice!==primary);
+      if(otherChoices.length){
+        const alternatives=disclosure('Other choices','decision-alternatives');
+        alternatives.content.className='decision-options';
+        for(const choice of otherChoices)alternatives.content.append(makeAction(choice));
+        actions.append(alternatives.control);controls.append(alternatives.content);
+      }
+      host.append(controls);
       if(limit&&choices.includes('Another round'))host.append(node('p','The round limit is reached. Finish or abandon this run.','field-help'));
     }
     if(!select||(choices.includes('Another round')&&!limit)){
       const details=node('details','','decision-note');details.open=!!savedNote;
-      details.append(node('summary','Add a note for the Worker'));
+      const noteSummary=node('summary'),noteIcon=icon('i-zoom-in');
+      noteSummary.append(noteIcon,node('span','Add a note for the Worker'));details.append(noteSummary);
+      const updateIcon=()=>noteIcon.querySelector('use').setAttribute('href',details.open?'#i-zoom-out':'#i-zoom-in');
+      details.ontoggle=updateIcon;updateIcon();
       const note=input('decision-note',savedNote,true);note.rows=3;note.maxLength=30000;note.disabled=!s.connected;
       note.placeholder='What would you like the Worker to focus on?';
       note.oninput=()=>s.guidanceDrafts.set(noteKey,note.value);
@@ -73,21 +98,26 @@ export class OfficeDecisions {
       const edit=button('Edit task before rerunning',()=>this.editTask(pending.id));edit.className='edit-decision-task';edit.disabled=!s.connected;
       host.append(edit,node('p','Clarify the task before starting a fresh run.','field-help'));
     }
-    const why=node('details','','decision-disclosure');why.append(node('summary',recommended==='Another round'?'Why another round?':recommended==='Ship it'?'Why ship it?':'Why is a decision required?'));
-    const worker=node('section');worker.append(node('h4','Worker'),node('p',summary.worker||withoutSummary(report(run,'Implementer'))||'No worker summary was returned.','decision-evidence'));why.append(worker);
+    const information=node('section','','decision-information'),infoTitle=node('h4','More information'),infoControls=node('div','','decision-information-controls');
+    infoTitle.id='decision-information-title';information.setAttribute('aria-labelledby',infoTitle.id);
+    const why=disclosure(recommended==='Another round'?'Why another round?':recommended==='Ship it'?'Why ship it?':'Why is a decision required?','decision-disclosure');
+    const worker=node('section');worker.append(node('h4','Worker'),node('p',summary.worker||withoutSummary(report(run,'Implementer'))||'No worker summary was returned.','decision-evidence'));why.content.append(worker);
     if(run.config.workflow!=='direct'){
-      const review=node('section');review.append(node('h4','Reviewer rationale'),node('p',summary.reason||'No concise rationale was returned. Full findings are in Technical details.','decision-evidence'));why.append(review);
+      const review=node('section');review.append(node('h4','Reviewer rationale'),node('p',summary.reason||'No concise rationale was returned. Full findings are in Technical details.','decision-evidence'));why.content.append(review);
     }
-    host.append(why);
-    const technical=node('details','','decision-disclosure'),content=node('div');technical.append(node('summary','Technical details'),content);
-    let loaded=false;technical.ontoggle=()=>{
-      if(!technical.open||loaded)return;loaded=true;
+    let loaded=false;
+    const technical=disclosure('Technical details','decision-disclosure',content=>{
+      if(loaded)return;loaded=true;
       content.append(node('p',run.config.workspace,'repository-path'));
       const progress=node('div'),reports=node('div'),tools=node('div');
       s.scene.activity.renderRecent(progress,null,12,run);s.renderReports(reports,run);s.renderToolLog(tools,run);
       content.append(progress,reports,tools);
-    };
-    host.append(technical);
+      for(const heading of content.querySelectorAll('summary')){
+        heading.classList.add('decision-nested-summary');heading.prepend(icon('i-chevron'));
+      }
+    });
+    infoControls.append(why.control,technical.control);
+    information.append(infoTitle,infoControls,why.content,technical.content);host.append(information);
   }
   editTask(requestId){
     const s=this.session,run=s.run,room=s.room,key=`task:${run.id}:${requestId}`;

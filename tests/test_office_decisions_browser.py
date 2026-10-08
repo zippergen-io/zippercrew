@@ -71,6 +71,13 @@ def test_human_opens_single_decision_panel_and_recommended_action_finishes(servi
         ).not_to_be_visible()
         expect(page.locator("#person-task")).not_to_be_visible()
         expect(card.get_by_label("Optional note")).not_to_be_visible()
+        expect(
+            page.get_by_role("button", name="Back to the office", exact=True)
+        ).not_to_be_visible()
+        expect(card.get_by_role("heading", name="More information", exact=True)).to_be_visible()
+        primary = card.get_by_role("button", name="Run next round", exact=True).bounding_box()
+        alternatives = card.get_by_role("button", name="Other choices", exact=True).bounding_box()
+        assert abs(primary["y"] - alternatives["y"]) < 1
         capture(page, "single-decision-day")
         card.get_by_role("button", name="Run next round", exact=True).click()
         expect(page.locator("#person-card")).not_to_be_visible()
@@ -130,7 +137,7 @@ def test_single_decision_sheet_has_optional_note_collapsed_evidence_and_retry(se
         assert page.get_by_text("Over to you", exact=True).count() == 0
         assert page.locator("#detail-body .repository-path").count() == 0
         for disclosure in page.locator(".decision-disclosure").all():
-            expect(disclosure).not_to_have_attribute("open", "")
+            expect(disclosure).to_have_attribute("aria-expanded", "false")
         page.locator(".decision-note summary").click()
         capture(page, "human-decision-panel-day")
         page.locator("#close-detail").click()
