@@ -2,7 +2,7 @@
 // is its top-left; collision boxes describe only its footprint on the floor.
 // Trim only the empty exterior margin; world coordinates stay unchanged.
 export const VIEW = {x:24,y:16,width:512,height:320};
-export const WALK_SPEED = {human:76,agent:64};
+export const WALK_SPEED = {human:76,agent:72};
 export const TOP_WALL = {windows:[52,336],clock:{x:307,y:35,width:18,height:18}};
 export const TASK_BOARD = {id:'task-board',type:'taskBoard',x:160,y:35,width:134,height:61,footprint:[8,56,117,4]};
 // Quiet lounge-edge nooks. Ground anchors and a bounded route keep the small
