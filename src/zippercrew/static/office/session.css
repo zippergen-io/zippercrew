@@ -103,7 +103,7 @@ summary{cursor:pointer;font-size:13.2px;line-height:1.7}
 :root[data-mood=night] .room-status[data-state=setup]{color:#c3938c}:root[data-mood=night] .room-status[data-state=ready]{color:#97b4a6}
 .controls-bar .room-action{height:40px;width:var(--transport-size);padding:0;border:1px solid var(--line);background:var(--panel);border-radius:7px;margin:0;grid-area:1/1}
 .controls-bar .room-action[data-state=ready]:not(:disabled){background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.agent-form{display:grid;gap:14.3px;margin-top:17.6px}.agent-avatar-options{display:grid;grid-template-columns:repeat(4,1fr);gap:7.7px;margin-top:-5.5px}
+.agent-form{display:grid;gap:14.3px;margin-top:17.6px}.agent-avatar-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(46px,1fr));gap:7.7px;margin-top:-5.5px}
 .agent-avatar-options button{display:grid;place-items:center;padding:6.6px;border:1px solid var(--line);border-radius:8.8px;background:var(--panel)}
 .agent-avatar-options button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,var(--paper))}
 .agent-avatar-options canvas{width:35.2px;height:39.6px;image-rendering:pixelated}.agent-instructions{border-top:1px solid var(--line);padding-top:11px}.agent-instructions summary{color:var(--muted);font-size:12.1px}.agent-instructions .form-field{margin-top:13.2px}

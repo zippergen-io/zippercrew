@@ -4,8 +4,9 @@ import {labelTexture} from './art.js';
 import {repositoryField} from './repository-picker.js';
 import {TaskDrafts} from './task-drafts.js';
 import {RoomOptions} from './room-options.js';
+import {CHARACTER_DESIGNS} from './characters.js';
 const $=id=>document.getElementById(id);
-const avatars=[['planner','Mira'],['worker','Theo'],['reviewer','Jules'],['human','Alex']];
+const avatars=Object.entries(CHARACTER_DESIGNS).map(([id,design])=>[id,design.name]);
 const roleNames={worker:'Worker',reviewer:'Reviewer'};
 
 // Studio preferences, room formation, and role bindings have separate owners.
@@ -33,10 +34,16 @@ export class OfficeConfiguration {
   }
   sync(){
     this.scene.setWorkflow(this.workflow);
-    for(const [id]of this.team){const p=this.scene.people.get(id);p.appearance=this.binding(id).avatar||id;p.sprite.setTexture(this.scene.lighting.characterKey(p),p.sprite.frame.name);}
+    for(const [id]of this.team){
+      const p=this.scene.people.get(id);p.appearance=this.binding(id).avatar||id;
+      p.name=CHARACTER_DESIGNS[p.appearance].name;
+      p.sprite.setTexture(this.scene.lighting.characterKey(p),p.sprite.frame.name);
+      const tag=p.nameTag;tag.setTexture(this.scene.nameTexture(p));
+      tag.setOrigin(Math.floor(tag.width/2)/tag.width,Math.floor(tag.height/2)/tag.height);
+    }
     this.scene.paused=this.session.preferences?.motion==='reduced'||matchMedia('(prefers-reduced-motion: reduce)').matches;
     $('agent-controls').dataset.key='';
-    if(this.scene.selected)this.scene.ui.updatePerson();
+    if(this.scene.selected){this.scene.updatePerson();this.scene.portrait($('person-portrait'),this.scene.selected);}
   }
   async save(data){
     const s=this.session,id=s.room.id;await this.drafts.flush(id);await this.options.flush(id);const saved=await api(`/api/rooms/${id}/save`,data);
@@ -72,7 +79,8 @@ export class OfficeConfiguration {
   }
   portrait(id,appearance){
     const c=node('canvas');c.width=32;c.height=36;c.dataset.portrait=id;
-    if(appearance){const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(this.scene.textures.get(`${this.scene.mood}:person-${appearance}`).getSourceImage(),0,0,32,36,0,0,32,36);}else this.scene.portrait(c,id);
+    if(appearance)c.dataset.appearance=appearance;
+    this.scene.portrait(c,id);
     return c;
   }
   roster(host){

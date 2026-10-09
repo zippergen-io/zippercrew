@@ -160,7 +160,7 @@ class Studio extends Phaser.Scene {
     document.querySelector('meta[name="theme-color"]').content=mood==='night'?'#262e39':'#f8f5ef';
     const url=new URL(location.href);url.searchParams.set('mood',mood);history.replaceState(null,'',url);
   }
-  portrait(canvas,id){const texture=this.textures.get(`${this.mood}:person-${this.people.get(id)?.appearance||id}`);const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(texture.getSourceImage(),0,0,32,36,0,0,32,36);}
+  portrait(canvas,id){const texture=this.textures.get(`${this.mood}:person-${canvas.dataset.appearance||this.people.get(id)?.appearance||id}`);const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(texture.getSourceImage(),0,0,32,36,0,0,32,36);}
   buildUI(){
     const zoom=step=>{
       const view=$('scene-scroll'),viewport=view.getBoundingClientRect(),before=this.game.canvas.getBoundingClientRect();

@@ -5,7 +5,9 @@ import { OfficeDecisions } from './decisions.js';
 const $ = id => document.getElementById(id);
 const terminal = state => !state || ['completed', 'failed', 'stopped'].includes(state.status);
 const roles = {worker: 'Implementer', reviewer: 'Reviewer', human: 'Human'};
-const names = {Implementer: 'Theo · Worker', Reviewer: 'Jules · Reviewer', Human: 'You'};
+// Journals record roles, not avatar identities; never attach today's face/name
+// to an older run or keep a hard-coded Theo/Jules after an avatar change.
+const names = {Implementer: 'Worker', Reviewer: 'Reviewer', Human: 'You'};
 const node = (tag, text = '', className = '') => {
   const result = document.createElement(tag);
   result.textContent = text;

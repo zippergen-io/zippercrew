@@ -44,7 +44,7 @@ def room_config(data: dict[str, Any]) -> dict[str, Any]:
             "settings": {key: text_field(value, key) for key, value in settings.items()},
         }
         if "avatar" in binding:
-            if binding["avatar"] not in ("planner", "worker", "reviewer", "human"):
+            if binding["avatar"] not in ("planner", "worker", "reviewer", "human", "otto"):
                 raise ValueError("Choose an office avatar.")
             result["agents"][role]["avatar"] = binding["avatar"]
     motion = data.get("motion", "full")

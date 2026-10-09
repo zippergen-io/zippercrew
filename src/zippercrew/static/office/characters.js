@@ -1,27 +1,34 @@
 // Original 32 × 36 office cast. Shared by the live client and the art preview.
 // Head registration is independent of gait. Hips remain (16,25), feet (16,33).
 // Role accents occupy details, while silhouette and clothes carry the identity.
+import { drawOtto } from './otto-art.js';
+
 export const CHARACTER_DESIGNS = {
   planner: {
+    name:'Mira',
     skin:'#e6b58b', skinShade:'#bc835f', hair:'#754936', hairLight:'#a16c4b',
     cloth:'#8098a5', light:'#a9bbc2', shade:'#5e7481', inner:'#eee4d4',
     pants:'#626774', pantsLight:'#858c98', shoe:'#59473e', sole:'#aa8a70',
   },
   worker: {
+    name:'Theo',
     skin:'#b77e5a', skinShade:'#885b45', hair:'#3d3531', hairLight:'#665045',
     cloth:'#70818a', light:'#98a6aa', shade:'#53626c', inner:'#ded7c8',
     pants:'#515d6d', pantsLight:'#747f8e', shoe:'#51545a', sole:'#ddd8cc',
   },
   reviewer: {
+    name:'Jules',
     skin:'#edc3a0', skinShade:'#c49572', hair:'#66616a', hairLight:'#b8b6b1',
     cloth:'#b17e73', light:'#d3a192', shade:'#895e5b', inner:'#e7decc',
     pants:'#63616b', pantsLight:'#8b858c', shoe:'#584841', sole:'#ae9785',
   },
   human: {
+    name:'Alex',
     skin:'#dba480', skinShade:'#b77957', hair:'#493c32', hairLight:'#7b5d43',
     cloth:'#c7b89b', light:'#e8dcc5', shade:'#998a75', inner:'#f0e6d5',
     pants:'#70808d', pantsLight:'#9ba5ad', shoe:'#dcd7cc', sole:'#847d74',
   },
+  otto: {name:'Otto'},
 };
 
 const INK='#574f4b', EYE='#403b39';
@@ -224,6 +231,7 @@ export function drawCharacter(p,person,dir,frame=0,{seated=false,blink=false}={}
   // Mirror about the same central pixel column, keeping head and feet registered.
   if(dir==='left'){p.c.translate(33,0);p.c.scale(-1,1);dir='right';}
   shadow(p,seated);
+  if(id==='otto'){drawOtto(p,dir,frame,{seated,blink});p.c.restore();return;}
   legs(p,s,id,step,seated,dir);
   body(p,s,id,seated&&frame>=2?'right':dir);
   arms(p,s,id,dir,step,seated,seated&&frame>=2);

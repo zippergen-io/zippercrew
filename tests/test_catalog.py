@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from conftest import request, wait_state
 
 from zippercrew.catalog import Catalog
@@ -75,11 +76,12 @@ def test_drafts_persist_before_workspace_exists_and_validate_at_start(service):
     assert request(base, f"/api/rooms/{room['id']}/context")[1]["runs"] == []
 
 
-def test_avatar_and_model_choices_persist_without_changing_role(service, config):
+@pytest.mark.parametrize("avatar", ["planner", "otto"])
+def test_avatar_and_model_choices_persist_without_changing_role(service, config, avatar):
     app, base, project = service
     config.update(project=str(project), human_mode="auto", max_rounds=1)
     config["agents"]["Implementer"].update(
-        avatar="planner",
+        avatar=avatar,
         instructions="Keep the change focused.",
         settings={"model": "chosen-model"},
     )
@@ -90,7 +92,7 @@ def test_avatar_and_model_choices_persist_without_changing_role(service, config)
     path = f"/api/rooms/{room['id']}"
     restored = Catalog(app.rooms.root, Runs(app.runs.root)).get(room["id"])
     binding = restored["config"]["agents"]["Implementer"]
-    assert binding["avatar"] == "planner"
+    assert binding["avatar"] == avatar
     assert binding["instructions"] == "Keep the change focused."
     assert binding["settings"] == {"model": "chosen-model"}
     invalid = json.loads(json.dumps(restored["config"]))
