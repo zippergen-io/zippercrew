@@ -193,7 +193,7 @@ export class OfficeConfiguration {
     advanced.append(node('summary','Advanced'),field('Maximum rounds',rounds));if(this.workflow!=='direct')advanced.append(field('Your involvement',involvement));
     const status=node('span','','autosave-status'),retry=button('Retry save',()=>this.options.flush(draft.id).catch(()=>{})),saveLine=node('div','','autosave-line room-save-status');
     status.setAttribute('role','status');retry.className='retry-save';saveLine.append(status,retry);
-    const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':this.options.dirty(draft)?'Unsaved changes':'Saved automatically';status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;};
+    const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':this.options.dirty(draft)?'Unsaved changes':'';saveLine.hidden=!status.textContent;status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;};
     draft.listeners.clear();draft.listeners.add(update);update();
     for(const [key,control]of Object.entries({name,workspace:path,max_rounds:rounds,human_mode:involvement})){
       control.oninput=()=>this.options.edit(draft,key,control.value);
@@ -232,7 +232,7 @@ export class OfficeConfiguration {
     status.setAttribute('role','status');retry.className='retry-save';
     const saveLine=node('div','','autosave-line');saveLine.append(status,retry);
     const start=button('Run task',null,true);start.type='submit';
-    const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':draft.value!==draft.saved?'Unsaved changes':'Saved automatically';status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;start.disabled=!!this.missing().length;start.title=this.missing().join(' · ');};
+    const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':draft.value!==draft.saved?'Unsaved changes':'';saveLine.hidden=!status.textContent;status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;start.disabled=!!this.missing().length;start.title=this.missing().join(' · ');};
     draft.listeners.clear();draft.listeners.add(update);update();
     brief.oninput=()=>this.drafts.edit(draft,brief.value);brief.onblur=()=>this.drafts.flush(draft.id).catch(()=>{});
     const editor=node('div','','form-field');brief.setAttribute('aria-label','Task');brief.setAttribute('aria-describedby','detail-description');editor.append(brief);

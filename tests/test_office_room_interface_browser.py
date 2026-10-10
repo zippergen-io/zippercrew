@@ -86,9 +86,7 @@ def test_studio_room_workflow_objects_and_direct_execution(service):
         expect(page.locator(".folder-location")).to_have_text(str(project))
         capture(page, "studio-repository-browser-day")
         page.get_by_role("button", name="Use this folder", exact=True).click()
-        expect(page.locator(".room-save-status .autosave-status")).to_have_text(
-            "Saved automatically"
-        )
+        expect(page.locator(".room-save-status .autosave-status")).to_have_text("")
         page.locator("#close-detail").click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         for actor in ["worker", "reviewer"]:

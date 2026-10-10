@@ -18,7 +18,7 @@ function excerpt(text,width){
   return part.slice(0,space>width/2?space:part.length).trimEnd()+'...';
 }
 export function boardCopy(brief){
-  const lines=plain(brief||'').split('\n').map(line=>line.replace(/^\s*[-+]+\s*/,'').trim()).filter(Boolean);
+  const lines=plain(brief||'').split('\n').map(line=>line.trim()).filter(Boolean);
   if(!lines.length)return {title:'ADD TASK',lines:['WHAT SHOULD THE TEAM DO?','CLICK TO DEFINE THE TASK']};
   if((lines.join('').match(/\?/g)||[]).length>lines.join('').length/4)
     return {title:'CURRENT TASK',lines:['OPEN THE BOARD','TO READ THE FULL BRIEF']};
@@ -108,7 +108,7 @@ export class TaskBoard {
     }
     pixelText(p,this.copy.title,11,11,'ink');
     this.copy.lines.forEach((line,i)=>{
-      p.r(11,21+i*7,2,1,'coral');pixelText(p,line,16,19+i*7,'muted');
+      pixelText(p,line,11,19+i*7,'muted');
     });
     // An inset divider and five clear pixels under the status baseline.
     p.r(11,33,w-27,1,'line');

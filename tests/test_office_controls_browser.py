@@ -45,7 +45,7 @@ def test_task_autosave_serializes_retries_and_run_uses_latest_draft(service):
         page.evaluate("() => {studio.session.configuration.editTask();}")
         task = page.get_by_label("Task", exact=True)
         task.fill("First task")
-        expect(page.locator(".autosave-status")).to_have_text("Saved automatically")
+        expect(page.locator(".autosave-status")).to_have_text("")
         assert app.rooms.get(room["id"])["brief"] == "First task"
         assert page.get_by_role("button", name="Save task", exact=True).count() == 0
         expect(page.locator("#scene-state")).to_have_attribute("data-state", "ready")
@@ -64,7 +64,7 @@ def test_task_autosave_serializes_retries_and_run_uses_latest_draft(service):
         assert len(held) == 1
         task.fill("Newer edit")
         held[0][0].fulfill(response=held[0][1])
-        expect(page.locator(".autosave-status")).to_have_text("Saved automatically")
+        expect(page.locator(".autosave-status")).to_have_text("")
         assert app.rooms.get(room["id"])["brief"] == "Newer edit"
         page.unroute("**/api/rooms/*/save")
 
@@ -82,7 +82,7 @@ def test_task_autosave_serializes_retries_and_run_uses_latest_draft(service):
         expect(page.locator(".autosave-status")).to_contain_text("Not saved")
         page.unroute("**/api/rooms/*/save")
         page.get_by_role("button", name="Retry save", exact=True).click()
-        expect(page.locator(".autosave-status")).to_have_text("Saved automatically")
+        expect(page.locator(".autosave-status")).to_have_text("")
         capture(page, "office-task-autosave-day")
         # Running immediately after typing must flush the debounce first.
         task.fill("Use this latest task for the run")
@@ -129,9 +129,7 @@ def test_room_options_autosave_keeps_newer_edits_and_flushes_before_workflow_and
         assert page.get_by_role("button", name="Save room options", exact=True).count() == 0
         name.fill("Calm workshop")
         expect(page.locator("#room-name")).to_have_text("Calm workshop")
-        expect(page.locator(".room-save-status .autosave-status")).to_have_text(
-            "Saved automatically"
-        )
+        expect(page.locator(".room-save-status .autosave-status")).to_have_text("")
 
         held = []
 
@@ -151,9 +149,7 @@ def test_room_options_autosave_keeps_newer_edits_and_flushes_before_workflow_and
         rounds = page.get_by_label("Maximum rounds", exact=True)
         rounds.fill("7")
         held[0][0].fulfill(response=held[0][1])
-        expect(page.locator(".room-save-status .autosave-status")).to_have_text(
-            "Saved automatically"
-        )
+        expect(page.locator(".room-save-status .autosave-status")).to_have_text("")
         expect(path).to_have_value(str(final_folder))
         assert app.rooms.get(room["id"])["config"]["workspace"] == str(final_folder)
         assert app.rooms.get(room["id"])["config"]["max_rounds"] == 7
@@ -169,9 +165,7 @@ def test_room_options_autosave_keeps_newer_edits_and_flushes_before_workflow_and
         page.locator("#room-header").click()
         page.locator(".extra-options summary").click()
         page.get_by_label("Your involvement", exact=True).select_option("full")
-        expect(page.locator(".room-save-status .autosave-status")).to_have_text(
-            "Saved automatically"
-        )
+        expect(page.locator(".room-save-status .autosave-status")).to_have_text("")
         assert app.rooms.get(room["id"])["config"]["human_mode"] == "full"
         rounds.fill("0")
         rounds.press("Tab")
@@ -180,9 +174,7 @@ def test_room_options_autosave_keeps_newer_edits_and_flushes_before_workflow_and
         )
         assert app.rooms.get(room["id"])["config"]["max_rounds"] == 9
         rounds.fill("10")
-        expect(page.locator(".room-save-status .autosave-status")).to_have_text(
-            "Saved automatically"
-        )
+        expect(page.locator(".room-save-status .autosave-status")).to_have_text("")
 
         page.route(
             "**/api/rooms/*/save",
@@ -199,9 +191,7 @@ def test_room_options_autosave_keeps_newer_edits_and_flushes_before_workflow_and
         page.unroute("**/api/rooms/*/save")
         page.get_by_role("button", name="Retry save", exact=True).click()
         expect(page.locator("#room-name")).to_have_text("Gentle studio")
-        expect(page.locator(".room-save-status .autosave-status")).to_have_text(
-            "Saved automatically"
-        )
+        expect(page.locator(".room-save-status .autosave-status")).to_have_text("")
         capture(page, "room-options-autosave-day")
         page.locator("#close-detail").click()
         page.get_by_role("button", name="Night mode", exact=True).click()
