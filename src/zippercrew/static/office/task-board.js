@@ -42,7 +42,7 @@ export function boardStatus(run,connected,hasRoom){
   if(run.status==='stopped')return {text:round+'STOPPED',accent:'amber'};
   if(run.status==='completed')return {text:round+'COMPLETED',accent:'blue'};
   if(run.pending)return {text:round+'YOUR DECISION',accent:'amber'};
-  if(run.participants?.Reviewer==='reviewing')return {text:round+'REVIEWING',accent:'coral'};
+  if([run.participants?.Reviewer,run.participants?.Critic].includes('reviewing'))return {text:round+'REVIEWING',accent:'coral'};
   if(run.participants?.Implementer==='working')return {text:round+'IN PROGRESS',accent:'blue'};
   return {text:round+'WAITING',accent:'blue'};
 }

@@ -151,8 +151,7 @@ class Catalog:
                         )
                         if meaningful and data.get("confirm_workflow") is not True:
                             raise Conflict(
-                                "Confirm the workflow change to remove "
-                                "the Reviewer's configuration."
+                                f"Confirm the workflow change to remove the {role}'s configuration."
                             )
                     record["config"] = config
                     record["process"] = WORKFLOWS[config["workflow"]]["name"]

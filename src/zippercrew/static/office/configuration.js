@@ -7,7 +7,9 @@ import {RoomOptions} from './room-options.js';
 import {CHARACTER_DESIGNS} from './characters.js';
 const $=id=>document.getElementById(id);
 const avatars=Object.entries(CHARACTER_DESIGNS).map(([id,design])=>[id,design.name]);
-const roleNames={worker:'Worker',reviewer:'Reviewer'};
+const roleNames={worker:'Worker',reviewer:'Reviewer',planner:'Critical reviewer'};
+const actorForRole={Implementer:'worker',Reviewer:'reviewer',Critic:'planner'};
+const formation=id=>id==='direct'?'You → Worker → You':id==='double_review'?'You → Worker → Two reviewers → You':'You → Worker → Reviewer → You';
 
 // Studio preferences, room formation, and role bindings have separate owners.
 // Every execution still consumes an immutable snapshot of its room.
@@ -19,8 +21,8 @@ export class OfficeConfiguration {
   }
   get editable(){return !!this.session.room&&terminal(this.session.run);}
   get workflow(){return this.session.room?.config.workflow||'review';}
-  get team(){return (this.workflow==='direct'?['worker']:['worker','reviewer']).map(id=>[id,roleNames[id]]);}
-  get workflows(){return this.session.bootstrap.workflows;}
+  get team(){return (this.workflows[this.workflow]?.roles||[]).map(role=>{const id=actorForRole[role];return [id,this.workflow==='double_review'&&id==='reviewer'?'Delivery reviewer':roleNames[id]];});}
+  get workflows(){return this.session.bootstrap?.workflows||{};}
   binding(id){return this.session.room?.config.agents?.[roles[id]]||{};}
   hasModel(id){const b=this.binding(id);return !!(b.profile&&(this.session.bootstrap?.demo||this.session.profiles[b.profile]));}
   isReady(id){return this.hasModel(id);}
@@ -34,8 +36,8 @@ export class OfficeConfiguration {
   }
   sync(){
     this.scene.setWorkflow(this.workflow);
-    for(const [id]of this.team){
-      const p=this.scene.people.get(id);p.appearance=this.binding(id).avatar||id;
+    for(const [id,name]of this.team){
+      const p=this.scene.people.get(id);p.role=name;p.appearance=this.binding(id).avatar||id;
       p.name=CHARACTER_DESIGNS[p.appearance].name;
       p.sprite.setTexture(this.scene.lighting.characterKey(p),p.sprite.frame.name);
       const tag=p.nameTag;tag.setTexture(this.scene.nameTexture(p));
@@ -100,6 +102,8 @@ export class OfficeConfiguration {
     const key=`${this.session.room?.id}:${person.id}:${this.editable}`;if(host.dataset.key===key)return;host.dataset.key=key;host.replaceChildren();
     if(!this.session.room){host.append(button('+ New room',()=>this.newRoom(),true));return;}
     const s=this.session,id=person.id,b=this.binding(id),profile=s.profiles[b.profile];
+    const explanation=this.workflows[this.workflow]?.role_descriptions?.[roles[id]];
+    if(explanation)host.append(node('p',explanation,'field-help role-explanation'));
     const form=node('form','','agent-form'),choices=node('div','','agent-avatar-options');
     choices.setAttribute('role','group');choices.setAttribute('aria-label','Avatar');
     let appearance=b.avatar||id;
@@ -158,7 +162,7 @@ export class OfficeConfiguration {
     const list=node('div','','workflow-options');
     for(const [id,w]of Object.entries(this.workflows)){
       const card=button('',()=>action(id));card.className='choice-card workflow-choice';card.dataset.workflow=id;card.setAttribute('aria-label',w.name);card.setAttribute('aria-pressed',String(id===selected));
-      card.append(node('strong',w.name),node('span',id==='direct'?'You → Worker → You':'You → Worker → Reviewer → You','formation'),node('small',w.description));list.append(card);
+      card.append(node('strong',w.name),node('span',formation(id),'formation'),node('small',w.description));list.append(card);
     }
     host.append(list);
   }
@@ -178,15 +182,15 @@ export class OfficeConfiguration {
     s.window('room','Studio / Room',s.room.name);
     const draft=this.options.get(s.room);
     const current=this.workflows[this.workflow],workflow=button('',()=>s.perform(async()=>{await this.options.flush(draft.id);this.workflowChooser();}));workflow.className='room-workflow';workflow.disabled=!this.editable;
-    workflow.append(node('small','Workflow'),node('strong',`${current.name}  ›`),node('span',this.workflow==='direct'?'You → Worker → You':'You → Worker → Reviewer → You','formation'));
+    workflow.append(node('small','Workflow'),node('strong',`${current.name}  ›`),node('span',formation(this.workflow),'formation'));
     const form=node('form','','room-form'),name=input('settings-room-name',draft.value.name),path=input('settings-workspace',draft.value.workspace);
     name.maxLength=120;name.required=true;name.className='room-title-input';name.setAttribute('aria-label','Room name');name.title='Edit room name';
     $('detail-title').replaceChildren(name);
     path.placeholder='~/projects/my-app';path.disabled=!this.editable;
     form.append(repositoryField(path));
     const advanced=node('details','','extra-options'),rounds=input('settings-rounds',draft.value.max_rounds);rounds.type='number';rounds.min=1;rounds.max=100;rounds.disabled=!this.editable;
-    const involvement=select('settings-involvement',[['brief','Short review'],['full','Full review'],['auto','Let the reviewer decide']],draft.value.human_mode);involvement.disabled=!this.editable;
-    advanced.append(node('summary','Advanced'),field('Maximum rounds',rounds));if(this.workflow==='review')advanced.append(field('Your involvement',involvement));
+    const involvement=select('settings-involvement',[['brief','Short review'],['full','Full review'],['auto',this.workflow==='double_review'?'Require both reviewers’ approval':'Let the reviewer decide']],draft.value.human_mode);involvement.disabled=!this.editable;
+    advanced.append(node('summary','Advanced'),field('Maximum rounds',rounds));if(this.workflow!=='direct')advanced.append(field('Your involvement',involvement));
     const status=node('span','','autosave-status'),retry=button('Retry save',()=>this.options.flush(draft.id).catch(()=>{})),saveLine=node('div','','autosave-line room-save-status');
     status.setAttribute('role','status');retry.className='retry-save';saveLine.append(status,retry);
     const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':this.options.dirty(draft)?'Unsaved changes':'Saved automatically';status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;};
@@ -200,7 +204,9 @@ export class OfficeConfiguration {
     form.append(advanced,saveLine);form.onsubmit=e=>{e.preventDefault();this.options.flush(draft.id).catch(()=>{});};
     const team=node('details','','room-team');team.append(node('summary','Team'));const roster=node('div');this.roster(roster);team.append(roster);
     const remove=button('Delete room',()=>this.deleteRoom(s.room));remove.className='quiet-danger';
-    $('detail-body').append(workflow,form,team,remove);
+    const help=node('details','','workflow-help');help.append(node('summary','How this workflow works'),node('p',current.explanation,'field-help'));
+    for(const [role,text]of Object.entries(current.role_descriptions||{}))if(role!=='Implementer')help.append(node('p',text,'field-help'));
+    $('detail-body').append(workflow,help,form,team,remove);
     if(!this.editable)$('detail-body').append(node('p','Stop or finish this run before changing its room.','field-help'));
   }
   workflowChooser(){
@@ -215,8 +221,8 @@ export class OfficeConfiguration {
     const removed=Object.entries(config.agents).filter(([role,b])=>!retained[role]&&(b.instructions||Object.keys(b.settings||{}).length||b.avatar||(b.profile&&b.profile!=='demo')));
     const save=confirm=>s.perform(async()=>{await this.save({config:{...config,workflow:id,agents:retained},confirm_workflow:confirm});s.confirmInOffice('worker',`${this.workflows[id].name} workflow ready.`);});
     if(!removed.length){save(false);return;}
-    s.window('workflow-confirm',`${s.room.name} / Workflow`,'Switch to Direct?','This removes the Reviewer and its saved model, avatar, and instructions. The Worker, task, and previous runs are kept.');
-    const actions=node('div','','form-actions');actions.append(button('Keep Review',()=>this.roomPanel()),button('Switch to Direct',()=>save(true),true));$('detail-body').append(actions);
+    s.window('workflow-confirm',`${s.room.name} / Workflow`,`Switch to ${this.workflows[id].name}?`,`This removes ${removed.map(([role])=>role==='Critic'?'the Critical reviewer':'the Reviewer').join(' and ')} and their saved configuration. The Worker, task, and previous runs are kept.`);
+    const actions=node('div','','form-actions');actions.append(button(`Keep ${this.workflows[this.workflow].name}`,()=>this.roomPanel()),button(`Switch to ${this.workflows[id].name}`,()=>save(true),true));$('detail-body').append(actions);
   }
   editTask(){
     const s=this.session;if(!s.room){this.newRoom();return;}if(!this.editable){s.showTask();return;}
@@ -245,7 +251,7 @@ export class OfficeConfiguration {
       enter.append(mark);if(current)enter.setAttribute('aria-current','location');
       const info=node('div','','room-entry'),name=button(room.name,()=>this.renameRoom(room,name,enter,trash));
       name.className='room-entry-name';name.title='Rename room';name.setAttribute('aria-label',`Rename ${room.name}`);
-      const workflow=room.config.workflow==='direct'?'Direct':'Review',status=room.latest?.status||'idle';
+      const workflow=this.workflows[room.config.workflow||'review'].name,status=room.latest?.status||'idle';
       info.append(name,node('small',`${workflow} · ${status}`,'room-entry-meta'));
       const trash=button('',()=>this.deleteRoom(room));trash.setAttribute('aria-label',`Delete ${room.name}`);trash.className='delete-room';
       const icon=document.createElementNS('http://www.w3.org/2000/svg','svg'),use=document.createElementNS('http://www.w3.org/2000/svg','use');icon.classList.add('icon');icon.setAttribute('aria-hidden','true');use.setAttribute('href','#i-trash');icon.append(use);trash.append(icon);

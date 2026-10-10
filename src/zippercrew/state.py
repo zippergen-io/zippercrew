@@ -119,12 +119,36 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
             if role == "Implementer":
                 state["round"] += 1
                 state["review"] = None
-            state["participants"][role] = "reviewing" if role == "Reviewer" else "working"
+            state["participants"][role] = (
+                "reviewing" if role in {"Reviewer", "Critic"} else "working"
+            )
             state.setdefault("room_status", {}).pop(role, None)
             # Action-start fallback, replaced only by observed public tool progress.
             state["local_activity"][role] = {
                 "id": event["id"],
-                "text": "Reviewing the proposal…" if role == "Reviewer" else "Working on the task…",
+                "text": {
+                    "review_delivery": (
+                        "Checking the result against the task.\nLooking for missing "
+                        "requirements and unnecessary complexity."
+                    ),
+                    "review_critical": (
+                        "Checking assumptions and edge cases.\nLooking for evidence of "
+                        "regressions or unsupported claims."
+                    ),
+                    "respond_delivery": (
+                        "Comparing the two independent reviews.\nChecking which "
+                        "objections really block delivery."
+                    ),
+                    "respond_critical": (
+                        "Checking the delivery review against the evidence.\nKeeping "
+                        "supported concerns and withdrawing disproven ones."
+                    ),
+                }.get(
+                    raw["action"],
+                    "Reviewing the proposal…"
+                    if role in {"Reviewer", "Critic"}
+                    else "Working on the task…",
+                ),
                 "source": "runtime.act_start",
                 "action": raw["action"],
                 "round": state["round"],
@@ -192,6 +216,10 @@ def project_message(state: dict[str, Any], event: dict[str, Any]) -> None:
             "proposal": "Proposal",
             "critique": "Review",
             "guidance": "Guidance",
+            "delivery": "Delivery review",
+            "critical": "Critical review",
+            "delivery_final": "Delivery response",
+            "critical_final": "Critical response",
         }
         message.update(
             fields=fields,

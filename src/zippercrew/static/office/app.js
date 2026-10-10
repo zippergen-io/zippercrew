@@ -68,6 +68,7 @@ class Studio extends Phaser.Scene {
       this.people.set(p.id,p);
     }
     this.cast=new Map(this.people);
+    this.setWorkflow('review');
     this.seating.sit(this.people.get('worker'),this.seating.chairs.get('chair-1'),true);
     this.talkDots=pixelCenter(this.add.image(0,0,labelTexture(this,'...',{background:'bubble',color:'bubbleInk',bubble:true}))).setDepth(810).setVisible(false);
     this.seating.sit(this.people.get('reviewer'),this.seating.chairs.get('chair-2'),true);
@@ -97,19 +98,21 @@ class Studio extends Phaser.Scene {
     this.session=new OfficeSession(this);this.session.boot();
   }
   setWorkflow(workflow){
-    const include=workflow!=='direct',present=this.people.has('reviewer');
-    if(include===present)return;
-    this.ambient?.cancel();this.handoffs?.cancel();
-    const p=this.cast.get('reviewer');
-    if(!include){
-      if(this.selected===p.id)this.select(null);
-      this.seating.cancelApproach(p);
-      for(const chair of this.seating.chairs.values())if(chair.occupant===p.id)chair.occupant=null;
-      p.route=[];p.transition=null;p.onArrival=null;p.seated=null;p.bubble?.destroy();p.bubble=null;
-      p.sprite.setVisible(false).disableInteractive();p.nameTag.setVisible(false);this.people.delete(p.id);
-    }else{
-      this.people.set(p.id,p);p.sprite.setVisible(true).setInteractive();p.liveStatus='Ready';
-      this.seating.sit(p,this.seating.chairs.get(p.chairId),true);
+    for(const id of ['reviewer','planner']){
+      const include=id==='planner'?workflow==='double_review':workflow!=='direct',present=this.people.has(id);
+      if(include===present)continue;
+      this.ambient?.cancel();this.handoffs?.cancel();
+      const p=this.cast.get(id);
+      if(!include){
+        if(this.selected===p.id)this.select(null);
+        this.seating.cancelApproach(p);
+        for(const chair of this.seating.chairs.values())if(chair.occupant===p.id)chair.occupant=null;
+        p.route=[];p.transition=null;p.onArrival=null;p.seated=null;p.bubble?.destroy();p.bubble=null;
+        p.sprite.setVisible(false).disableInteractive();p.nameTag.setVisible(false);this.people.delete(p.id);
+      }else{
+        this.people.set(p.id,p);p.sprite.setVisible(true).setInteractive();p.liveStatus='Ready';
+        this.seating.sit(p,this.seating.chairs.get(p.chairId),true);
+      }
     }
   }
   resize(fit=false){

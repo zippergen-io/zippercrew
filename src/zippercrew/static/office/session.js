@@ -4,10 +4,10 @@ import { OfficeDecisions } from './decisions.js';
 // The visual spike stays in spikes/pixel-office; this scene has no simulated work.
 const $ = id => document.getElementById(id);
 const terminal = state => !state || ['completed', 'failed', 'stopped'].includes(state.status);
-const roles = {worker: 'Implementer', reviewer: 'Reviewer', human: 'Human'};
+const roles = {worker: 'Implementer', reviewer: 'Reviewer', planner: 'Critic', human: 'Human'};
 // Journals record roles, not avatar identities; never attach today's face/name
 // to an older run or keep a hard-coded Theo/Jules after an avatar change.
-const names = {Implementer: 'Worker', Reviewer: 'Reviewer', Human: 'You'};
+const names = {Implementer: 'Worker', Reviewer: 'Reviewer', Critic: 'Critical reviewer', Human: 'You'};
 const node = (tag, text = '', className = '') => {
   const result = document.createElement(tag);
   result.textContent = text;
@@ -250,7 +250,7 @@ export class OfficeSession {
     $('room-header').setAttribute('aria-label',pending?'Your decision':'Room options');
     $('room-header').title=pending?'Your decision':'Room options';
     $('scene-state').dataset.state=!this.initialized||!this.connected?'neutral':pending?'attention':missing.length?'setup':'ready';
-    const prefix=(this.bootstrap?.demo?'Demo · ':'')+(this.room?`${this.configuration.workflow==='direct'?'Direct':'Review'} · `:'');
+    const prefix=(this.bootstrap?.demo?'Demo · ':'')+(this.room?`${this.configuration.workflows[this.configuration.workflow].name} · `:'');
     let status=!this.bootstrap?'Connecting…':!this.room?'Ready for your first room':!run?missing.length?'Setup needed':'Ready to start':pending?'Your decision':run.status;
     if(run&&!terminal(run)&&!this.connected)status='Reconnecting…';
     $('scene-state').replaceChildren(document.createTextNode(prefix),node('span',status.charAt(0).toUpperCase()+status.slice(1),pending?'attention-state':''));
@@ -421,7 +421,7 @@ export class OfficeSession {
     container.append(node('h3', owner && roles[owner] ? `${names[roles[owner]]} · messages` : 'Conversation'));
     for (const entry of entries) {
       const details = node('details', '', 'run-message');
-      details.append(node('summary', `${names[entry.role] || entry.role} · Round ${entry.round || 1}`));
+      details.append(node('summary', `${run.config.workflow==='double_review'&&entry.role==='Reviewer'?'Delivery reviewer':names[entry.role] || entry.role} · Round ${entry.round || 1}${entry.action?.startsWith('respond_')?' · After exchange':entry.action?.startsWith('review_')?' · Independent review':''}`));
       for (const [key, value] of Object.entries(entry.outputs || {})) {
         details.append(node('h4', key.replaceAll('_', ' ')), node('pre', typeof value === 'string' ? value : JSON.stringify(value, null, 2), 'message-text'));
       }

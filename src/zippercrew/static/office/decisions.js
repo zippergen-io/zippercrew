@@ -55,15 +55,17 @@ export class OfficeDecisions {
     host.dataset.key=key;host.replaceChildren();
     const select=pending.spec.kind==='select',choices=(pending.spec.rendered?.prefill||'').split('\n').filter(Boolean);
     const recommended=choices.includes(summary.recommendation)?summary.recommendation:null;
-    const title=recommended?`Reviewer recommends ${recommended.toLowerCase()}`:run.config.workflow==='direct'?'The Worker’s result is ready':'Review needs your decision';
+    const paired=run.config.workflow==='double_review';
+    const title=paired?(summary.disagreement?'The reviewers disagree':recommended?`Both reviewers recommend ${recommended.toLowerCase()}`:'Reviews need your decision'):recommended?`Reviewer recommends ${recommended.toLowerCase()}`:run.config.workflow==='direct'?'The Worker’s result is ready':'Review needs your decision';
     host.append(node('h3',select?title:'Add any final guidance','decision-recommendation'));
-    if(summary.reason)host.append(node('p',summary.reason,'decision-reason'));
+    if(summary.reason)host.append(node('p',paired&&summary.disagreement?summary.reason.replace(/^The reviewers disagree\. /,''):summary.reason,'decision-reason'));
+    if(paired){const opinions=node('div','','reviewer-opinions');for(const review of summary.reviewers||[]){const item=node('p','','field-help');item.append(node('strong',review.name+' · '),node('span',review.recommendation||'Needs clarification'));opinions.append(item);}host.append(opinions);}
     if(!s.connected)host.append(node('p','Reconnecting. Your decision will be available when the room is connected.','field-help'));
     const actions=node('div','','decision-actions');
     const noteKey=`${run.id}:${pending.id}`,savedNote=s.guidanceDrafts.get(noteKey)||'';
     const limit=run.round>=run.config.max_rounds;
     if(select){
-      const primary=recommended||(choices.includes('Done')?'Done':choices.includes('Ship it')?'Ship it':choices[0]);
+      const primary=recommended||(paired&&choices.includes('Another round')?'Another round':null)||(choices.includes('Done')?'Done':choices.includes('Ship it')?'Ship it':choices[0]);
       const label=choice=>choice==='Another round'?'Run next round':choice;
       const makeAction=(choice,main=false)=>{
         const action=button(label(choice),()=>s.answer(pending.id,choice,{note:s.guidanceDrafts.get(noteKey)||'',noteKey}),main);
@@ -89,7 +91,7 @@ export class OfficeDecisions {
       const note=input('decision-note',savedNote,true);note.rows=3;note.maxLength=30000;note.disabled=!s.connected;
       note.placeholder='What would you like the Worker to focus on?';
       note.oninput=()=>s.guidanceDrafts.set(noteKey,note.value);
-      details.append(field('Optional note',note),node('p',run.config.workflow==='direct'?'Optional. Add emphasis, corrections, or extra instructions.':'Optional. The reviewer feedback will already be passed to the Worker automatically.','field-help'));
+      details.append(field('Optional note',note),node('p',run.config.workflow==='direct'?'Optional. Add emphasis, corrections, or extra instructions.':paired?'Optional. Both full reviews and their exchange are passed to the Worker automatically.':'Optional. The reviewer feedback will already be passed to the Worker automatically.','field-help'));
       host.append(details);
       // Compatibility for a pre-upgrade run already waiting at ask_note.
       if(!select){const go=button('Run next round',()=>s.answer(pending.id,note.value,{noteKey}),true);go.disabled=!s.connected;host.append(go);}
@@ -102,7 +104,9 @@ export class OfficeDecisions {
     infoTitle.id='decision-information-title';information.setAttribute('aria-labelledby',infoTitle.id);
     const why=disclosure(recommended==='Another round'?'Why another round?':recommended==='Ship it'?'Why ship it?':'Why is a decision required?','decision-disclosure');
     const worker=node('section');worker.append(node('h4','Worker'),node('p',summary.worker||withoutSummary(report(run,'Implementer'))||'No worker summary was returned.','decision-evidence'));why.content.append(worker);
-    if(run.config.workflow!=='direct'){
+    if(paired){
+      for(const review of summary.reviewers||[]){const section=node('section');section.append(node('h4',review.name),node('p',review.reason,'decision-evidence'));if(review.format_issue)section.append(node('p',review.format_issue,'field-help'));why.content.append(section);}
+    }else if(run.config.workflow!=='direct'){
       const review=node('section');review.append(node('h4','Reviewer rationale'),node('p',summary.reason||'No concise rationale was returned. Full findings are in Technical details.','decision-evidence'));why.content.append(review);
     }
     let loaded=false;

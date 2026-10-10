@@ -173,3 +173,14 @@ details[open]>.decision-nested-summary>.disclosure-icon{transform:rotate(90deg)}
 .detail-window[data-view=room] .window-footer{display:none}
 
 @media(max-width:650px){.controls-bar{gap:2px;--transport-size:33px}.controls-bar>#menu-toggle{width:33px}.run-controls{margin-right:4px}.room-name-trigger{font-size:13px}.room-presence .room-status{font-size:10px}}
+
+/* One quiet disclosure treatment, with real spacing instead of native triangles. */
+:is(.detail-window,.person-card,.studio-drawer) summary{display:flex;align-items:center;gap:10px;list-style:none}
+:is(.detail-window,.person-card,.studio-drawer) summary::-webkit-details-marker{display:none}
+:is(.detail-window,.person-card,.studio-drawer) summary::before{content:'';width:6px;height:6px;flex:0 0 6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s ease;opacity:.7}
+:is(.detail-window,.person-card,.studio-drawer) details[open]>summary::before{transform:rotate(45deg)}
+.decision-note>summary::before,.decision-nested-summary::before{display:none}
+.extra-options>summary{font-size:13.2px;font-weight:550}
+.workflow-help{margin-top:13.2px}.workflow-help>summary{color:var(--muted)}
+.workflow-help p{margin-top:11px}.role-explanation{margin:13.2px 0}
+@media(prefers-reduced-motion:reduce){summary::before{transition:none}}

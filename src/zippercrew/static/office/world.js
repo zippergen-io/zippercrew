@@ -57,6 +57,7 @@ export const WORLD = {
   ],
 };
 export const PEOPLE = [
+  {id:'planner',name:'Mira',role:'Critical reviewer',kind:'AI agent',color:'#7898aa',x:112,y:194,home:{x:112,y:194},chairId:'chair-0',direction:'up',description:'Checks assumptions, edge cases, and evidence with read-only access.',status:'Ready'},
   {id:'worker',name:'Theo',role:'Worker',kind:'AI agent',color:'#708a62',x:244,y:194,home:{x:244,y:194},chairId:'chair-1',direction:'up',description:'Works on your task with write access to the repository.',status:'Ready'},
   {id:'reviewer',name:'Jules',role:'Reviewer',kind:'AI agent',color:'#d7836e',x:394,y:201,home:{x:112,y:285},chairId:'chair-2',direction:'left',description:'Reviews the work with read-only access to the repository.',status:'Ready'},
   {id:'human',name:'You',role:'Human',kind:'That’s you',color:'#d2a34f',x:320,y:281,home:{x:244,y:285},chairId:'chair-3',direction:'down',description:'Walk around. Say hello. Make yourself at home.',status:'Taking it all in'},

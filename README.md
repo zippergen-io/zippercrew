@@ -23,7 +23,8 @@ Open **http://127.0.0.1:8765/office/** for the pixel office. The world stays ful
 setup, task messages, and decisions open in small modern windows.
 
 1. Open **⋯ → Rooms → + New room**. Optionally name it, then choose a workflow:
-   **Direct** (You → Worker → You) or **Review** (You → Worker → Reviewer → You).
+   **Direct** (You → Worker → You), **Review** (one Reviewer), or
+   **Double review** (independent Delivery and Critical reviewers).
    Choosing a workflow creates and enters the room immediately.
 2. Click the **room name** to open its compact panel. Edit the name directly in
    the heading or browse for its repository folder. Changes save automatically;
@@ -91,7 +92,29 @@ confirms deletion. Changing workflows keeps the Worker and task; removing
 configured Reviewer settings requires confirmation. Existing rooms default to Review.
 Past run snapshots and conversations retain their original workflow and participants.
 Direct always returns the result to the Human; Review additionally offers automatic
-review decisions in its advanced room options.
+review decisions in its advanced room options. Double review also offers automatic
+rounds, but only finishes successfully when both final reviews approve.
+
+Double review uses three AI participants and the existing fourth desk. The Delivery
+reviewer checks requirements, usefulness, and scope; the Critical reviewer checks
+assumptions, edge cases, and evidence. Both are read-only, have separate model/session
+bindings, and assess the same result concurrently before seeing the other's review.
+They then exchange reports and each responds once. They may agree, disagree, or withdraw
+findings; agreement is never forced. The human sees both recommendations in one compact
+panel. Full initial reviews and responses remain in History and automatically reach
+the Worker on another round, together with any optional human note. This uses four
+reviewer turns per round, so expect more model usage than ordinary Review.
+Role explanations appear on each agent card and under **How this workflow works**
+in room options; the workflow chooser gives the short version.
+
+The decision waits for both final responses, not their initial reviews. The office
+never delays execution for walking animations. In Double review, the Worker's early
+report stays available as evidence without an approval handover; pending decisions
+clear old courier animations so they cannot look like new evidence arriving afterward.
+Review summaries use the reviewer's explicit structured verdict and plain-language
+reason. An unclear format gets at most one formatting-only clarification from the
+same reviewer. Raw reports and any clarification stay in the trace, and an unresolved
+verdict never becomes an automatic approval. Older run journals remain unchanged.
 
 Creating rooms and saving configuration never launch agents. Closing a panel or entering
 another room does not stop a run. Running tasks use immutable configuration; edit roles

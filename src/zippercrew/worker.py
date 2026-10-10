@@ -16,24 +16,33 @@ from zippergen.human_tasks import build_human_task_spec, human_task_result_from_
 from zippergen.runtime import run
 
 from zippercrew.adapter import assistant_backend, load_process
-from zippercrew.decisions import decision_summary
+from zippercrew.decisions import decision_summary, double_review_summary
 from zippercrew.workflows import agent_roles, workflow_id
 
 
 def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None) -> str:
     workflow, module = load_process(workflow_id(config))
     proposal, critique, header = "", "", None
+    pair_summary = None
     bundled_note: tuple[str, str] | None = None
 
     def trace(event: dict[str, Any]) -> None:
-        nonlocal proposal, critique, header
+        nonlocal proposal, critique, header, pair_summary
         emit({"type": "runtime", "event": event})
         if event["type"] == "act" and event.get("action") == "implement":
             proposal = str(next(iter(event["outputs"].values())))
             critique, header = "", None
-        if event["type"] == "act" and event.get("action") == "review":
+            pair_summary = None
+        if event["type"] == "act" and event.get("action") in {"review", "combine_reviews"}:
             critique = next(iter(event["outputs"].values()))
-            header = module.review_header.fn(critique)
+            if event["action"] == "combine_reviews":
+                pair_summary = double_review_summary(
+                    proposal, event["inputs"]["delivery_final"], event["inputs"]["critical_final"]
+                )
+                verdict = "APPROVE" if pair_summary["recommendation"] == "Ship it" else "REVISE"
+                header = f"{verdict}|?|{pair_summary['reason']}"
+            else:
+                header = module.review_header.fn(critique)
             verdict, findings, headline = header.split("|", 2)
             emit(
                 {
@@ -55,7 +64,7 @@ def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None)
             return result
         request = {"id": uuid.uuid4().hex, "action": action.name, "spec": spec}
         if spec["kind"] == "select":
-            request["summary"] = decision_summary(proposal, critique, header)
+            request["summary"] = pair_summary or decision_summary(proposal, critique, header)
         emit({"type": "human.required", "request": request})
         value = answer(request)
         note = None
@@ -127,8 +136,10 @@ def main() -> None:
             value = f"Demo proposal, round {round_number}.\n\nNo files were changed."
         else:
             verdict = "REVISE" if round_number == 1 else "APPROVE"
+            if config.get("workflow") == "double_review" and action.name.endswith("delivery"):
+                verdict = "APPROVE"
             value = (
-                f"{verdict}\nFINDINGS: {int(round_number == 1)}\n"
+                f"{verdict}\nFINDINGS: {int(verdict == 'REVISE')}\n"
                 "Demo review of the proposal.\n\nScripted participant; no CLI was called."
             )
         return {action.outputs[0][0]: value}

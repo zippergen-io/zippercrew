@@ -22,7 +22,7 @@ export class OfficeAmbient {
   }
   start(){
     if(!this.eligible())return false;
-    const s=this.scene,people=['worker','reviewer'].map(id=>s.people.get(id)).filter(Boolean);
+    const s=this.scene,people=['worker','reviewer','planner'].map(id=>s.people.get(id)).filter(Boolean);
     const available=people.filter(p=>s.session.configuration.isReady(p.id)&&!s.activity.isWorking(p)&&!p.route.length&&!p.transition&&!p.seatApproach);
     if(!available.length)return false;
     const spot=SOCIAL_SPOTS[this.turn%SOCIAL_SPOTS.length],pair=available.length===2&&this.turn%3===0;

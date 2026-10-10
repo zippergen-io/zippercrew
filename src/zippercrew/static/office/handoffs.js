@@ -1,7 +1,7 @@
 import { labelTexture } from './art.js';
 import { PALETTES } from './palettes.js';
 
-const actors={Implementer:'worker',Reviewer:'reviewer',Human:'human',Planner:'planner'};
+const actors={Implementer:'worker',Reviewer:'reviewer',Human:'human',Planner:'planner',Critic:'planner'};
 const terminal=run=>['completed','failed','stopped'].includes(run.status);
 const face=(person,target)=>{
   const dx=target.x-person.x,dy=target.y-person.y;
@@ -15,7 +15,7 @@ const face=(person,target)=>{
 export class OfficeHandoffs {
   constructor(scene){
     this.scene=scene;this.seen=new Set();this.queue=[];this.active=null;
-    this.runId=null;this.clock=0;this.cooldown=0;this.lastSpeech=new Map();
+    this.runId=null;this.decisionId=null;this.clock=0;this.cooldown=0;this.lastSpeech=new Map();
     this.receipts=new Map();this.completed=[];
     this.note=scene.add.image(0,0,this.noteKey('worker')).setOrigin(0).setDepth(780).setVisible(false);
     this.caption=scene.add.image(0,0,labelTexture(scene,'NOTE',{color:'bubbleInk',background:'bubble'})).setOrigin(0).setDepth(781).setVisible(false);
@@ -40,7 +40,7 @@ export class OfficeHandoffs {
     this.lastSpeech.set(id,this.clock);this.scene.say(id,text,duration,'conversation');
   }
   reset(){
-    this.cancel();this.seen.clear();this.receipts.clear();this.runId=null;this.completed=[];
+    this.cancel();this.seen.clear();this.receipts.clear();this.runId=null;this.decisionId=null;this.completed=[];
     this.lastSpeech.clear();
   }
   cancel(){
@@ -60,12 +60,24 @@ export class OfficeHandoffs {
       this.seen.add(m.id);
       const sender=actors[m.from],recipient=actors[m.to];
       if(m.control||!sender||!recipient||sender===recipient||!this.scene.people.has(sender)||!this.scene.people.has(recipient))continue;
+      // The Worker report is available as evidence, not an approval request.
+      if(run.config?.workflow==='double_review'&&sender==='worker'&&recipient==='human')continue;
       if(sender==='human'){
         this.speak('human',`${m.label==='Guidance'?'GUIDANCE':'NOTE'} SENT.`);
         continue; // User movement always belongs to the user.
       }
-      const label=['Proposal','Review','Guidance','Task'].includes(m.label)?m.label:'Note';
+      const label=['Proposal','Review','Guidance','Task'].includes(m.label)?m.label:/^(Delivery|Critical) (review|response)$/.test(m.label)?'Review':'Note';
       this.queue.push({...m,label,sender,recipient,queued:this.clock});
+    }
+    // Backend decisions already include both final reviews. Do not replay an
+    // obsolete exchange as if new evidence were still arriving after that point.
+    if(run.config?.workflow==='double_review'&&run.pending){
+      if(this.active||this.queue.length||this.reducedReceipt||this.decisionId!==run.pending.id)this.cancel();
+      if(this.decisionId!==run.pending.id){
+        this.decisionId=run.pending.id;
+        this.speak('human','BOTH REVIEWS READY.\nYOUR DECISION.',{force:true});
+      }
+      return;
     }
     // A stopped or failed task must not keep acting busy. Completion allows the
     // current, already-observed handoff to finish, but drops any backlog.
@@ -170,7 +182,7 @@ export class OfficeHandoffs {
     if(trip.recipientChair)this.home(trip.recipient);
     this.scene.ui.updatePerson();
     const run=this.scene.session?.run;
-    if(run?.participants.Implementer==='waiting'&&run.participants.Reviewer==='reviewing')
+    if(run?.participants.Implementer==='waiting'&&[run.participants.Reviewer,run.participants.Critic].includes('reviewing'))
       this.speak('worker','WAITING FOR REVIEW.');
   }
   paint(trip){
