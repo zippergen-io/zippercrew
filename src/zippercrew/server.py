@@ -179,6 +179,7 @@ class Handler(BaseHTTPRequestHandler):
                         "models": self.server.models,
                         "decision_notes": True,
                         "run_pause": True,
+                        "cooperative_pause": True,
                         "checks": self.server.checks,
                         "capabilities": {
                             s.name: list(s.setting_options) for s in ASSISTANT_BACKEND_SPECS

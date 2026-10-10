@@ -73,14 +73,7 @@ export class OfficeDecisions {
         action.disabled=!s.connected||(choice==='Another round'&&limit);return action;
       };
       const controls=node('div','','decision-controls');actions.append(makeAction(primary,true));controls.append(actions);
-      const otherChoices=available.filter(choice=>choice!==primary);
-      if(limit){for(const choice of otherChoices)actions.append(makeAction(choice));}
-      else if(otherChoices.length){
-        const alternatives=disclosure('Other choices','decision-alternatives');
-        alternatives.content.className='decision-options';
-        for(const choice of otherChoices)alternatives.content.append(makeAction(choice));
-        actions.append(alternatives.control);controls.append(alternatives.content);
-      }
+      for(const choice of available)if(choice!==primary)actions.append(makeAction(choice));
       host.append(controls);
       if(limit&&choices.includes('Another round'))host.append(node('p','The round limit is reached. Finish or abandon this run.','field-help'));
     }

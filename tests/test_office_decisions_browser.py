@@ -76,8 +76,11 @@ def test_human_opens_single_decision_panel_and_recommended_action_finishes(servi
         ).not_to_be_visible()
         expect(card.get_by_role("heading", name="More information", exact=True)).to_be_visible()
         primary = card.get_by_role("button", name="Run next round", exact=True).bounding_box()
-        alternatives = card.get_by_role("button", name="Other choices", exact=True).bounding_box()
-        assert abs(primary["y"] - alternatives["y"]) < 1
+        expect(card.get_by_role("button", name="Other choices", exact=True)).to_have_count(0)
+        for label in ("Ship it", "Abandon"):
+            choice = card.get_by_role("button", name=label, exact=True)
+            expect(choice).to_be_visible()
+            assert abs(primary["y"] - choice.bounding_box()["y"]) < 1
         capture(page, "single-decision-day")
         card.get_by_role("button", name="Run next round", exact=True).click()
         expect(page.locator("#person-card")).not_to_be_visible()
@@ -168,7 +171,6 @@ def test_single_decision_sheet_has_optional_note_collapsed_evidence_and_retry(se
         )["inputs"]["guidance"]
         assert "Keep the current office layout." in guidance and "FINDINGS: 1" in guidance
         page.locator("#scene-state").click()
-        page.get_by_text("Other choices", exact=True).click()
         page.get_by_role("button", name="Abandon", exact=True).click()
         page.wait_for_function("() => studio.session.run.status==='completed'")
         expect(page.locator("#detail-dialog")).not_to_be_visible()
@@ -258,7 +260,14 @@ def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(
         pause = page.get_by_role("button", name="Pause run", exact=True)
         expect(pause).to_be_visible()
         assert transport_positions() == positions
+        page.wait_for_function("() => Object.keys(studio.session.run.active_calls||{}).length>0")
         pause.click()
+        expect(page.locator("#scene-state")).to_contain_text("Pausing…")
+        expect(pause).to_be_disabled()
+        expect(page.get_by_role("button", name="Resume run", exact=True)).to_be_enabled()
+        assert transport_positions() == positions
+        assert page.evaluate("studio.activity.isWorking(studio.people.get('worker'))") is True
+        capture(page, "run-pausing")
         expect(page.locator("#scene-state")).to_contain_text("Paused")
         assert transport_positions() == positions
         run_id = page.evaluate("studio.session.run.id")

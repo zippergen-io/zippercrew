@@ -69,10 +69,14 @@ export class OfficeHandoffs {
       const label=['Proposal','Review','Guidance','Task'].includes(m.label)?m.label:/^(Delivery|Critical) (review|response)$/.test(m.label)?'Review':'Note';
       this.queue.push({...m,label,sender,recipient,queued:this.clock});
     }
-    // Backend decisions already include both final reviews. Do not replay an
-    // obsolete exchange as if new evidence were still arriving after that point.
+    // The decision is ready independently of animation. Drop obsolete peer
+    // exchanges, but let the final reviews reach the Human without turning a
+    // courier around halfway there. Repeated snapshots must preserve the trip.
     if(run.config?.workflow==='double_review'&&run.pending){
-      if(this.active||this.queue.length||this.reducedReceipt||this.decisionId!==run.pending.id)this.cancel();
+      const finalReview=trip=>trip?.recipient==='human'&&['reviewer','planner'].includes(trip.sender)&&trip.round===run.round;
+      const deliveries=this.queue.filter(finalReview);
+      if((this.active&&!finalReview(this.active))||(this.reducedReceipt&&!finalReview(this.reducedReceipt)))this.cancel();
+      this.queue=deliveries;
       if(this.decisionId!==run.pending.id){
         this.decisionId=run.pending.id;
         this.speak('human','BOTH REVIEWS READY.\nYOUR DECISION.',{force:true});

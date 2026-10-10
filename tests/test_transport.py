@@ -1,4 +1,4 @@
-"""Pause must suspend real local work, retain context, and remain stoppable."""
+"""Cooperative pause drains admitted CLI calls and gates subsequent calls."""
 
 import json
 import os
@@ -53,9 +53,8 @@ def test_stop_accepts_denied_cleanup_only_after_the_whole_group_has_exited(
             run.process.wait(timeout=3)
 
 
-@pytest.mark.parametrize("action", ["stop", "pause", "resume"])
 def test_denied_process_control_preserves_state_and_reports_a_useful_error(
-    tmp_path, config, monkeypatch, action
+    tmp_path, config, monkeypatch
 ):
     run = Run(tmp_path / "run", config, "denied")
     run.root.mkdir()
@@ -63,8 +62,6 @@ def test_denied_process_control_preserves_state_and_reports_a_useful_error(
         [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
     )
     run.record({"type": "room.started"})
-    if action == "resume":
-        run.pause()
     previous = run.snapshot()
     real_signal = os.killpg
 
@@ -74,16 +71,9 @@ def test_denied_process_control_preserves_state_and_reports_a_useful_error(
     monkeypatch.setattr("zippercrew.rooms.os.killpg", denied)
     try:
         with pytest.raises(Conflict, match="operating system denied permission"):
-            getattr(run, action)()
+            run.stop()
         assert run.snapshot() == previous
         assert run.process.poll() is None
-        if action == "resume":
-            # A buffered Human event must not turn a denied resume into success.
-            with pytest.raises(Conflict, match="operating system denied permission"):
-                run.record({"type": "human.required", "request": {"id": "buffered"}})
-            assert run.snapshot() == previous
-        if action == "pause":
-            assert run.pause_guard is None
     finally:
         monkeypatch.setattr("zippercrew.rooms.os.killpg", real_signal)
         run.stop()
@@ -102,72 +92,64 @@ def test_cleanup_verification_does_not_ignore_live_members(tmp_path, config, mon
     assert run._group_is_gone() is (listing == "123 S\n999 Z\n")
 
 
-@pytest.mark.parametrize("finish", ["resume", "human_gate", "stop", "service_lost"])
-def test_pause_suspends_children_and_never_leaves_a_frozen_group(tmp_path, config, finish):
-    run = Run(tmp_path / "run", config, "test")
-    run.root.mkdir()
-    heartbeat = tmp_path / "heartbeat"
-    child = (
-        "import pathlib,sys,time\n"
-        "p=pathlib.Path(sys.argv[1])\n"
-        "while True:\n"
-        "    p.write_text(str(time.monotonic_ns()))\n"
-        "    time.sleep(.03)\n"
-    )
-    parent = (
-        "import subprocess,sys,time; "
-        "subprocess.Popen([sys.executable,'-c',sys.argv[1],sys.argv[2]]); time.sleep(60)"
-    )
-    run.process = subprocess.Popen(
-        [sys.executable, "-c", parent, child, str(heartbeat)], start_new_session=True
-    )
+@pytest.mark.parametrize("request_before_finish", [False, True])
+def test_pause_before_first_call_blocks_admission_and_repeated_requests_do_not_duplicate_it(
+    tmp_path, config, request_before_finish
+):
+    from io import StringIO
+    from types import SimpleNamespace
+
+    run = Run(tmp_path, config, "before-first-call")
+    run.process = SimpleNamespace(stdin=StringIO(), poll=lambda: None)
     run.record({"type": "room.started"})
-    try:
-        eventually(heartbeat.exists)
-        run.pause()
-        assert run.snapshot()["status"] == "paused"
-        time.sleep(0.1)  # Allow delivery of SIGSTOP to the whole group.
-        stamp = heartbeat.read_text()
-        time.sleep(0.2)
-        assert heartbeat.read_text() == stamp
-        if finish in {"resume", "human_gate"}:
-            pid = run.process.pid
-            if finish == "resume":
-                run.resume()
-            else:
-                # A Human request already buffered in stdout when Pause arrived.
-                run.record({"type": "human.required", "request": {"id": "buffered"}})
-                assert run.snapshot()["pending"]["id"] == "buffered"
-            assert run.snapshot()["status"] == "running" and run.process.pid == pid
-            eventually(lambda: heartbeat.read_text() != stamp)
-            assert run.pause_guard is None
-        elif finish == "service_lost":
-            guard = run.pause_guard
-            run.pause_guard = None
-            guard.stdin.close()  # The same EOF the guard receives on a service crash.
-            run.process.wait(timeout=5)
-            guard.wait(timeout=5)
-            after = heartbeat.read_text()
-            time.sleep(0.1)
-            assert heartbeat.read_text() == after
-        else:
-            run.stop()
-            assert run.snapshot()["status"] == "stopped"
-            assert run.process.poll() is not None and run.pause_guard is None
-    finally:
-        run.stop()
+    run.pause()
+    assert run.snapshot()["status"] == "pausing"
+    call = {
+        "type": "assistant.call_requested",
+        "call_id": "first",
+        "role": "Implementer",
+        "action": "implement",
+    }
+    run._worker_event(call)
+    run.pause()
+    assert run.snapshot()["status"] == "paused"
+    assert not run.snapshot()["active_calls"]
+    assert run.process.stdin.getvalue() == ""
+    run.resume()
+    assert json.loads(run.process.stdin.getvalue()) == {
+        "control": "call_allowed",
+        "call_id": "first",
+    }
+    with pytest.raises(Conflict):
+        run.resume()
+    assert len(run.process.stdin.getvalue().splitlines()) == 1
+    run.pause()
+    assert run.snapshot()["status"] == "pausing"
+    if request_before_finish:
+        run._worker_event({**call, "call_id": "second"})
+        assert run.snapshot()["status"] == "pausing"
+    run._worker_event({"type": "assistant.call_finished", "call_id": "first"})
+    if not request_before_finish:
+        assert run.snapshot()["status"] == "pausing"
+        run._worker_event({**call, "call_id": "second"})
+    assert run.snapshot()["status"] == "paused"
 
 
-def test_http_pause_resume_retains_native_run_and_rejects_pause_at_human_gate(service, config):
+def test_http_pause_resume_retains_run_and_rejects_pause_at_human_gate(
+    service, config, monkeypatch
+):
+    monkeypatch.setenv("ZIPPERCREW_DEMO_TURN_SECONDS", "0.7")
     app, base, project = service
     config.update(project=str(project))
     _, first = request(base, "/api/rooms", config)
     run = app.runs.get(first["id"])
     pid = run.process.pid
-    wait_state(base, first["id"], lambda state: state["round"] == 1)
+    wait_state(base, first["id"], lambda state: bool(state["active_calls"]))
     assert request(base, f"/api/runs/{run.state['id']}/pause", {})[0] == 200
-    assert run.snapshot()["status"] == "paused"
+    assert run.snapshot()["status"] == "pausing"
     assert request(base, f"/api/runs/{run.state['id']}/pause", {})[0] == 200
+    wait_state(base, first["id"], lambda state: state["status"] == "paused")
+    assert not run.snapshot()["active_calls"]
     assert request(base, f"/api/runs/{run.state['id']}/resume", {})[0] == 200
     assert run.process.pid == pid
     pending = wait_state(base, first["id"], lambda state: state["pending"])["pending"]
@@ -187,4 +169,9 @@ def test_http_pause_resume_retains_native_run_and_rejects_pause_at_human_gate(se
     events = [
         json.loads(line)["type"] for line in (run.root / "events.jsonl").read_text().splitlines()
     ]
-    assert events.count("room.paused") == events.count("room.resumed") == 1
+    assert (
+        events.count("room.pausing")
+        == events.count("room.paused")
+        == events.count("room.resumed")
+        == 1
+    )

@@ -30,6 +30,7 @@ def initial_state(room_id: str, config: dict[str, Any]) -> dict[str, Any]:
         "local_activity": {},
         "room_status": {},
         "invocations": {},
+        "active_calls": {},
         "progress": [],
         "messages": [],
     }
@@ -40,10 +41,19 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     state["version"] = event["id"]
     if kind == "room.started":
         state["status"] = "running"
+    elif kind == "room.pausing":
+        state["status"] = "pausing"
     elif kind == "room.paused":
         state["status"] = "paused"
     elif kind == "room.resumed":
         state["status"] = "running"
+    elif kind == "assistant.call_started":
+        state.setdefault("active_calls", {})[event["call_id"]] = {
+            "role": event["role"],
+            "action": event["action"],
+        }
+    elif kind == "assistant.call_finished":
+        state.setdefault("active_calls", {}).pop(event["call_id"], None)
     elif kind == "assistant.invocation":
         if state["participants"].get(event["role"]) in {"working", "reviewing"}:
             state["invocations"][event["role"]] = event["invocation_id"]
@@ -84,6 +94,10 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
             state["local_activity"][role] = activity
             state["progress"] = [*state["progress"], activity][-40:]
     elif kind == "human.required":
+        # A natural decision consumes a pending pause without pretending the
+        # user resumed the run. Keep journal replay identical to live state.
+        if state["status"] in {"pausing", "paused"}:
+            state["status"] = "running"
         state["pending"] = event["request"]
         state["participants"]["Human"] = "needs human"
     elif kind == "human.responded":
@@ -111,6 +125,7 @@ def apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         state["local_activity"] = {}
         state["room_status"] = {}
         state["invocations"] = {}
+        state["active_calls"] = {}
     elif kind == "runtime":
         raw = event["event"]
         role = raw.get("lifeline")

@@ -96,6 +96,9 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         assert page.evaluate("window.studio.session.run.round") == 2
         page.get_by_role("button", name="Ship it", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
+        # The event stream can close the decision before the answer request
+        # finishes. Wait for the UI to unlock before opening a panel directly.
+        page.wait_for_function("() => !studio.session.busy")
         page.evaluate("() => {studio.session.showTask();}")
         expect(page.locator("#scene-state")).to_contain_text("Completed", timeout=45000)
         assert len(app.rooms.list()) == 1
@@ -218,7 +221,6 @@ def test_office_reconnect_restores_pending_decision_and_room_switch(service):
         page.reload()
         expect(page.locator("#scene-state")).to_contain_text("Your decision")
         page.evaluate("() => {studio.session.decisions.open();}")
-        page.get_by_text("Other choices", exact=True).click()
         page.get_by_role("button", name="Abandon", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.wait_for_function("() => studio.session.run.status==='completed'")

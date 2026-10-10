@@ -69,7 +69,7 @@ export class OfficeSession {
     this.preferences={motion:"full",appearance:"day"};
     this.guidanceDrafts = new Map();
     this.mode = null;
-    $('room-action').onclick=()=>this.run?.status==='paused'?this.transport('resume'):this.configuration.start();
+    $('room-action').onclick=()=>['pausing','paused'].includes(this.run?.status)?this.transport('resume'):this.configuration.start();
     $('run-pause').onclick=()=>this.transport('pause');
     $('run-stop').onclick=()=>this.stopRun();
     $('cancel-stop').onclick=()=>this.cancelStop();
@@ -237,6 +237,10 @@ export class OfficeSession {
     }
     this.scene.handoffs.observe(state,{replay});
     this.scene.activity.observe(state,{replay});
+    if(!replay&&state.status==='paused'&&previous?.status!=='paused'){
+      this.scene.handoffs.cancel();this.scene.ambient.cancel();
+      this.scene.say('human','RUN PAUSED.\nRESUME WHEN READY.',3,'conversation');
+    }
     if(!replay&&state.pending&&state.pending.id!==previous?.pending?.id)this.scene.handoffs.status(state,previous);
     this.refreshChrome();
     this.updateRunWindow();
@@ -249,7 +253,7 @@ export class OfficeSession {
     this.scene.attention?.update();
     $('room-name').textContent = this.room?.name || 'The studio';
     const missing=this.room?this.configuration.missing():[],active=!terminal(this.run);
-    const pending=!!this.decisions.pending,paused=this.run?.status==='paused';
+    const pending=!!this.decisions.pending,paused=['pausing','paused'].includes(this.run?.status);
     $('room-action').disabled=this.busy||!this.initialized||!this.room||(active?!(paused&&this.connected&&this.bootstrap?.run_pause):!!missing.length);
     $('room-action').setAttribute('aria-label',paused?'Resume run':'Run');
     $('room-action').dataset.state='ready';
@@ -261,7 +265,7 @@ export class OfficeSession {
     const saveState=!active?this.configuration.saveState:null;
     $('scene-state').dataset.state=!this.initialized||!this.connected?'neutral':pending?'attention':saveState?.error||missing.length?'setup':saveState?'neutral':'ready';
     const prefix=(this.bootstrap?.demo?'Demo · ':'')+(this.room?`${this.configuration.workflows[this.configuration.workflow].name} · `:'');
-    let status=!this.bootstrap?'Connecting…':!this.room?'Ready for your first room':!run?missing.length?'Setup needed':'Ready to start':pending?'Your decision':run.status;
+    let status=!this.bootstrap?'Connecting…':!this.room?'Ready for your first room':!run?missing.length?'Setup needed':'Ready to start':pending?'Your decision':run.status==='pausing'?'Pausing…':run.status;
     if(saveState)status=saveState.label;
     if(run&&!terminal(run)&&!this.connected)status='Reconnecting…';
     const displayStatus=status.charAt(0).toUpperCase()+status.slice(1);
@@ -269,6 +273,7 @@ export class OfficeSession {
     // Reserve the longest normal state in the same font, without showing it or
     // announcing it. Room names can grow; run state changes never resize the bar.
     $('room-status-reserve').replaceChildren(document.createTextNode(prefix),node('span','Your decision','attention-state'));
+    $('run-pause').title=this.bootstrap?.cooperative_pause?'Pause after current agent calls':'Pause run';
     $('run-pause').disabled=this.busy||!this.connected||!active||paused||pending||!this.bootstrap?.run_pause;
     for(const id of ['run-stop','confirm-stop','cancel-stop'])$(id).disabled=this.busy||!this.connected||!active;
     if(!active||this.stopTarget&&this.stopTarget!==this.run?.id)this.cancelStop();
@@ -328,8 +333,8 @@ export class OfficeSession {
     const id=this.run?.id;if(!id)return;
     return this.perform(async()=>{
       const state=await api(`/api/runs/${id}/${action}`,{});this.apply(state);
-      if(action==='pause'){this.scene.handoffs.cancel();this.scene.ambient.cancel();}
-      this.scene.activity.react('worker',action==='pause'?'Run paused.':'Resuming the task.');
+      if(action==='pause'&&state.status==='pausing')this.scene.say('human','PAUSE REQUESTED.\nFINISHING CURRENT CALLS.',4,'conversation');
+      if(action==='resume')this.scene.activity.react('worker','Resuming the task.');
     });
   }
 

@@ -61,7 +61,8 @@ def test_double_review_room_decision_and_workflow_switch(service, config, monkey
         page.locator("#room-action").click()
         page.wait_for_function("() => !!studio.session.run?.pending")
         run_id = page.evaluate("() => studio.session.run.id")
-        assert page.evaluate("() => !studio.handoffs.active && !studio.handoffs.queue.length")
+        assert page.evaluate("""() => [studio.handoffs.active,...studio.handoffs.queue]
+          .filter(Boolean).every(m=>m.recipient==='human'&&['reviewer','planner'].includes(m.sender))""")
         assert page.evaluate("""() => !studio.handoffs.completed.some(
           m=>m.from==='worker' && m.to==='human')""")
         assert (

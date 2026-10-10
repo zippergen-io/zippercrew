@@ -56,7 +56,11 @@
     <nav class="drawer-tabs" aria-label="Studio sections"><button id="show-rooms" data-section="rooms">Rooms</button><button id="show-history" data-section="history">History</button></nav>
     <div id="drawer-content"></div><p id="drawer-error" class="session-error" role="alert" hidden></p>
   </aside>
-  <div class="zoom-controls corner-bar" role="group" aria-label="Office zoom"><button id="zoom-out" aria-label="Zoom out" title="Zoom out"><svg class="icon" aria-hidden="true"><use href="#i-zoom-out"/></svg></button><button id="fit" title="Fit office to view">Fit</button><button id="zoom-in" aria-label="Zoom in" title="Zoom in"><svg class="icon" aria-hidden="true"><use href="#i-zoom-in"/></svg></button></div>
+  <div class="zoom-controls corner-bar" role="group" aria-label="Office view controls">
+    <a class="zippergen-link" href="https://zippergen.io/" target="_blank" rel="noopener noreferrer" aria-label="ZipperGen homepage (opens in a new tab)" title="Powered by ZipperGen"><span class="zippergen-logo" aria-hidden="true"></span></a>
+    <span class="divider" aria-hidden="true"></span>
+    <button id="zoom-out" aria-label="Zoom out" title="Zoom out"><svg class="icon" aria-hidden="true"><use href="#i-zoom-out"/></svg></button><button id="fit" title="Fit office to view">Fit</button><button id="zoom-in" aria-label="Zoom in" title="Zoom in"><svg class="icon" aria-hidden="true"><use href="#i-zoom-in"/></svg></button>
+  </div>
   <section class="context-card person-card" id="person-card" role="dialog" aria-labelledby="person-name" aria-describedby="person-description" hidden>
     <button id="close-person" class="icon-button close-card" aria-label="Close character details"><svg class="icon"><use href="#i-close"/></svg></button>
     <div class="person-heading"><canvas id="person-portrait" width="32" height="36" aria-hidden="true"></canvas><div><h2 id="person-name"></h2><p id="person-role" class="role-label"></p></div></div>

@@ -24,7 +24,9 @@ export class OfficeActivity {
   reset(){this.runId=null;this.seen=new Map();this.pending=new Map();this.nextSpeech=0;this.spoken=new Map();}
   isWorking(p){
     const session=this.scene.session;
-    return !!(session?.connected&&active(session.taskRun)&&['working','reviewing'].includes(session.taskRun.participants[ROLES[p.id]]));
+    const run=session?.taskRun;
+    return !!(session?.connected&&active(run)&&['working','reviewing'].includes(run.participants[ROLES[p.id]])&&
+      (run.status!=='pausing'||Object.values(run.active_calls||{}).some(call=>call.role===ROLES[p.id])));
   }
   current(p){return this.isWorking(p)?this.scene.session.taskRun.local_activity?.[ROLES[p.id]]:null;}
   currentText(p){

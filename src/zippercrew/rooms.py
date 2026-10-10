@@ -104,7 +104,7 @@ class Run:
         self.process: subprocess.Popen[str] | None = None
         self.thread: threading.Thread | None = None
         self.answer_in_flight: str | None = None
-        self.pause_guard: subprocess.Popen[str] | None = None
+        self.waiting_calls: dict[str, dict[str, Any]] = {}
 
     def snapshot(self) -> dict[str, Any]:
         with self.condition:
@@ -121,27 +121,13 @@ class Run:
         with self.condition:
             if self.state["status"] in TERMINAL:
                 return
-            # A final event may already have been in the stdout pipe when Pause
-            # arrived. Let the worker exit or wait for its Human normally.
-            if self.state["status"] == "paused" and event["type"] in {
-                "human.required",
-                "room.completed",
-                "room.failed",
-            }:
-                try:
-                    self._signal(signal.SIGCONT)
-                except Conflict:
-                    # A completed worker may already have exited. A denied
-                    # resume of a live worker must not be recorded as success.
-                    if self.process is not None and self.process.poll() is None:
-                        raise
-                self._release_pause_guard()
-                self.record({"type": "room.resumed"})
             event = {**event, "id": self.state["version"] + 1, "time": time.time()}
             with (self.root / "events.jsonl").open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(event) + "\n")
                 stream.flush()
             self.reduce(event)
+            if self.state["status"] in TERMINAL:
+                self.waiting_calls.clear()
             if event["type"] == "human.responded":
                 self.answer_in_flight = None
             self.condition.notify_all()
@@ -162,7 +148,7 @@ class Run:
                     start_new_session=True,
                 )
             assert self.process.stdin is not None
-            self.process.stdin.write(json.dumps(self.config) + "\n")
+            self.process.stdin.write(json.dumps({**self.config, "_cooperative_pause": True}) + "\n")
             self.process.stdin.flush()
             self.thread = threading.Thread(target=self._observe, daemon=True)
             self.thread.start()
@@ -173,7 +159,7 @@ class Run:
         assert self.process is not None and self.process.stdout is not None
         try:
             for line in self.process.stdout:
-                self.record(json.loads(line))
+                self._worker_event(json.loads(line))
             code = self.process.wait()
             if self.state["status"] not in TERMINAL:
                 self.record(
@@ -223,77 +209,76 @@ class Run:
                 raise Conflict("The room worker is no longer accepting answers.") from exc
             self.answer_in_flight = request_id
 
+    def _send(self, payload: dict[str, Any]) -> None:
+        if self.process is None or self.process.poll() is not None or self.process.stdin is None:
+            raise Conflict("The room worker is no longer running.")
+        try:
+            self.process.stdin.write(json.dumps(payload) + "\n")
+            self.process.stdin.flush()
+        except (OSError, ValueError) as exc:
+            raise Conflict("The room worker is no longer accepting controls.") from exc
+
+    def _admit_calls(self) -> None:
+        # The same lock protects Pause and admission. Once Pause returns, no
+        # additional call can receive a permit until Resume.
+        if self.state["status"] != "running":
+            return
+        for call_id, event in list(self.waiting_calls.items()):
+            self._send({"control": "call_allowed", "call_id": call_id})
+            self.waiting_calls.pop(call_id)
+            self.record({**event, "type": "assistant.call_started"})
+
+    def _worker_event(self, event: dict[str, Any]) -> None:
+        with self.condition:
+            if self.state["status"] in TERMINAL:
+                return
+            kind = event["type"]
+            if kind == "assistant.call_requested":
+                call_id = event["call_id"]
+                if call_id in self.waiting_calls or call_id in self.state["active_calls"]:
+                    raise ValueError("Duplicate agent call request.")
+                self.waiting_calls[call_id] = event
+                self.record(event)
+                self._admit_calls()
+                self._settle_pause()
+            elif kind == "assistant.call_finished":
+                if event["call_id"] not in self.state["active_calls"]:
+                    raise ValueError("Finished agent call has no admission.")
+                self.record(event)
+                self._settle_pause()
+            else:
+                self.record(event)
+
+    def _settle_pause(self) -> None:
+        # A finished call may lead directly to a decision or terminal outcome.
+        # Only a request blocked at the gate proves that the workflow is paused.
+        # Callers hold self.condition, as for admission and transport controls.
+        if (
+            self.state["status"] == "pausing"
+            and not self.state["active_calls"]
+            and self.waiting_calls
+        ):
+            self.record({"type": "room.paused"})
+
     def pause(self) -> None:
         with self.condition:
-            if self.state["status"] == "paused":
+            if self.state["status"] in {"pausing", "paused"}:
                 return
             if self.state["status"] != "running" or self.state["pending"] or self.answer_in_flight:
                 raise Conflict("Only an actively running task can be paused.")
-            # A stopped worker cannot notice stdin EOF. This separate watchdog
-            # ensures a service crash cannot strand its suspended process group.
-            assert self.process is not None
-            self.pause_guard = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-c",
-                    (
-                        "import os, signal, sys, time\n"
-                        "group = int(sys.argv[1])\n"
-                        "if not sys.stdin.readline():\n"
-                        "    try:\n"
-                        "        os.killpg(group, signal.SIGTERM)\n"
-                        "        os.killpg(group, signal.SIGCONT)\n"
-                        "        time.sleep(1)\n"
-                        "        os.killpg(group, signal.SIGKILL)\n"
-                        "    except ProcessLookupError: pass\n"
-                    ),
-                    str(self.process.pid),
-                ],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                start_new_session=True,
-            )
-            try:
-                self._signal(signal.SIGSTOP)
-            except BaseException:
-                self._release_pause_guard()
-                raise
-            self.record({"type": "room.paused"})
+            if self.process is None or self.process.poll() is not None:
+                raise Conflict("The room worker is no longer running.")
+            self.record({"type": "room.pausing"})
+            self._settle_pause()
 
     def resume(self) -> None:
         with self.condition:
-            if self.state["status"] != "paused":
-                raise Conflict("This run is not paused.")
-            self._signal(signal.SIGCONT)
-            self._release_pause_guard()
+            if self.state["status"] not in {"pausing", "paused"}:
+                raise Conflict("This run is not paused or pausing.")
+            if self.process is None or self.process.poll() is not None:
+                raise Conflict("The room worker is no longer running.")
             self.record({"type": "room.resumed"})
-
-    def _release_pause_guard(self) -> None:
-        guard, self.pause_guard = self.pause_guard, None
-        if guard is not None:
-            try:
-                assert guard.stdin is not None
-                guard.stdin.write("released\n")
-                guard.stdin.close()
-            except (BrokenPipeError, OSError):
-                pass
-            guard.wait(timeout=3)
-
-    def _signal(self, sig: int) -> None:
-        if self.process is None or self.process.poll() is not None:
-            raise Conflict("The room worker is no longer running.")
-        try:
-            os.killpg(self.process.pid, sig)
-        except ProcessLookupError as exc:
-            raise Conflict("The room worker is no longer running.") from exc
-        except PermissionError as exc:
-            action = "pause" if sig == signal.SIGSTOP else "resume"
-            raise Conflict(
-                f"Could not {action} this run: the operating system denied permission "
-                "to control its worker process."
-            ) from exc
+            self._admit_calls()
 
     def _group_is_gone(self) -> bool:
         """Verify cleanup after a denied signal; never infer success from EPERM.
@@ -339,9 +324,6 @@ class Run:
             if self.process is not None:
                 try:
                     os.killpg(self.process.pid, signal.SIGTERM)
-                    # A suspended process cannot handle SIGTERM until continued.
-                    if self.state["status"] == "paused":
-                        os.killpg(self.process.pid, signal.SIGCONT)
                     try:
                         self.process.wait(timeout=2)
                     except subprocess.TimeoutExpired:
@@ -357,7 +339,7 @@ class Run:
                             "permission. The run has not been confirmed stopped."
                         ) from exc
                 self.process.wait(timeout=3)
-            self._release_pause_guard()
+            self.waiting_calls.clear()
             self.record({"type": "room.failed" if failed else "room.stopped", "error": reason})
 
 

@@ -10,17 +10,55 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from typing import Any
 
 from zippergen.human_tasks import build_human_task_spec, human_task_result_from_value
 from zippergen.runtime import run
 
-from zippercrew.adapter import assistant_backend, load_process
+from zippercrew.adapter import ROLE_ACTIONS, assistant_backend, load_process
 from zippercrew.decisions import decision_summary, double_review_summary
 from zippercrew.workflows import agent_roles, workflow_id
 
 
-def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None) -> str:
+class CallGate:
+    """Ask the owning server before each CLI invocation, without stopping processes."""
+
+    def __init__(self, emit: Callable[[dict[str, Any]], None]) -> None:
+        self.emit = emit
+        self.lock = threading.Lock()
+        self.tickets: dict[str, threading.Event] = {}
+
+    def allow(self, call_id: str) -> None:
+        with self.lock:
+            self.tickets[call_id].set()
+
+    @contextmanager
+    def admit(self, role: str, action: str) -> Iterator[None]:
+        call_id, ready = uuid.uuid4().hex, threading.Event()
+        with self.lock:
+            self.tickets[call_id] = ready
+        self.emit(
+            {"type": "assistant.call_requested", "call_id": call_id, "role": role, "action": action}
+        )
+        ready.wait()
+        try:
+            yield
+        finally:
+            with self.lock:
+                self.tickets.pop(call_id)
+            self.emit({"type": "assistant.call_finished", "call_id": call_id})
+
+
+def execute(
+    config: dict[str, Any],
+    emit: Any,
+    answer: Any,
+    backend: Any = None,
+    *,
+    call_scope: Callable[[str, str], AbstractContextManager[None]] | None = None,
+) -> str:
     workflow, module = load_process(workflow_id(config))
     proposal, critique, header = "", "", None
     pair_summary = None
@@ -80,6 +118,16 @@ def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None)
         emit(event)
         return result
 
+    if backend is None:
+        invocation = assistant_backend(config, emit, call_scope=call_scope)
+    else:
+
+        def invocation(action: Any, inputs: dict[str, object]) -> dict[str, object]:
+            if call_scope:
+                with call_scope(ROLE_ACTIONS[action.name], action.name):
+                    return backend(action, inputs)
+            return backend(action, inputs)
+
     result = run(
         workflow,
         [module.Human, *(getattr(module, role) for role in agent_roles(config))],
@@ -90,7 +138,7 @@ def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None)
                 "detail": config["human_mode"],
             }
         },
-        assistant_backend=backend or assistant_backend(config, emit),
+        assistant_backend=invocation,
         human_backend=human,
         trace=trace,
         timeout=0,
@@ -100,6 +148,9 @@ def execute(config: dict[str, Any], emit: Any, answer: Any, backend: Any = None)
 
 def main() -> None:
     config = json.loads(sys.stdin.readline())
+    # An already-running pre-upgrade server cannot grant call permits. It keeps
+    # its old transport until restart instead of stranding a freshly spawned worker.
+    cooperative = config.pop("_cooperative_pause", False)
     lock = threading.Lock()
     responses: queue.Queue[dict[str, Any]] = queue.Queue()
 
@@ -108,15 +159,20 @@ def main() -> None:
         # Stop the whole Room group so an orphan CLI cannot keep editing files.
         try:
             for line in sys.stdin:
-                responses.put(json.loads(line))
+                payload = json.loads(line)
+                if payload.get("control") == "call_allowed":
+                    gate.allow(payload["call_id"])
+                else:
+                    responses.put(payload)
         finally:
             os.killpg(os.getpgrp(), signal.SIGTERM)
-
-    threading.Thread(target=read_responses, daemon=True).start()
 
     def emit(event: dict[str, Any]) -> None:
         with lock:
             print(json.dumps(event), flush=True)
+
+    gate = CallGate(emit)
+    threading.Thread(target=read_responses, daemon=True).start()
 
     def answer(request: dict[str, Any]) -> Any:
         payload = responses.get()
@@ -145,7 +201,13 @@ def main() -> None:
         return {action.outputs[0][0]: value}
 
     try:
-        outcome = execute(config, emit, answer, demo if config.get("demo") else None)
+        outcome = execute(
+            config,
+            emit,
+            answer,
+            demo if config.get("demo") else None,
+            call_scope=gate.admit if cooperative else None,
+        )
         emit({"type": "room.completed", "outcome": outcome})
     except BaseException as exc:
         emit({"type": "room.failed", "error": f"{type(exc).__name__}: {exc}"})

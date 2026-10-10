@@ -187,7 +187,9 @@ function head(p,s,id,dir,blink){
     r(11,5,2,1,s.hairLight);r(16,4,2,1,s.hairLight);r(20,6,2,1,s.hairLight);
     if(back){r(10,8,13,6,s.hair);r(12,13,9,2,s.hair);r(11,9,2,2,s.hairLight);r(20,11,2,1,s.hairLight);}
     else if(side){r(10,8,5,6,s.hair);r(11,9,2,2,s.hairLight);r(15,13,2,1,s.hair);}
-    else{r(12,14,2,1,s.hair);r(19,14,2,1,s.hair);r(14,15,5,1,s.hair);}
+    // Keep the front jaw clean. A dark chin band reads as a moustache at office
+    // scale; the two-pixel skin-shade mouth below is enough expression.
+    else{r(14,15,5,1,s.skin);}
   }else if(id==='reviewer'){
     // Angular crop with a silver sweep, short temple and a clean nape.
     r(12,3,8,2,s.hair);r(10,5,12,3,s.hair);r(9,7,4,4,s.hair);

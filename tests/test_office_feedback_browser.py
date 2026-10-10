@@ -179,7 +179,6 @@ def test_confirm_closes_only_on_success_and_preserves_visible_reaction(service):
         assert page.evaluate("studio.people.get('worker').bubbleText").startswith("Task received.")
         page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
         page.evaluate("() => {studio.session.decisions.open();}")
-        page.get_by_text("Other choices", exact=True).click()
         page.route(
             "**/api/runs/*/answer",
             lambda route: route.fulfill(

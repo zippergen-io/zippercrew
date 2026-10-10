@@ -107,8 +107,8 @@ Use a clean branch or a separate checkout, since the Worker edits files directly
 5. Click **Run task**, or close the panel and press **Play** in the top bar.
    Play becomes available once the repository, task, and required models are set.
 6. When **Your decision** appears, click **You** or the room header. Read the
-   recommendation and reason, then choose the next action. Other choices and
-   detailed findings expand inside the same panel.
+   recommendation and reason, then choose the next action. All available decisions
+   appear together. Detailed findings expand inside the same panel.
 
 For example, in a small project with a README:
 
@@ -247,16 +247,26 @@ Keep the default human decision setting for your first tasks.
 
 | Control | What happens |
 | --- | --- |
-| Play | Starts a fresh run, or resumes the current paused run |
-| Pause | Suspends local agent processes without ending their sessions |
+| Play | Starts a fresh run, resumes a paused run, or cancels a pending pause |
+| Pause | Lets current agent calls finish, then holds further calls until Resume |
 | Stop | Asks for confirmation, then terminates the run |
 
 Only available controls are enabled. While the workflow waits for your decision,
 Pause is disabled because work is already waiting for you.
 
-Pause does not cancel a request already sent to a model provider. Stop ends the
-run's local process group. Independently detached subprocesses may outlive it. Stop and
-Abandon do not undo file edits. If the server exits, interrupted runs cannot be
+The header shows **Pausing…** while current agent calls finish, then **Paused**.
+In Double review, both reviewers already running finish before the pause settles.
+Their next calls, including review-format clarifications, wait for Resume.
+The run and each agent's session stay the same. Resume can also cancel a pause
+that is still pending.
+
+If those calls finish the run or produce a human decision, the header shows that
+result instead. Pause does not interrupt a CLI, a tool command, or a model request
+already in progress. Those calls can still edit files and consume model usage
+while the header says **Pausing…**. Use Stop to terminate local work immediately.
+
+Stop ends the run's local process group. Independently detached subprocesses may
+outlive it. Stop and Abandon do not undo file edits. If the server exits, interrupted runs cannot be
 resumed. Their history and file changes remain, and Play starts a new run.
 
 ## Costs, access, and current limits

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
 import pytest
+from conftest import request
 from office_helpers import prepare_room
 from playwright.sync_api import expect, sync_playwright
 
@@ -201,4 +203,110 @@ def test_receipts_cancellation_and_reduced_motion(service):
           return h.inspect();
         }""")
         assert not result["active"] and not result["queued"]
+        browser.close()
+
+
+def test_final_reviews_finish_delivering_when_human_decision_arrives(service):
+    _, base, _ = service
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        page.goto(base + "/office/")
+        page.wait_for_function("() => window.studio?.ready && !studio.session.busy")
+        page.evaluate("""() => {
+          document.getElementById('detail-dialog').close();studio.game.loop.stop();
+          studio.setWorkflow('double_review');studio.paused=false;
+          const h=studio.handoffs,assert=(ok,text)=>{if(!ok)throw Error(text);};
+          const tick=n=>{for(let i=0;i<n;i++)studio.update(0,1000/30);};
+          const critical={id:'critical-final',from:'Critic',to:'Human',send_id:1,
+            receive_id:2,label:'Critical response',control:false,round:1};
+          const state={id:'final-delivery',status:'running',round:1,
+            config:{workflow:'double_review'},participants:{},messages:[critical]};
+          h.observe(state);tick(10);
+          const trip=h.active,sender=studio.people.get('planner');
+          assert(trip?.phase==='walking'&&trip.sender==='planner','No critical courier');
+          assert(Math.hypot(sender.x-studio.people.get('human').x,
+            sender.y-studio.people.get('human').y)>48,'Courier already arrived');
+          const peer={...critical,id:'obsolete-peer',from:'Reviewer',to:'Critic'};
+          const delivery={...critical,id:'delivery-final',from:'Reviewer'};
+          const pending={...state,pending:{id:'decision-1'},messages:[critical,peer,delivery]};
+          h.observe(pending);
+          assert(h.active===trip,'Decision canceled the final review halfway');
+          assert(h.queue.length===1&&h.queue[0].id==='delivery-final','Stale peer exchange queued');
+          const checked=new Set();
+          for(let i=0;i<1800&&h.completed.length<2;i++){
+            if(i%15===0)h.observe(pending);
+            tick(1);
+            if(h.active?.phase==='received'&&!checked.has(h.active.id)){
+              checked.add(h.active.id);
+              const a=studio.people.get(h.active.sender),b=studio.people.get('human');
+              assert(Math.hypot(a.x-b.x,a.y-b.y)<49,'Review delivered remotely');
+              assert(h.active.noteOwner==='human','Paper stayed with reviewer');
+            }
+          }
+          assert(h.completed.length===2,'Final reviews did not reach the Human');
+          assert(h.completed.every(m=>m.to==='human'),'Obsolete exchange was replayed');
+          tick(600);
+          assert(!h.active&&!h.queue.length,'Duplicate snapshot restarted a delivery');
+          assert(sender.seated===sender.chairId,'Critical reviewer did not return to desk');
+          h.observe({...state,id:'stopped-delivery',messages:[{...critical,id:'stop-final'}]});
+          tick(10);h.observe({...state,id:'stopped-delivery',status:'stopped',messages:[]});
+          tick(600);
+          assert(!h.active&&!h.note.visible&&!h.queue.length,'Stop left final courier running');
+        }""")
+        browser.close()
+
+
+def test_pending_pause_preserves_final_review_deliveries(service, config):
+    app, base, project = service
+    config.update(project=str(project), workspace=str(project), workflow="double_review")
+    config["agents"]["Critic"] = dict(config["agents"]["Reviewer"])
+    status, _ = request(
+        base,
+        "/api/rooms",
+        {"name": "Pause at review", "brief": "Check a small change", "config": config},
+    )
+    assert status == 201
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(base + "/office/")
+        page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
+        page.evaluate("""() => {
+          studio.game.loop.stop();window.pauseStates=[];window.pauseSpeech=[];
+          const apply=studio.session.apply.bind(studio.session),say=studio.say.bind(studio);
+          studio.session.apply=(state,options)=>{
+            pauseStates.push(state.status);return apply(state,options);
+          };
+          studio.say=(id,text,...args)=>{pauseSpeech.push(text);return say(id,text,...args);};
+        }""")
+        page.locator("#room-action").click()
+        page.wait_for_function(
+            """() => {
+          const calls=Object.values(studio.session.run?.active_calls||{});
+          return calls.length===2&&calls.every(call=>call.action.startsWith('respond_'));
+        }""",
+            timeout=45000,
+        )
+        page.locator("#run-pause").click()
+        expect(page.locator("#scene-state")).to_contain_text("Pausing…")
+        page.wait_for_function("() => !!studio.session.run?.pending", timeout=20000)
+        expect(page.locator("#scene-state")).to_contain_text("Your decision")
+        assert "paused" not in page.evaluate("pauseStates")
+        assert not any("RUN PAUSED" in text for text in page.evaluate("pauseSpeech"))
+        deliveries = page.evaluate("""() => {
+          for(let i=0;i<2400;i++)studio.update(0,1000/30);
+          return studio.handoffs.completed;
+        }""")
+        assert sorted((item["from"], item["to"]) for item in deliveries) == [
+            ("planner", "human"),
+            ("reviewer", "human"),
+        ]
+        assert not any("RUN PAUSED" in text for text in page.evaluate("pauseSpeech"))
+        run = app.runs.get(page.evaluate("studio.session.run.id"))
+        events = [json.loads(line) for line in (run.root / "events.jsonl").read_text().splitlines()]
+        assert not any(event["type"] in {"room.paused", "room.resumed"} for event in events)
+        assert not errors
         browser.close()

@@ -118,14 +118,10 @@ summary{cursor:pointer;font-size:13.2px;line-height:1.7}
 .decision-controls{margin:17.6px 0 13.2px}
 .decision-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8.8px}
 .decision-actions>.primary-action{flex:none;width:auto;min-height:40.7px;padding:9.9px 16.5px;font-size:13.2px;border-radius:8.8px}
-.decision-alternatives{display:inline-flex;align-items:center;justify-content:center;gap:9.9px;min-height:40.7px;padding:8.8px 12.1px;border:1px solid var(--line);border-radius:8.8px;font-size:12.1px;color:var(--muted)}
-.decision-alternatives:hover,.decision-disclosure:hover{background:var(--hover);color:var(--ink)}
-.decision-options{display:flex;flex-wrap:wrap;gap:8.8px;padding-top:9.9px}
-.decision-options .secondary-action{width:auto;min-height:35.2px;padding:7.7px 12.1px;font-size:12.1px;background:var(--panel)}
+.decision-actions>.secondary-action{flex:none;width:auto;min-height:40.7px;padding:9.9px 12.1px;font-size:13.2px;border-radius:8.8px;background:var(--panel)}
+.decision-actions>.secondary-action:hover,.decision-disclosure:hover{background:var(--hover);color:var(--ink)}
 .decision .disclosure-icon{width:14.3px;height:14.3px;flex:none;stroke-width:1.7;transition:transform .15s ease}
 .decision [aria-expanded=true]>.disclosure-icon{transform:rotate(90deg)}
-.decision-alternatives>.disclosure-icon{transform:rotate(90deg)}
-.decision-alternatives[aria-expanded=true]>.disclosure-icon{transform:rotate(270deg)}
 .decision-note{margin:13.2px 0 0}
 .decision-note>summary{display:flex;align-items:center;gap:9.9px;width:fit-content;padding:3.3px 0;color:var(--accent);font-size:12.1px;list-style:none}
 .decision-note>summary::-webkit-details-marker{display:none}
