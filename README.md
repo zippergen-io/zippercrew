@@ -1,259 +1,310 @@
 # ZipperCrew
 
-Assemble two CLI coding agents, give them a task, and watch their communication
-process in an inhabited illustrated miniature world. The Implementer edits your repository; an
-independent, read-only Reviewer examines the actual files. You decide when to
-ship, ask for another round with optional guidance, or let review drive the loop.
+Give a task to a small team of AI agents and follow their work in a pixel office.
+The Worker changes files in your local repository. Reviewers check the result.
+You decide whether to keep it or ask for another round.
 
-**ZipperGen defines and executes the communication process.**
-**ZipperCrew makes that process easy to instantiate, use, observe, and enjoy.**
+The room is the interface. Click an agent to configure it, the whiteboard to
+write your task, and your own character when a decision needs your attention.
+[ZipperGen](https://github.com/zippergen-io/zippergen) runs the workflow behind
+these interactions.
 
-## Run locally
+![ZipperCrew pixel office with a task whiteboard, a Worker, two reviewers, and the Human waiting to decide](docs/images/pixel-office.png)
 
-Requires Python 3.11+, uv, and the sibling `../zippergen` checkout. macOS and Linux
-are supported. Install and authenticate Codex or Claude using its own CLI first.
+*Double review in the pixel office. This screenshot uses the scripted demo and sample task data.*
+
+ZipperCrew is an early local app for private testing. You need a terminal for
+installation. After that, you work in the browser.
+
+[Install](#install) · [First task](#your-first-task) · [Workflows](#workflows) · [Troubleshooting](#troubleshooting)
+
+## Install
+
+### What you need
+
+- macOS or Linux. Native Windows is not supported yet.
+- Git, Python 3.11 or newer, and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- GitHub access to both the ZipperCrew and ZipperGen repositories.
+- For real tasks, a working installation of Codex CLI or Claude Code, signed in
+  with an account that can use your chosen model. You can use either CLI or both.
+  The demo does not need either one.
+
+### Get the app
+
+Keep the two repositories next to each other. ZipperCrew currently loads the
+ZipperGen source checkout, so installing ZipperGen from PyPI alone is not enough.
 
 ```sh
-cd ~/zippergen-io/zippercrew
-uv sync
+mkdir -p ~/zippergen-io
+cd ~/zippergen-io
+git clone https://github.com/zippergen-io/zippergen.git
+git clone https://github.com/zippergen-io/zippercrew.git
+cd zippercrew
+uv sync --locked
+```
+
+If you already have these checkouts, use them instead of cloning again.
+There is no frontend build or npm install for ZipperCrew.
+
+### Set up a coding agent
+
+Follow the official setup guide for the CLI you want to use:
+
+- [Codex CLI](https://learn.chatgpt.com/docs/codex/cli): install it, run `codex`, and sign in.
+- [Claude Code](https://code.claude.com/docs/en/quickstart): install it, run `claude`, and sign in.
+
+Finish any first-run prompts in the terminal before starting a task in ZipperCrew.
+The app uses the CLI's own saved login. It has no API-key field and does not pass
+`OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the server environment to agents.
+
+### Start ZipperCrew
+
+From the `zippercrew` directory:
+
+```sh
 uv run zippercrew
 ```
 
-Open **http://127.0.0.1:8765/office/** for the pixel office. The world stays full-screen;
-setup, task messages, and decisions open in small modern windows.
+Open **[http://127.0.0.1:8765/office/](http://127.0.0.1:8765/office/)** and keep the
+terminal running. Use the `/office/` address for the current pixel interface.
 
-1. Open **⋯ → Rooms → + New room**. Optionally name it, then choose a workflow:
-   **Direct** (You → Worker → You), **Review** (one Reviewer), or
-   **Double review** (independent Delivery and Critical reviewers).
-   Choosing a workflow creates and enters the room immediately.
-2. Click the **room name** to open its compact panel. Edit the name directly in
-   the heading or browse for its repository folder. Changes save automatically;
-   the panel also holds the workflow, a collapsed Team overview, and advanced options.
-3. Click each **agent** to choose its avatar, model, and reasoning effort inline.
-   Model names come from local CLI metadata and existing bindings; profile nicknames
-   stay hidden. Custom instructions are optional, in a collapsed section.
-   Authenticate the chosen CLI beforehand. Quiet room markers show missing models.
-4. Click the **whiteboard** to read the task, then choose **Edit task** or **Run task**.
-   An empty board opens the editor directly. Edits save automatically after a short
-   pause and when closing with **×**. The **▶ Run** icon is available in the top bar whenever
-   the room is ready, including after a run finishes or stops.
-   The Worker edits the repository. Review adds an independent, read-only Reviewer.
-5. When the Human is highlighted, click **You** to open the single decision panel.
-   The recommended action—**Run next round**, **Ship it**, or **Done** for Direct—acts
-   immediately. Alternative decisions, including **Abandon**, expand under **Other choices**.
-   Expand **Add a note for the Worker** only if you want to add guidance; the full
-   reviewer findings are passed on automatically. Finishing a run does not commit or push.
+Closing the browser does not stop a run. Pressing Ctrl-C in the server terminal
+does stop it. Start the app from the same directory next time to reopen your rooms.
 
-The same panel opens from the warm **Your decision** status in the room header.
-**Why another round?** (or **Why ship it?**) expands the Worker summary and reviewer
-rationale in place; **Technical details** holds full reports, shell output and traces.
-If the Reviewer explicitly identifies a task-specification problem, **Edit task before
-rerunning** opens an editor in the same sheet. **Back to decision** retains the pending
-decision and draft. **Save task and start new run** explicitly ends the old run and
-starts a fresh run with the revised task; existing edits and review history are kept.
+### Try the interface without model usage
 
-The room title and status form one clickable heading. It opens room options, or
-the pending decision when the workflow needs you. Setup uses muted red, ready uses muted green, and **Your decision** uses
-warm amber. The heading reserves space for **Your decision**, omits the round,
-and stays the same width as run states change.
-Three compact SVG **Play / Pause / Stop** buttons remain visible and aligned;
-only available actions are emphasized and enabled. Play resumes a paused run.
-At a Human decision, Play and Pause are disabled. After completion, Play becomes
-available again. Start a fresh run there or from the whiteboard.
+Use the demo if you want to explore before configuring a coding agent:
 
-Pause suspends the local worker process group, including CLI children; Resume
-continues the same process and session. Stop requires confirmation and ends the
-group, retaining edits and history. Pausing does not cancel requests already sent
-to remote providers. This is local process suspension, not durable recovery across
-service restarts: a stopped or interrupted run must be started afresh. A watchdog
-also cleans up suspended workers if the service disappears. Older running servers
-need a restart to expose pause/resume; the UI does not offer unsupported controls.
-If a cleanup signal is denied after the worker exits, Stop verifies that no live
-processes remain before accepting it as stopped. Genuine control errors stay in
-the Stop confirmation and do not falsely report success.
+```sh
+uv run zippercrew --demo --port 8766 --data-dir .zippercrew/demo
+```
 
-The task editor shows saving/saved status and keeps failed drafts available for retry.
-Room options likewise show saving/saved status, keep failed drafts for retry, and
-save on edit or leaving a field. Run waits for pending task and room-option edits
-before taking its execution snapshot.
-The compact task panel contains only the brief, Edit/Run actions, and a quiet history
-link. Repository and workflow live in Room settings; run state stays in the header.
+Open **[http://127.0.0.1:8766/office/](http://127.0.0.1:8766/office/)**. The separate
+port and data directory keep demo rooms apart from your real rooms.
 
-The hierarchy is **Studio → Room → Workflow → Roles / Agents + Task**. The Studio
-menu contains only **Rooms** and **History**. Day/night stays in the top bar, and
-ambient motion respects the system’s reduced-motion preference. Repository, workflow,
-round limits and human involvement belong to the room panel. History groups previous
-runs by room and provides full conversations, activity, shell output and traces.
+The demo runs the actual workflow with scripted agent responses. It makes no
+model calls and does not edit repository files. You still choose a local folder
+when setting up a room. Demo responses are illustrative and do not solve your task.
 
-Rooms appear as compact rows, with a checkmark and a light tint for the current room.
-Click a row to enter it; click its name to rename inline (Enter or leaving the field
-saves, Escape cancels). Renaming is also available in room options. The trash button
-confirms deletion. Changing workflows keeps the Worker and task; removing
-configured Reviewer settings requires confirmation. Existing rooms default to Review.
-Past run snapshots and conversations retain their original workflow and participants.
-Direct always returns the result to the Human; Review additionally offers automatic
-review decisions in its advanced room options. Double review also offers automatic
-rounds, but only finishes successfully when both final reviews approve.
+## Your first task
 
-Double review uses three AI participants and the existing fourth desk. The Delivery
-reviewer checks requirements, usefulness, and scope; the Critical reviewer checks
-assumptions, edge cases, and evidence. Both are read-only, have separate model/session
-bindings, and assess the same result concurrently before seeing the other's review.
-They then exchange reports and each responds once. They may agree, disagree, or withdraw
-findings; agreement is never forced. The human sees both recommendations in one compact
-panel. Full initial reviews and responses remain in History and automatically reach
-the Worker on another round, together with any optional human note. This uses four
-reviewer turns per round, so expect more model usage than ordinary Review.
-Role explanations appear on each agent card and under **How this workflow works**
-in room options; the workflow chooser gives the short version.
+Start with a small, concrete change in a repository you can inspect afterward.
+Use a clean branch or a separate checkout, since the Worker edits files directly.
 
-The decision waits for both final responses, not their initial reviews. The office
-never delays execution for walking animations. In Double review, the Worker's early
-report stays available as evidence without an approval handover; pending decisions
-clear old courier animations so they cannot look like new evidence arriving afterward.
-Review summaries use the reviewer's explicit structured verdict and plain-language
-reason. An unclear format gets at most one formatting-only clarification from the
-same reviewer. Raw reports and any clarification stay in the trace, and an unresolved
-verdict never becomes an automatic approval. Older run journals remain unchanged.
+1. Open the **⋯ menu → Rooms → + New room**. Give the room a name and choose
+   **Review** for a first run. The required agents appear automatically.
+2. Click the **room name** in the top bar. Use **Browse** to select the repository
+   you want the Worker to change. This is your working project, not the ZipperCrew
+   installation directory. Room options save as you edit them.
+3. Click each **AI agent**. Choose an avatar and model. Leave reasoning effort
+   at its default if unsure. Extra instructions are optional. Click **Save agent**.
+   You can use the same model for both roles. Their conversations remain separate.
+   In demo mode, the scripted model is already selected.
+4. Click the **whiteboard** and write the task. The first line becomes its title.
+   The rest should describe the result you want and how to check it. Task edits
+   save as you type.
+5. Click **Run task**, or close the panel and press **Play** in the top bar.
+   Play becomes available once the repository, task, and required models are set.
+6. When **Your decision** appears, click **You** or the room header. Read the
+   recommendation and reason, then choose the next action. Other choices and
+   detailed findings expand inside the same panel.
 
-Creating rooms and saving configuration never launch agents. Closing a panel or entering
-another room does not stop a run. Running tasks use immutable configuration; edit roles
-and workflows after the run finishes or is stopped. Starting again creates fresh agent
-sessions. The office has no global agent administration or workflow graph editor.
-Day/night lighting, movement, and seating use the approved pixel-office artwork.
-Agent states and work bubbles follow backend events, with no scripted work fallback.
+For example, in a small project with a README:
 
-Fit retains integer physical-pixel scaling; manual zoom uses finer 12.5% steps with
-nearest-neighbor rendering and no sprite smoothing. Small screens can pan. Agents walk at 64 art pixels/second (formerly 25);
-your avatar moves at 76. The wall clock follows your computer's local time.
-Working agents type and their monitors animate; idle agents turn away and stretch,
-occasionally visit the coffee corner or lounge, and exchange short social bubbles.
-Agents needing configuration stay at their desks. Ambient breaks yield to real work and handoffs. Pause/reduced motion freezes
-ambient movement and typing, while the clock and actual task feedback stay live.
+```text
+Improve the installation guide
+Check the README instructions against the project files.
+Fix missing steps and incorrect commands in the README only.
+Do not change application code or add dependencies.
+Explain what you checked and anything you could not verify.
+```
 
-A crocodile companion stands quietly along the lounge edge, occasionally peeking or
-taking a short walk after 37–51 seconds of rest. Every pose stays upright on its
-hind legs, including idle and blinking. The default is about 6% smaller than the
-approved avatar-height version; set `COMPANION.size` to `'original'` to restore it.
-The original artwork is retained unchanged, alongside a nearest-neighbor size variant.
-The rounded muzzle, big eyes, tiny hands and striped belly follow the pencil reference.
-It yields to agent movement,
-messages, human decisions, and open panels, and respects pause/reduced motion.
-It has no workflow role or click target. Its original pixel poses live in
-`static/office/crocodile-art.js`; nooks and timing are data in `office/world.js`
-(`COMPANION`), with behavior isolated in `office/mascot.js`.
+**Ship it** finishes the run. Direct uses **Done** for the same purpose.
+Neither button commits, pushes, merges, or deploys your changes. Inspect the
+result in your usual editor and Git tools.
 
-Blue-tinted work bubbles carry up to six lines of deliberate public status; warm thought
-bubbles denote ambient moments, and conversations use speech tails and role accents.
-With the matching ZipperGen checkout, agents publish explicit `<ui-status>` updates
-before the first tool call and at meaningful milestones, aiming for an update every
-20–30 seconds during sustained work when the CLI can speak. The prompt asks for
-concrete findings, next actions, and their purpose. New statuses can replace older
-work bubbles after four seconds; reading time scales with message length. Those updates remain separate from shell telemetry and
-private reasoning. Older runtimes use specific tool-based descriptions, never generic
-Working/Thinking bubbles. The detail window has an on-demand shell-output log.
-Agent cards show the latest three activity events; History shows twelve,
-alongside full turn responses. Screen marks are abstract activity,
-not literal terminal output. Tool details depend on the CLI progress observer;
-without it, the office shows the actual working/reviewing state and final messages.
+**Run next round** sends the review feedback back to the Worker automatically.
+Use **Add a note for the Worker** if you want to add guidance. The note is optional.
+**Abandon** ends the run and leaves existing file changes in place.
 
-The framed project board at the back of the room shows the task title, two short
-excerpt lines, and a separately padded round/status line. Its warm writing surface,
-magnets, marker tray, and slim supports use native pixel art in both moods.
-Click it to read the full brief and open task controls.
-The wall clock sits between the board and the right window, clear of the floating
-controls. The top controls and bottom zoom bar share a 50-pixel height; the office
-keeps its existing scale. Desk chairs face the monitors, with typing hands aligned
-to the keyboards. Characters enter and leave from a free side of the chair.
-Real protocol messages trigger visible handoffs: the sending agent carries a note
-over, the recipient briefly acknowledges it, and the crew returns to their desks.
-A quiet amber arc marks a pending human decision, subdued at night and static with
-reduced motion. The carried note crosses from sender to recipient in a short transfer;
-the sender returns empty-handed while the recipient briefly holds the document.
-The crocodile has a small collision body and yields to moving office inhabitants.
-Accepted Start, Save, Stop and decision actions close the dialog and show a brief agent
-acknowledgment; failed requests keep the dialog and draft intact. Office decisions
-include optional guidance in the same action, without a second Continue step.
-These animations never delay execution or invent a receipt. Reloading and reconnecting
-do not replay old exchanges; reduced motion uses brief bubbles without courier walks.
+## Finding your way around
 
-The original visual-only preview remains in `spikes/pixel-office/`. The packaged live
-client lives in `src/zippercrew/static/office/`; it uses the existing Room/Run API and
-SSE stream. No orchestration or backend permissions were changed.
+| Click | What you can do |
+| --- | --- |
+| Whiteboard | Read, edit, and run the task |
+| AI agent | Choose an avatar, model, and reasoning effort, add instructions, or inspect activity |
+| You, when highlighted | Make the pending decision |
+| Room name | Choose the workflow, repository, and room options, or open a pending decision |
+| ⋯ menu | Switch rooms or open History |
 
-## Classic view and advanced settings
+Move your character with WASD or the arrow keys. The bottom controls adjust zoom.
+The top bar switches between day and night. Walking and message handovers make
+coordination visible, but the workflow never waits for an animation to finish.
 
-The earlier interface is still available at http://127.0.0.1:8765. Its profile
-management, model overrides, and detailed inspectors remain available:
+A **room** keeps its team, repository, and task. A **run** is one execution of that
+task. A **round** is one pass through the Worker and any reviewers.
+Each new run starts fresh agent sessions. Sessions continue across rounds within
+the same run.
 
-Open http://127.0.0.1:8765. The Room is a clean, dollhouse-like studio with a
-red rabbit Implementer, pale green paper Reviewer, and the refined Patchwork Cue
-Human orchestrator. The approved Linked Studio, purposeful ambient routines, and
-travelling protocol cards keep the crew readable and occupied between tasks. You are already in the room:
+## Workflows
 
-1. Click the **Implementer** and **Reviewer** stations to choose saved assistant
-   profiles, or **Create a profile**. Each seat has its own persistent conversation.
-2. Click the shared board to enter your repository path and task.
-3. Click **Human** to choose your involvement and maximum rounds.
-4. Press **Start working**. The same room becomes live; select any participant
-   to inspect their conversation. Human decisions appear beside the room.
-   Waiting agents walk away with coffee;
-   proposals travel between workstations as the process advances.
+Choose the workflow when creating a room, or change it later in room options.
+The following pseudocode describes the default flow, where you make the decisions.
+No workflow runs more than the configured number of rounds.
 
-Name your Room in the header. Setup changes save automatically. **Run again** keeps
-its crew, workspace and process settings, then opens the brief for editing before
-starting a fresh execution. Every Run starts fresh assistant sessions; sessions
-continue across rounds within that Run. **⋯ → Run history** opens earlier Runs
-read-only, without replacing their traces. **⋯ → Delete room** asks for confirmation
-and deletes only ZipperCrew records, never the source repository or shared profiles.
+### Direct
 
-**Settings** contains profile management and Full/Reduced animation; **Rooms** reopens
-configured Rooms. The inspector stays beside the scene on desktop and moves below it
-on narrow screens. **Result** reopens the final outcome.
-Profiles are saved by default
-in `~/.config/zippercrew/zippergen.toml`, outside your source repositories. If
-`XDG_CONFIG_HOME` is set, they live in `$XDG_CONFIG_HOME/zippercrew/zippergen.toml`.
-They remain ordinary ZipperGen configurations, also editable with
-`zg assistant configure` from that directory. To reuse an existing project's
-profiles, choose its **Profile directory** in Settings or pass `--project PATH`.
-Settings shows the exact file where new profiles will be saved.
-The two roles can use the same profile and still have separate conversations.
+**You → Worker → You**
 
-Decide every round corresponds to `full`; Brief me every round to
-`brief`; Autonomous review to `auto`. Ship it completes the process without
-committing or pushing. Another round sends the entire review back, then asks
-for optional guidance. Abandon and Stop leave existing edits in the workspace.
+One Worker handles the task. Use this for a small change you can check yourself.
+There is no independent review.
 
-Click any participant to see their state, current activity and protocol conversation
-grouped by round. The latest round is open; full messages and formatted reviews
-expand on demand. Profile, workspace and deduplicated local activity live in
-secondary sections. **Handoffs** inspects real message envelopes and payload previews;
-download the full JSONL trace for complete information. Calm ambient behaviour
-makes waiting participants feel alive and yields immediately to real work.
-Short bubbles describe observable local activity; travelling cards represent
-actual protocol messages. An optional ZipperGen CLI progress observer supplies live tool/file/test activity
-for bubbles and the participant inspector. Update the sibling ZipperGen checkout
-to include that hook; older checkouts retain action-start bubbles. Unknown commands get a general shell
-label. Bubbles never expose reasoning, invent thoughts, or infer state from silence.
+```text
+guidance = empty
+repeat up to the round limit:
+    result = Worker(task, guidance)
+    decision, optional_note = You(result)
+    if decision is Done or Abandon:
+        finish
+    guidance = optional_note
+```
 
-CLI/model failures appear in the Room with their error. Compatibility checks
-verify safety flags, not authentication. Profiles select Codex or Claude and
-optionally pin an exact model ID and reasoning effort. A participant's setup inspector
-can override those settings for that Room without changing the shared profile.
-Blank **Model** / **Effort** fields use the profile's value, or the CLI default if
-unconfigured. These are exact native identifiers, not a hard-coded model catalog;
-the CLI validates availability. ZipperGen applies them on every turn, including
-resumed sessions. Unsupported adapter settings are hidden.
-Claude Reviewers have no Bash tool to preserve the read-only boundary. Codex
-Reviewers can run verification commands within the CLI's read-only sandbox.
+### Review
 
-## Development
+**You → Worker → Reviewer → You**
 
-The Room uses Phaser 3.90 with locally packaged illustrated PNG atlases. Canvas
-rendering works without WebGL. The surrounding UI is plain JavaScript and CSS.
-`uv sync` is sufficient; no npm install, frontend build, CDN or asset service is
-required. See the [scene contract](docs/room-experience.md) and
-[current production captures](docs/art/linked-studio-production-2026-10-06/index.html).
+The Worker makes the changes. A separate, read-only Reviewer inspects the files
+and checks the result before you decide.
+
+```text
+guidance = empty
+repeat up to the round limit:
+    result = Worker(task, guidance)
+    review = Reviewer(task, result, repository)
+    decision, optional_note = You(result, review)
+    if decision is Ship it or Abandon:
+        finish
+    guidance = full review + optional_note
+```
+
+### Double review
+
+**You → Worker → Delivery + Critical → You**
+
+Two reviewers examine the same result independently, then compare their findings
+once. They have different responsibilities:
+
+| Reviewer | Main question |
+| --- | --- |
+| Delivery | Does this meet the request, stay in scope, and avoid unnecessary complexity? |
+| Critical | What might be incorrect, fragile, or unsupported by evidence? |
+
+Both are read-only. Each can approve or ask for changes. They are not told to
+argue or forced to agree. After the exchange, each may keep, revise, or withdraw
+its findings.
+
+```text
+guidance = empty
+repeat up to the round limit:
+    result = Worker(task, guidance)
+    in parallel:
+        delivery = Delivery.review(task, result, repository)
+        critical = Critical.review(task, result, repository)
+    wait for both reviews
+    in parallel:
+        delivery_final = Delivery.respond(delivery, critical)
+        critical_final = Critical.respond(critical, delivery)
+    wait for both final assessments
+    decision, optional_note = You(result, delivery_final, critical_final)
+    if decision is Ship it or Abandon:
+        finish
+    guidance = both initial reviews + both final assessments + optional_note
+```
+
+Your decision uses the **final assessments**, not the initial reviews. Agreement
+on approval recommends Ship it. A request for revision recommends another round.
+Disagreement stays visible, and an unconfirmed verdict does not count as approval.
+The full reports remain available in History.
+
+Double review uses four reviewer turns per round, plus the Worker's turn. It costs
+more model usage than Review and is useful when the extra scrutiny is worth it.
+It does not guarantee a better result. Reviewers can still miss the same problem.
+
+### Automatic rounds
+
+The room's **Advanced** section holds the maximum number of rounds and human
+involvement setting. Review and Double review can use reviewer verdicts to
+continue or finish without asking you each round. Double review requires both
+final reviewers to approve before it finishes successfully. Direct always asks you.
+Keep the default human decision setting for your first tasks.
+
+## Pause, stop, and start again
+
+| Control | What happens |
+| --- | --- |
+| Play | Starts a fresh run, or resumes the current paused run |
+| Pause | Suspends local agent processes without ending their sessions |
+| Stop | Asks for confirmation, then terminates the run |
+
+Only available controls are enabled. While the workflow waits for your decision,
+Pause is disabled because work is already waiting for you.
+
+Pause does not cancel a request already sent to a model provider. Stop and
+Abandon do not undo file edits. If the server exits, interrupted runs cannot be
+resumed. Their history and file changes remain, and Play starts a new run.
+
+## Costs, access, and current limits
+
+Real tasks use your coding CLI account and its usage limits or billing. More
+agents, rounds, and reasoning can increase usage. ZipperCrew does not currently
+show a cost estimate or enforce a spending cap. Creating rooms and configuring
+agents do not launch model calls.
+
+The Worker can edit the selected repository and run local commands. Reviewers
+have read-only access. Claude reviewers use file-reading and search tools without
+Bash. Codex reviewers can run checks within the CLI's read-only sandbox. A review
+may therefore report checks it could not perform.
+
+The browser and server run locally, but real agent tasks send relevant prompts
+and file content to the chosen model provider. Rooms and traces also contain task
+text, outputs, and local paths. Inspect them before sharing them.
+
+This version is for one person working locally. It has no accounts, shared online
+rooms, arbitrary workflow editor, or recovery of live runs after a server restart.
+The server listens on `127.0.0.1`. Do not expose it through a public proxy.
+Only one active run can use a given repository or an overlapping folder at a time.
+
+## Troubleshooting
+
+| Problem | What to check |
+| --- | --- |
+| Git reports “Repository not found” | Confirm that your GitHub account has access to both repositories and that Git is authenticated |
+| Installation cannot find ZipperGen | Keep `zippergen` and `zippercrew` as sibling directories, then run `uv sync --locked` from `zippercrew` |
+| A CLI is missing or unsupported | Install or update it, check that `codex` or `claude` runs in the terminal, then restart ZipperCrew |
+| A run fails to sign in or rejects a model | Sign in through the CLI and choose a model your account can use. CLI compatibility checks do not verify authentication |
+| Play is disabled | Set the repository, task, and models for all required agents. Finish, stop, or answer an existing run first |
+| The app says it is already running | Open the existing server, or stop it with Ctrl-C in its terminal before starting again |
+| Port 8765 is busy | Use `uv run zippercrew --port 8767` and open `http://127.0.0.1:8767/office/`. A second simultaneous instance also needs a separate `--data-dir` |
+| The page looks different from the screenshot | Use `/office/`. The root address still serves the earlier interface |
+| A task fails or seems stuck | Click the agent for recent activity, or open **⋯ → History** for the run's reports and shell output |
+
+## Give feedback
+
+Open an issue in this repository, or send your notes to the person who invited you.
+Include what you tried, what you expected, what happened, and whether it was a
+real run or the demo. For execution problems, include the workflow, models, OS,
+CLI versions, and relevant error text. A screenshot is often enough for a UI issue.
+
+You can find **Download full trace** in the run details under History. Share only
+the relevant excerpt after checking it for private data.
+
+We especially want to know where you needed help, whether the agent activity made
+sense, and whether the final recommendation gave you enough information to decide.
+
+## For contributors
+
+The office uses Phaser with original pixel artwork. The surrounding UI is plain
+JavaScript and CSS. Assets are served locally, with no frontend build step.
 
 ```sh
 uv run pytest -m 'not browser'
@@ -263,32 +314,16 @@ uv run playwright install chromium
 uv run pytest -m browser
 ```
 
-For a deterministic walkthrough without a CLI/model:
+The workflow implementations live in
+[Direct](src/zippercrew/direct_workflow.py),
+[Double review](src/zippercrew/double_review_workflow.py), and ZipperGen's
+[`pair_programming.py`](https://github.com/zippergen-io/zippergen/blob/main/examples/pair_programming.py)
+for Review. The [adapter](src/zippercrew/adapter.py) connects them to the coding CLIs.
+The current office lives in [`static/office`](src/zippercrew/static/office).
 
-```sh
-uv run zippercrew --demo --port 8766
-```
-
-Demo mode is visibly labelled, runs the real ZipperGen process with scripted
-assistant turns, and never edits workspace files. Normal mode never substitutes
-a fake assistant. Integration tests also exercise the real native backend with
-fake CLI subprocess results to verify session resumption and permission flags.
-
-Room configuration lives in `.zippercrew/catalog/`; Run journals remain in
-`.zippercrew/rooms/` for compatibility with existing history. By default, both are
-relative to the launch directory; use `--data-dir PATH` to
-change it. They contain tasks, prompts, outputs, and paths: keep them private.
-History and transcripts survive a restart. Interrupted executions are stopped,
-not automatically retried; restart/resume of a live process is outside v0.1.
-Closing a browser does not stop a Run; Stop run or Ctrl-C in the service does.
-Existing execution folders are adopted as named Rooms on first launch, without
-moving or rewriting completed traces.
-
-The local service binds to `127.0.0.1` only. Do not expose it through a public
-proxy. No remote, account system, database, or cloud service is configured.
-
-See [architecture](docs/architecture.md) for the runtime boundary and upstream
-gaps, [room experience](docs/room-experience.md) for the scene/state mapping, and
-[process specification](docs/specification.md) for the protocol.
-The existing ZipperGen Telegram deployment path remains available in ZipperGen;
-this browser version does not mirror local tasks into Telegram yet.
+Room configuration is stored in `.zippercrew/catalog/` and run journals in
+`.zippercrew/rooms/`, relative to the launch directory. Use `--data-dir PATH` to
+choose another location. Model profiles live in
+`~/.config/zippercrew/zippergen.toml`, or under `$XDG_CONFIG_HOME` when set.
+`--project PATH` selects an existing profile directory. It does not select the
+repository an agent works on. Choose that in the room.
