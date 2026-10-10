@@ -174,9 +174,9 @@ def test_authored_poses_change_and_each_role_yields_ambient_to_work(service):
             page.wait_for_timeout(700)
             motions.append(page.evaluate("testRoom.people.get('Implementer').sprite.angle"))
         assert max(motions) - min(motions) > 0.2
-        assert page.evaluate(
-            "testRoom.people.get('Implementer').sprite.frame.name"
-        ) == "implementer"
+        assert (
+            page.evaluate("testRoom.people.get('Implementer').sprite.frame.name") == "implementer"
+        )
         assert page.evaluate("testRoom.inspect().messages") == []
         browser.close()
 

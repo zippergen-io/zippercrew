@@ -19,7 +19,7 @@ export class RoomOptions {
     else if(!draft.pending&&!changed(draft).length){draft.room=room;draft.value=values(room);draft.saved=values(room);draft.error=null;}
     return draft;
   }
-  emit(draft){for(const listener of draft.listeners)listener();}
+  emit(draft){for(const listener of draft.listeners)listener();if(this.session.room?.id===draft.id)this.session.refreshChrome();}
   dirty(draft){return changed(draft).length>0;}
   edit(draft,key,value){
     draft.value[key]=value;draft.error=null;clearTimeout(draft.timer);

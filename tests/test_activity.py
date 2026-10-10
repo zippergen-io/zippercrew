@@ -114,13 +114,13 @@ def test_older_upstream_keeps_action_boundary_fallback(config, monkeypatch):
     from zippercrew.adapter import assistant_backend, load_process
 
     def old_factory(selection, *, project_root):
-        return lambda action, inputs: {action.outputs[0][0]: "done"}
+        return lambda action, inputs: {action.outputs[0][0]: "APPROVE\nFINDINGS: 0\nChecks passed."}
 
     monkeypatch.setattr("zippercrew.adapter.make_cli_assistant_backend", old_factory)
     _, module = load_process()
     observed = []
     result = assistant_backend(config, observed.append)(module.review, {"proposal": "work"})
-    assert list(result.values()) == ["done"]
+    assert list(result.values()) == ["APPROVE\nFINDINGS: 0\nChecks passed."]
     assert not observed
 
 

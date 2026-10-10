@@ -141,3 +141,74 @@ def test_invalid_note_and_stale_edit_cannot_consume_or_stop_a_decision(service, 
     assert request(base, f"/api/runs/{run_id}/stop", {"request_id": "old-decision"})[0] == 409
     assert app.runs.get(run_id).snapshot()["pending"]["id"] == pending
     assert request(base, f"/api/runs/{run_id}/stop", {"request_id": pending})[0] == 200
+
+
+def test_invalid_review_keeps_the_actual_reason():
+    review = "**APPROVE**\nFINDINGS: 0\nThe requested tests pass."
+    summary = decision_summary("Added tests.", review, "REVISE|?|Invalid header.")
+    assert summary["recommendation"] is None
+    assert summary["reason"] == "The requested tests pass."
+    assert summary["format_issue"]
+
+
+def test_round_limit_rejects_another_round_without_consuming_decision(service, config):
+    app, base, project = service
+    config.update(project=str(project), max_rounds=1)
+    _, run = request(base, "/api/rooms", config)
+    state = wait_state(base, run["id"], lambda s: s["pending"])
+    pending = state["pending"]["id"]
+    for note in (None, "Do not discard this note."):
+        payload = {"request_id": pending, "value": "Another round"}
+        if note is not None:
+            payload["note"] = note
+        code, result = request(base, f"/api/runs/{run['id']}/answer", payload)
+        assert code == 409 and "round limit" in result["error"]
+        assert app.runs.get(run["id"]).snapshot()["pending"]["id"] == pending
+    assert (
+        request(
+            base,
+            f"/api/runs/{run['id']}/answer",
+            {
+                "request_id": pending,
+                "value": "Abandon",
+            },
+        )[0]
+        == 200
+    )
+
+
+@pytest.mark.parametrize("header", ["**APPROVE**\nFINDINGS: 0", "APPROVE\nFINDINGS: ?"])
+@pytest.mark.parametrize(
+    "repair,ships",
+    [
+        ('```json\n{"verdict":"APPROVE","findings":0}\n```', True),
+        ('{"verdict":null,"findings":0}', False),
+    ],
+)
+def test_review_auto_uses_repaired_verdict_and_fails_closed(
+    config, monkeypatch, header, repair, ships
+):
+    from zippercrew.worker import execute
+
+    config.update(workflow="review", human_mode="auto", max_rounds=1)
+    calls, events = [], []
+
+    def factory(settings, **kwargs):
+        def invoke(action, inputs):
+            calls.append((action.name, inputs))
+            report = (
+                "Implemented the change."
+                if action.name == "implement"
+                else (repair if "review_to_format" in inputs else header + "\nThe tests pass.")
+            )
+            return {action.outputs[0][0]: report}
+
+        return invoke
+
+    monkeypatch.setattr("zippercrew.adapter.make_cli_assistant_backend", factory)
+    result = execute(config, events.append, lambda request: pytest.fail("Unexpected human step"))
+    assert ("Shipped" in result) is ships
+    if not ships:
+        assert "round limit, still unresolved" in result
+    assert len(calls) == 3
+    assert [e["repaired"] for e in events if e["type"] == "assistant.review_format"] == [ships]

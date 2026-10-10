@@ -66,6 +66,8 @@ export class TaskBoard {
     this.copy=boardCopy(room?.brief);
     this.status=boardStatus(run,connected,!!room);
     if(room&&!run&&this.scene.session?.configuration.missing().length)this.status={text:'SETUP NEEDED',accent:'blue'};
+    const saveState=terminal(run)?this.scene.session?.configuration.saveState:null;
+    if(saveState)this.status={text:saveState.label.replace('…','...').toUpperCase(),accent:saveState.error?'coral':'amber'};
     const signature=JSON.stringify([this.copy,this.status,this.scene.mood]);
     if(signature!==this.signature){this.signature=signature;this.draw();}
   }

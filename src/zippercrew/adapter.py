@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Callable
 from dataclasses import replace
 from inspect import signature
@@ -168,10 +169,19 @@ def assistant_backend(
         output = action.outputs[0][0]
         report = result.get(output)
         if (
-            config.get("workflow") == "double_review"
-            and role in {"Reviewer", "Critic"}
+            role in {"Reviewer", "Critic"}
             and isinstance(report, str)
-            and review_fields(report)["verdict"] is None
+            and (
+                review_fields(report)["verdict"] is None
+                or (
+                    config.get("workflow", "review") == "review"
+                    and (
+                        len(report.strip().splitlines()) < 3
+                        or report.strip().splitlines()[0].strip().upper()
+                        not in {"APPROVE", "REVISE"}
+                    )
+                )
+            )
         ):
             # One bounded formatting turn in the same reviewer session. Never
             # guess a verdict from a keyword in prose or redo the Worker's work.
@@ -189,7 +199,12 @@ def assistant_backend(
             clarification = backends[role](repair, {"review_to_format": report})
             raw = clarification.get(output, "")
             try:
-                metadata = json.loads(raw)
+                formatted = raw.strip() if isinstance(raw, str) else raw
+                if isinstance(formatted, str):
+                    fence = re.fullmatch(r"```(?:json)?\s*\n(.*?)\n```", formatted, re.S | re.I)
+                    if fence:
+                        formatted = fence[1]
+                metadata = json.loads(formatted)
                 valid = (
                     isinstance(metadata, dict)
                     and metadata.get("verdict") in {"APPROVE", "REVISE"}
@@ -214,6 +229,18 @@ def assistant_backend(
                         f"{metadata['verdict']}\nFINDINGS: {metadata['findings']}\n"
                         f"{fields['reason']}\n\n{body}\n\n"
                         f"<decision-summary>{json.dumps(summary)}</decision-summary>"
+                    ),
+                }
+            elif config.get("workflow", "review") == "review":
+                # The upstream Review workflow reads the header directly. An
+                # unresolved header must fail closed even if line 1 says APPROVE.
+                result = {
+                    **result,
+                    output: (
+                        "UNCONFIRMED\nFINDINGS: ?\n"
+                        + review_fields(report)["reason"]
+                        + "\n\n"
+                        + report
                     ),
                 }
             if emit:

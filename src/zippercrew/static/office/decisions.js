@@ -65,15 +65,17 @@ export class OfficeDecisions {
     const noteKey=`${run.id}:${pending.id}`,savedNote=s.guidanceDrafts.get(noteKey)||'';
     const limit=run.round>=run.config.max_rounds;
     if(select){
-      const primary=recommended||(paired&&choices.includes('Another round')?'Another round':null)||(choices.includes('Done')?'Done':choices.includes('Ship it')?'Ship it':choices[0]);
+      const available=choices.filter(choice=>!limit||choice!=='Another round');
+      const primary=(available.includes(recommended)?recommended:null)||(paired&&available.includes('Another round')?'Another round':null)||(available.includes('Done')?'Done':available.includes('Ship it')?'Ship it':available[0]);
       const label=choice=>choice==='Another round'?'Run next round':choice;
       const makeAction=(choice,main=false)=>{
         const action=button(label(choice),()=>s.answer(pending.id,choice,{note:s.guidanceDrafts.get(noteKey)||'',noteKey}),main);
         action.disabled=!s.connected||(choice==='Another round'&&limit);return action;
       };
       const controls=node('div','','decision-controls');actions.append(makeAction(primary,true));controls.append(actions);
-      const otherChoices=choices.filter(choice=>choice!==primary);
-      if(otherChoices.length){
+      const otherChoices=available.filter(choice=>choice!==primary);
+      if(limit){for(const choice of otherChoices)actions.append(makeAction(choice));}
+      else if(otherChoices.length){
         const alternatives=disclosure('Other choices','decision-alternatives');
         alternatives.content.className='decision-options';
         for(const choice of otherChoices)alternatives.content.append(makeAction(choice));
@@ -102,12 +104,12 @@ export class OfficeDecisions {
     }
     const information=node('section','','decision-information'),infoTitle=node('h4','More information'),infoControls=node('div','','decision-information-controls');
     infoTitle.id='decision-information-title';information.setAttribute('aria-labelledby',infoTitle.id);
-    const why=disclosure(recommended==='Another round'?'Why another round?':recommended==='Ship it'?'Why ship it?':'Why is a decision required?','decision-disclosure');
+    const why=disclosure(limit?(run.config.workflow==='direct'?'Worker summary':'Reviewer rationale'):recommended==='Another round'?'Why another round?':recommended==='Ship it'?'Why ship it?':'Why is a decision required?','decision-disclosure');
     const worker=node('section');worker.append(node('h4','Worker'),node('p',summary.worker||withoutSummary(report(run,'Implementer'))||'No worker summary was returned.','decision-evidence'));why.content.append(worker);
     if(paired){
       for(const review of summary.reviewers||[]){const section=node('section');section.append(node('h4',review.name),node('p',review.reason,'decision-evidence'));if(review.format_issue)section.append(node('p',review.format_issue,'field-help'));why.content.append(section);}
     }else if(run.config.workflow!=='direct'){
-      const review=node('section');review.append(node('h4','Reviewer rationale'),node('p',summary.reason||'No concise rationale was returned. Full findings are in Technical details.','decision-evidence'));why.content.append(review);
+      const review=node('section');review.append(node('h4','Reviewer rationale'),node('p',summary.reason||'No concise rationale was returned. Full findings are in Technical details.','decision-evidence'));if(summary.format_issue)review.append(node('p',summary.format_issue,'field-help'));why.content.append(review);
     }
     let loaded=false;
     const technical=disclosure('Technical details','decision-disclosure',content=>{

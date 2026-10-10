@@ -32,10 +32,12 @@
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
   </defs></svg>
   <main class="workspace" aria-label="The studio workspace">
-    <div class="scene-scroll" id="scene-scroll"><div id="game" role="application" aria-label="Pixel office. Click an agent or desk to inspect it. Click the floor or use arrow keys or W A S D to walk. Click the room name for its workflow and options. Open the Studio menu for rooms and history." tabindex="0"></div></div>
+    <div class="scene-scroll" id="scene-scroll"><div id="game" role="application" aria-label="Pixel office. Click an agent or desk to inspect it. Click the floor or use arrow keys or W A S D to walk. Click the room name for its workflow and options. Open the Studio menu for rooms and history." aria-describedby="room-keyboard-help" tabindex="0"></div></div>
+    <p id="room-keyboard-help" class="visually-hidden">Use arrow keys or WASD to walk, then Enter or Space to open the nearest agent or whiteboard. Tab reaches each room object directly.</p>
+    <nav id="room-objects" class="room-object-access" aria-label="Room objects"></nav>
   </main>
   <nav class="corner-bar controls-bar" aria-label="Studio controls">
-    <button id="room-header" class="room-presence" aria-label="Room options"><span id="room-name" class="room-name-trigger">The studio</span><span id="scene-state" class="room-status">Connecting…</span><span id="room-status-reserve" class="room-status room-status-reserve" aria-hidden="true"></span></button>
+    <button id="room-header" class="room-presence" aria-label="Room options"><span id="room-name" class="room-name-trigger">The studio</span><span id="scene-state" class="room-status" role="status" aria-live="polite" aria-atomic="true">Connecting…</span><span id="room-status-reserve" class="room-status room-status-reserve" aria-hidden="true"></span></button>
     <div class="run-controls" role="group" aria-label="Run controls">
       <button id="room-action" class="room-action transport-button" aria-label="Run" title="Run task" disabled><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg></button>
       <button id="run-pause" class="transport-button" aria-label="Pause run" title="Pause run" disabled><svg class="icon" aria-hidden="true"><use href="#i-pause"/></svg></button>

@@ -2,15 +2,17 @@
 
 import copy
 
+import pytest
 from conftest import request, wait_state
 
 from zippercrew.preferences import Preferences
 from zippercrew.worker import execute
 
 
-def test_direct_has_only_worker_and_human_and_carries_followup(config):
+@pytest.mark.parametrize("note", ["Check zero too.", ""])
+def test_direct_has_only_worker_and_human_and_carries_followup(config, note):
     config.update(workflow="direct", max_rounds=3)
-    replies = iter(["Another round", "Check zero too.", "Done"])
+    replies = iter(["Another round", note, "Done"])
     calls, events = [], []
 
     def backend(action, inputs):
@@ -20,7 +22,12 @@ def test_direct_has_only_worker_and_human_and_carries_followup(config):
     result = execute(config, events.append, lambda _: next(replies), backend)
     assert result.startswith("Completed after 2 round(s)")
     assert [name for name, _ in calls] == ["implement", "implement"]
-    assert calls[1][1]["guidance"] == "Check zero too."
+    guidance = calls[1][1]["guidance"]
+    if note:
+        assert guidance == note
+    else:
+        assert "human requested another attempt without further guidance" in guidance
+        assert "Recheck the task" in guidance
     assert not any(e["type"] == "review.verdict" for e in events)
     messages = [
         e["event"] for e in events if e["type"] == "runtime" and e["event"]["type"] == "send"

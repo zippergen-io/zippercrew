@@ -77,12 +77,20 @@ def test_task_autosave_serializes_retries_and_run_uses_latest_draft(service):
         task.fill("Keep this unsaved draft")
         expect(page.locator(".autosave-status")).to_contain_text("Not saved")
         page.locator("#close-detail").click()
-        page.evaluate("() => {studio.session.configuration.editTask();}")
+        expect(page.locator("#scene-state")).to_contain_text("Task not saved")
+        expect(page.locator("#room-action")).to_be_disabled()
+        assert page.evaluate("studio.board.inspect().status") == "TASK NOT SAVED"
+        capture(page, "audit-task-not-saved")
+        assert app.rooms.get(room["id"])["brief"] == "Newer edit"
+        page.get_by_role("button", name="Open unsaved task", exact=True).click()
         expect(task).to_have_value("Keep this unsaved draft")
         expect(page.locator(".autosave-status")).to_contain_text("Not saved")
         page.unroute("**/api/rooms/*/save")
         page.get_by_role("button", name="Retry save", exact=True).click()
         expect(page.locator(".autosave-status")).to_have_text("")
+        expect(page.locator("#scene-state")).not_to_contain_text("not saved")
+        expect(page.locator("#room-action")).to_be_enabled()
+        assert app.rooms.get(room["id"])["brief"] == "Keep this unsaved draft"
         capture(page, "office-task-autosave-day")
         # Running immediately after typing must flush the debounce first.
         task.fill("Use this latest task for the run")

@@ -1,5 +1,9 @@
 # v0.1 verification
 
+> Historical notes: much of this document describes the earlier `/` interface.
+> Start with the [current README](../README.md) for setup and workflows.
+> See the [audit follow-up](audit-follow-up.md) for the latest verification and open issues.
+
 Verified locally on 2026-10-04 with Python 3.12 and the editable sibling ZipperGen
 checkout, including its model and reasoning-effort profile support.
 

@@ -134,6 +134,7 @@ export class OfficeSession {
 
   setBusy(value) {
     this.busy = value;
+    document.querySelectorAll('[data-mood-choice]').forEach(button=>button.disabled=value);
     $('studio-menu').inert=value;$('person-card').inert=value;$('menu-toggle').disabled=value;
     $('detail-dialog').classList.toggle('is-busy', value);
     $('detail-dialog').setAttribute('aria-busy', String(value));
@@ -160,13 +161,19 @@ export class OfficeSession {
 
   openCurrent() {
     if (!this.initialized) { this.boot(); return; }
-    if (this.room) this.showTask();
+    if(this.configuration.saveState?.kind==='task')this.configuration.editTask();
+    else if (this.room) this.showTask();
     else this.editRoom(null);
   }
 
   async loadRoom(id) {
     const navigation = ++this.navigation;
-    if(this.room){await this.configuration.drafts.flush(this.room.id);await this.configuration.options.flush(this.room.id);}
+    if(this.room){
+      try{await this.configuration.drafts.flush(this.room.id);}
+      catch{this.configuration.editTask();return false;}
+      try{await this.configuration.options.flush(this.room.id);}
+      catch{this.configuration.roomPanel();return false;}
+    }
     // Fetch before replacing the current room so failed navigation loses nothing.
     const room = await api(`/api/rooms/${encodeURIComponent(id)}/context`);
     const profiles=(await api(`/api/profiles?project=${encodeURIComponent(room.config.project||this.bootstrap.project)}`)).profiles;
@@ -191,7 +198,7 @@ export class OfficeSession {
 
   openRoom(id) {
     return this.perform(async () => {
-      await this.loadRoom(id);
+      if(await this.loadRoom(id)===false)return;
       $('detail-dialog').close();this.scene.ui.dismiss(false);
     });
   }
@@ -237,6 +244,7 @@ export class OfficeSession {
 
   refreshChrome() {
     const run = this.taskRun;
+    this.scene.syncRoomObjects();
     this.scene.board.update(this.room,run,this.connected);
     this.scene.attention?.update();
     $('room-name').textContent = this.room?.name || 'The studio';
@@ -248,12 +256,16 @@ export class OfficeSession {
     $('room-action').title=paused?'Resume run':!active&&missing.length?missing.join(' · '):'Run task';
     $('room-header').disabled=this.busy||!this.initialized||(pending&&!this.connected);
     $('room-header').setAttribute('aria-label',pending?'Your decision':'Room options');
-    $('room-header').title=pending?'Your decision':'Room options';
-    $('scene-state').dataset.state=!this.initialized||!this.connected?'neutral':pending?'attention':missing.length?'setup':'ready';
+    $('room-header').title=pending?'Your decision':this.configuration.saveState?.kind==='task'?'Open unsaved task':'Room options';
+    if(!pending&&this.configuration.saveState?.kind==='task')$('room-header').setAttribute('aria-label','Open unsaved task');
+    const saveState=!active?this.configuration.saveState:null;
+    $('scene-state').dataset.state=!this.initialized||!this.connected?'neutral':pending?'attention':saveState?.error||missing.length?'setup':saveState?'neutral':'ready';
     const prefix=(this.bootstrap?.demo?'Demo · ':'')+(this.room?`${this.configuration.workflows[this.configuration.workflow].name} · `:'');
     let status=!this.bootstrap?'Connecting…':!this.room?'Ready for your first room':!run?missing.length?'Setup needed':'Ready to start':pending?'Your decision':run.status;
+    if(saveState)status=saveState.label;
     if(run&&!terminal(run)&&!this.connected)status='Reconnecting…';
-    $('scene-state').replaceChildren(document.createTextNode(prefix),node('span',status.charAt(0).toUpperCase()+status.slice(1),pending?'attention-state':''));
+    const displayStatus=status.charAt(0).toUpperCase()+status.slice(1);
+    if($('scene-state').textContent!==prefix+displayStatus)$('scene-state').replaceChildren(document.createTextNode(prefix),node('span',displayStatus,pending?'attention-state':''));
     // Reserve the longest normal state in the same font, without showing it or
     // announcing it. Room names can grow; run state changes never resize the bar.
     $('room-status-reserve').replaceChildren(document.createTextNode(prefix),node('span','Your decision','attention-state'));

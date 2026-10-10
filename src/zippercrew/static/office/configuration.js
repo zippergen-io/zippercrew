@@ -17,7 +17,7 @@ export class OfficeConfiguration {
   constructor(session){
     this.session=session;this.scene=session.scene;this.section='rooms';this.drawerRequest=0;this.markers=new Map();this.drafts=new TaskDrafts(session);this.options=new RoomOptions(session);
     for(const section of ['rooms','history'])$(`show-${section}`).onclick=()=>this.showDrawer(section);
-    $('room-header').onclick=()=>session.decisions.pending?session.decisions.open():this.roomPanel();
+    $('room-header').onclick=()=>session.decisions.pending?session.decisions.open():this.saveState?.kind==='task'?this.editTask():this.roomPanel();
   }
   get editable(){return !!this.session.room&&terminal(this.session.run);}
   get workflow(){return this.session.room?.config.workflow||'review';}
@@ -27,10 +27,19 @@ export class OfficeConfiguration {
   hasModel(id){const b=this.binding(id);return !!(b.profile&&(this.session.bootstrap?.demo||this.session.profiles[b.profile]));}
   isReady(id){return this.hasModel(id);}
   model(id){const b=this.binding(id),p=this.session.profiles[b.profile];return b.settings?.model||p?.model||(this.session.bootstrap?.demo&&b.profile?'Scripted demo':p?`${p.backend==='claude'?'Claude':'Codex'} default`:'Choose model');}
+  get saveState(){
+    const id=this.session.room?.id,task=this.drafts.rooms.get(id),options=this.options.rooms.get(id);
+    if(task?.error)return {kind:'task',error:true,label:'Task not saved'};
+    if(options?.error)return {kind:'room',error:true,label:'Room not saved'};
+    if(task&&(task.pending||task.value!==task.saved))return {kind:'task',error:false,label:task.pending?'Saving task…':'Unsaved task'};
+    if(options&&(options.pending||this.options.dirty(options)))return {kind:'room',error:false,label:options.pending?'Saving room…':'Unsaved room'};
+    return null;
+  }
   missing(){
     const s=this.session,missing=[];
     if(!s.room?.config.workspace)missing.push('Choose a repository in the room panel');
     if(!s.room?.brief?.trim())missing.push('Add a task on the whiteboard');
+    if(this.saveState?.error)missing.push(this.saveState.label+' · open it to retry');
     for(const [id,name]of this.team){if(!this.hasModel(id))missing.push(`Choose ${name.toLowerCase()} model`);}
     return missing;
   }
@@ -173,7 +182,7 @@ export class OfficeConfiguration {
     this.workflowCards($('detail-body'),workflow=>s.perform(async()=>{
       const agents={};for(const role of this.workflows[workflow].roles)agents[role]={profile:s.bootstrap.demo?'demo':'',instructions:''};
       const room=await api('/api/rooms',{name:name.value.trim()||'Untitled room',brief:'',config:{workflow,project:s.bootstrap.project,workspace:'',agents}});
-      await s.loadRoom(room.id);s.confirmInOffice('worker','Room ready.\nAdd a task on the whiteboard.');
+      if(await s.loadRoom(room.id)===false)return;s.confirmInOffice('worker','Room ready.\nAdd a task on the whiteboard.');
     }));
     name.focus();
   }
@@ -195,8 +204,9 @@ export class OfficeConfiguration {
     status.setAttribute('role','status');retry.className='retry-save';saveLine.append(status,retry);
     const update=()=>{status.textContent=draft.error?'Not saved — '+draft.error:draft.pending?'Saving…':this.options.dirty(draft)?'Unsaved changes':'';saveLine.hidden=!status.textContent;status.dataset.error=String(!!draft.error);retry.hidden=!draft.error;};
     draft.listeners.clear();draft.listeners.add(update);update();
+    if(draft.error&&(!Number.isInteger(Number(rounds.value))||Number(rounds.value)<1||Number(rounds.value)>100)){advanced.open=true;rounds.setAttribute('aria-invalid','true');rounds.focus();}
     for(const [key,control]of Object.entries({name,workspace:path,max_rounds:rounds,human_mode:involvement})){
-      control.oninput=()=>this.options.edit(draft,key,control.value);
+      control.oninput=()=>{control.removeAttribute('aria-invalid');this.options.edit(draft,key,control.value);};
       control.onchange=()=>{if(draft.value[key]!==control.value)this.options.edit(draft,key,control.value);this.options.flush(draft.id).catch(()=>{});};
       control.onblur=()=>this.options.flush(draft.id).catch(()=>{});
     }
@@ -297,7 +307,7 @@ export class OfficeConfiguration {
     const histories=await Promise.all(rooms.map(room=>api(`/api/rooms/${room.id}/runs`)));
     for(const [index,room]of rooms.entries()){
       host.append(node('h3',room.name,'history-room'));const runs=histories[index];
-      for(const run of runs){const link=button('',()=>this.session.perform(async()=>{const state=await api(`/api/runs/${run.id}`);this.session.window('history-run',`${room.name} / History`,`Run ${run.number}`,state.config.task);const progress=node('div'),reports=node('div'),tools=node('div');this.scene.activity.renderRecent(progress,null,12,state);this.session.renderReports(reports,state);this.session.renderToolLog(tools,state);$('detail-body').append(node('p',state.error||state.outcome||state.status,'run-summary'),progress,reports,tools);}));link.className='history-entry';link.setAttribute('aria-label',`Run ${run.number} · ${run.status}`);link.append(node('strong',`Run ${run.number} · ${run.status}`),node('small',run.task.split('\n')[0]));host.append(link);}
+      for(const run of runs){const link=button('',()=>this.session.perform(async()=>{const state=await api(`/api/runs/${run.id}`);this.session.window('history-run',`${room.name} / History`,`Run ${run.number}`,state.config.task);const progress=node('div'),reports=node('div'),tools=node('div');this.scene.activity.renderRecent(progress,null,12,state);this.session.renderReports(reports,state);this.session.renderToolLog(tools,state);$('detail-body').append(node('p',String(state.error||state.outcome||state.status).replace(/zg run trace --tail (20|40) --json/g,'History or Download full trace'),'run-summary'),progress,reports,tools);}));link.className='history-entry';link.setAttribute('aria-label',`Run ${run.number} · ${run.status}`);link.append(node('strong',`Run ${run.number} · ${run.status}`),node('small',run.task.split('\n')[0]));host.append(link);}
     }
     if(!rooms.length)host.append(node('p','Completed work will appear here.','empty-state'));
   }

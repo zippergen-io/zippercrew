@@ -43,6 +43,15 @@ def no_guidance() -> str:
 
 
 @pure
+def next_guidance(note: str) -> str:
+    return (
+        note.strip()
+        or "The human requested another attempt without further guidance. "
+        "Recheck the task and improve the result where needed."
+    )
+
+
+@pure
 def first_round() -> int:
     return 1
 
@@ -84,7 +93,8 @@ def direct(task: str @ Human, max_rounds: int @ Human, detail: str @ Human) -> s
         again = keep_going(verdict, rounds, max_rounds)
     while again @ Human:
         with Human:
-            guidance = ask_note()
+            note = ask_note()
+            guidance = next_guidance(note)
             rounds = next_round(rounds)
         Human(guidance) >> Implementer(guidance)
         with Implementer:

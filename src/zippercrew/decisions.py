@@ -50,13 +50,15 @@ def decision_summary(proposal: str, critique: str, header: str | None) -> dict[s
     }
     if header is None:
         return summary
-    verdict, findings, headline = header.split("|", 2)
-    lines = critique.strip().splitlines()
-    valid = len(lines) >= 3 and lines[0].strip().upper() in {"APPROVE", "REVISE"}
+    fields = review_fields(critique)
+    valid = fields["verdict"] is not None
     summary.update(
-        recommendation=("Ship it" if verdict == "APPROVE" else "Another round") if valid else None,
-        reason=plain_summary(headline),
-        findings=int(findings) if findings.isdigit() else None,
+        recommendation=("Ship it" if fields["verdict"] == "APPROVE" else "Another round")
+        if valid
+        else None,
+        reason=fields["reason"],
+        findings=fields["findings"],
+        format_issue=fields["format_issue"],
     )
     # New reviews may explicitly identify a task-specification problem. Never
     # guess this from a keyword or silently infer that the Worker made no edits.

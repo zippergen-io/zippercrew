@@ -102,7 +102,8 @@ Use a clean branch or a separate checkout, since the Worker edits files directly
    In demo mode, the scripted model is already selected.
 4. Click the **whiteboard** and write the task. The first line becomes its title.
    The rest should describe the result you want and how to check it. Task edits
-   save as you type.
+   save as you type. If a save fails, the board and header show **Task not saved**.
+   Open either to retry. Play stays disabled until the save succeeds.
 5. Click **Run task**, or close the panel and press **Play** in the top bar.
    Play becomes available once the repository, task, and required models are set.
 6. When **Your decision** appears, click **You** or the room header. Read the
@@ -137,7 +138,9 @@ Use **Add a note for the Worker** if you want to add guidance. The note is optio
 | Room name | Choose the workflow, repository, and room options, or open a pending decision |
 | ⋯ menu | Switch rooms or open History |
 
-Move your character with WASD or the arrow keys. The bottom controls adjust zoom.
+Move your character with WASD or the arrow keys. Press Enter or Space to open the
+nearest room object. Tab also reaches the whiteboard and every character directly.
+The bottom controls adjust zoom.
 The top bar switches between day and night. Walking and message handovers make
 coordination visible, but the workflow never waits for an animation to finish.
 
@@ -150,7 +153,8 @@ the same run.
 
 Choose the workflow when creating a room, or change it later in room options.
 The following pseudocode describes the default flow, where you make the decisions.
-No workflow runs more than the configured number of rounds.
+No workflow runs more than the configured number of rounds. At the limit, choose
+**Ship it** (or **Done**) or **Abandon**. Reviewer objections remain visible.
 
 ### Direct
 
@@ -228,6 +232,7 @@ The full reports remain available in History.
 
 Double review uses four reviewer turns per round, plus the Worker's turn. It costs
 more model usage than Review and is useful when the extra scrutiny is worth it.
+An unclear review format can add one clarification turn per assessment.
 It does not guarantee a better result. Reviewers can still miss the same problem.
 
 ### Automatic rounds
@@ -249,7 +254,8 @@ Keep the default human decision setting for your first tasks.
 Only available controls are enabled. While the workflow waits for your decision,
 Pause is disabled because work is already waiting for you.
 
-Pause does not cancel a request already sent to a model provider. Stop and
+Pause does not cancel a request already sent to a model provider. Stop ends the
+run's local process group. Independently detached subprocesses may outlive it. Stop and
 Abandon do not undo file edits. If the server exits, interrupted runs cannot be
 resumed. Their history and file changes remain, and Play starts a new run.
 
@@ -264,6 +270,13 @@ The Worker can edit the selected repository and run local commands. Reviewers
 have read-only access. Claude reviewers use file-reading and search tools without
 Bash. Codex reviewers can run checks within the CLI's read-only sandbox. A review
 may therefore report checks it could not perform.
+
+Read-only access restricts writes. It does not mean all reads are confined to the
+repository. In particular, the current Claude configuration does not enforce that
+file-read boundary. Claude Worker shell use without interactive approval is still
+unverified in a real run. Treat Claude support as experimental for private testing.
+Instructions against committing, pushing, and deploying are not a universal
+operating-system restriction.
 
 The browser and server run locally, but real agent tasks send relevant prompts
 and file content to the chosen model provider. Rooms and traces also contain task
@@ -308,7 +321,7 @@ JavaScript and CSS. Assets are served locally, with no frontend build step.
 
 ```sh
 uv run pytest -m 'not browser'
-uv run ruff check .
+uv run ruff check src tests
 uv run mypy src/zippercrew
 uv run playwright install chromium
 uv run pytest -m browser

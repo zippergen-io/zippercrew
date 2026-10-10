@@ -16,7 +16,7 @@ export class TaskDrafts {
     else if(!draft.pending&&draft.value===draft.saved&&draft.saved.trim()!==room.brief){draft.value=draft.saved=room.brief;draft.error=null;}
     return draft;
   }
-  emit(draft){for(const listener of draft.listeners)listener();}
+  emit(draft){for(const listener of draft.listeners)listener();if(this.session.room?.id===draft.id)this.session.refreshChrome();}
   edit(draft,value){
     draft.value=value;draft.error=null;clearTimeout(draft.timer);
     if(this.session.room?.id===draft.id){this.session.room.brief=value;this.session.refreshChrome();}

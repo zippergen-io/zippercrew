@@ -317,3 +317,32 @@ def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(
         assert len(app.rooms.get(room["id"])["runs"]) == 1
         assert not errors
         browser.close()
+
+
+@pytest.mark.parametrize("workflow", ["review", "double_review"])
+def test_last_round_offers_visible_terminal_choices(service, config, workflow):
+    config.update(workflow=workflow, max_rounds=1)
+    if workflow == "double_review":
+        config["agents"]["Critic"] = dict(config["agents"]["Reviewer"])
+    app, base, room, state = pending_room(service, config)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        enter(page, base)
+        page.get_by_role("button", name="Your decision", exact=True).click()
+        expect(page.get_by_role("button", name="Run next round", exact=True)).to_have_count(0)
+        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_enabled()
+        expect(page.get_by_role("button", name="Abandon", exact=True)).to_be_visible()
+        expect(page.get_by_role("button", name="Reviewer rationale", exact=True)).to_be_visible()
+        expect(page.get_by_label("Optional note")).to_have_count(0)
+        summary = state["pending"]["summary"]
+        reason = summary["reason"]
+        if workflow == "double_review" and summary.get("disagreement"):
+            expect(page.locator(".decision-recommendation")).to_have_text("The reviewers disagree")
+            reason = reason.removeprefix("The reviewers disagree. ")
+        expect(page.locator(".decision-reason")).to_have_text(reason)
+        capture(page, f"audit-round-limit-{workflow}")
+        page.get_by_role("button", name="Abandon", exact=True).click()
+        expect(page.locator("#detail-dialog")).not_to_be_visible()
+        wait_state(base, state["id"], lambda s: s["status"] == "completed")
+        browser.close()

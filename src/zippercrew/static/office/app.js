@@ -6,7 +6,7 @@ import { OfficeActivity } from './activity.js';
 import { OfficeAmbient } from './ambient.js';
 import { OfficeMascot } from './mascot.js';
 import { OfficeSurfaces } from './surfaces.js';
-import { OfficeSession } from './session.js';
+import { OfficeSession, api } from './session.js';
 import { TaskBoard } from './task-board.js';
 import { OfficeHandoffs } from './handoffs.js';
 import { PALETTES } from './palettes.js';
@@ -85,7 +85,16 @@ class Studio extends Phaser.Scene {
       $('game').focus({preventScroll:true});
     });
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,LEFT,DOWN,RIGHT,ESC',false);
-    this.input.keyboard.on('keydown',event=>{if(document.activeElement===$('game')&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(event.key))event.preventDefault();});
+    $('game').addEventListener('keydown',event=>{
+      if(event.target!==$('game'))return;
+      if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Enter'].includes(event.key))event.preventDefault();
+      if(!event.repeat&&['Enter',' '].includes(event.key)&&!this.session?.busy){
+        const human=this.people.get('human');
+        const objects=[{id:'task-board',x:this.board.sprite.x+this.board.sprite.width/2,y:this.board.sprite.y+this.board.sprite.height},...[...this.people.values()].filter(p=>p.id!=='human'||this.session?.decisions.pending)];
+        objects.sort((a,b)=>Math.hypot(a.x-human.x,a.y-human.y)-Math.hypot(b.x-human.x,b.y-human.y));
+        this.openRoomObject(objects[0].id);
+      }
+    });
     this.game.canvas.style.touchAction='pan-x pan-y';
     this.buildUI();this.setMood(this.mood);this.resize(true);this.ready=true;window.studio=this;
     new ResizeObserver(()=>this.resize()).observe($('scene-scroll'));
@@ -96,6 +105,17 @@ class Studio extends Phaser.Scene {
     this.activity=new OfficeActivity(this);this.ambient=new OfficeAmbient(this);
     this.mascot=new OfficeMascot(this);
     this.session=new OfficeSession(this);this.session.boot();
+  }
+  openRoomObject(id){
+    if(!this.session?.initialized||this.session.busy)return;
+    if(id==='task-board')this.session.openCurrent();else this.select(id);
+  }
+  syncRoomObjects(){
+    const host=$('room-objects'),pending=!!this.session?.decisions.pending;
+    const objects=[['task-board','Whiteboard · task'],...[...this.people.values()].map(p=>[p.id,`${p.name} · ${p.role}${p.id==='human'&&pending?' · Your decision':''}`])];
+    const signature=JSON.stringify(objects);if(host.dataset.signature===signature)return;
+    host.dataset.signature=signature;host.replaceChildren();
+    for(const [id,label]of objects){const button=document.createElement('button');button.textContent=label;button.dataset.roomObject=id;button.onclick=()=>this.openRoomObject(id);host.append(button);}
   }
   setWorkflow(workflow){
     for(const id of ['reviewer','planner']){
@@ -153,6 +173,7 @@ class Studio extends Phaser.Scene {
       p.nameTag.setTexture(this.nameTexture(p));
       if(p.bubble)p.bubble.setTexture(this.bubbleTexture(p));
     }
+    if(this.mascot)this.mascot.sprite.setTexture(this.lighting.characterKey(this.mascot),this.mascot.sprite.frame.name);
     this.board?.update(this.session?.room,this.session?.taskRun,this.session?.connected);
     this.talkDots.setTexture(labelTexture(this,'...',{background:'bubble',color:'bubbleInk',bubble:true}));
     document.querySelectorAll('[data-mood-choice]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.moodChoice===mood)));
@@ -177,7 +198,11 @@ class Studio extends Phaser.Scene {
     $('zoom-out').onclick=()=>zoom(-.125);
     $('fit').onclick=()=>{this.manualZoom=false;this.resize(true);};
     $('close-person').onclick=()=>this.select(null);
-    document.querySelectorAll('[data-mood-choice]').forEach(button=>button.onclick=()=>this.setMood(button.dataset.moodChoice));
+    document.querySelectorAll('[data-mood-choice]').forEach(button=>button.onclick=()=>{
+      if(this.session?.busy)return;
+      const appearance=button.dataset.moodChoice;this.setMood(appearance);
+      this.session?.perform(async()=>{this.session.preferences=await api('/api/preferences',{appearance});});
+    });
     this.ui=new OfficeInterface(this);this.updateSeatUI();
   }
   requestSit(id,chairId,status){return this.seating.request(id,chairId,status);}

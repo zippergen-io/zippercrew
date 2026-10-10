@@ -217,18 +217,22 @@ def test_malformed_review_keeps_its_useful_summary_without_guessing_verdict():
     "response,expected",
     [
         ('{"verdict":"APPROVE","findings":3}', "APPROVE"),
+        ('```json\n{"verdict":"APPROVE","findings":3}\n```', "APPROVE"),
+        ('```\n{"verdict":"REVISE","findings":3}\n```', "REVISE"),
         ('{"verdict":null,"findings":3}', None),
         ('{"verdict":"APPROVE","findings":true}', None),
         ("not JSON", None),
     ],
 )
+@pytest.mark.parametrize("workflow", ["review", "double_review"])
 def test_format_repair_is_bounded_read_only_and_keeps_findings(
-    config, monkeypatch, response, expected
+    config, monkeypatch, response, expected, workflow
 ):
     from zippercrew.decisions import review_fields
 
-    config.update(workflow="double_review")
-    config["agents"]["Critic"] = {"backend": "claude", "model": "critical-model"}
+    config.update(workflow=workflow)
+    role = "Critic" if workflow == "double_review" else "Reviewer"
+    config["agents"][role] = {"backend": "claude", "model": "critical-model"}
     calls, events = [], []
 
     def factory(settings, **kwargs):
@@ -239,8 +243,9 @@ def test_format_repair_is_bounded_read_only_and_keeps_findings(
         return invoke
 
     monkeypatch.setattr("zippercrew.adapter.make_cli_assistant_backend", factory)
-    _, module = load_process("double_review")
-    result = assistant_backend(config, events.append)(module.respond_critical, {})
+    _, module = load_process(workflow)
+    action = module.respond_critical if workflow == "double_review" else module.review
+    result = assistant_backend(config, events.append)(action, {})
     report = next(iter(result.values()))
     assert len(calls) == 2 and calls[1][1]["review_to_format"] == MALFORMED_REVIEW
     assert all(a.access == "read-only" and a.shell == "restricted" for a, i in calls)

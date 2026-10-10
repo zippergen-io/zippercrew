@@ -206,6 +206,8 @@ class Run:
                 raise ValueError("A human response must be text, up to 30,000 characters.")
             result = human_task_result_from_value(pending["spec"], value)
             canonical = result[pending["spec"]["output"]]
+            if canonical == "Another round" and self.state["round"] >= self.config["max_rounds"]:
+                raise Conflict("The round limit is reached. Finish or abandon this run.")
             payload = {"request_id": request_id, "value": canonical}
             if note is not None:
                 if pending["spec"]["kind"] != "select" or canonical != "Another round":
@@ -384,7 +386,7 @@ class Runs:
                     {
                         "type": "room.stopped",
                         "error": "Service interrupted. "
-                        "History retained; use Run again to continue. Edits remain.",
+                        "History and edits are kept. Press Play to start a fresh run.",
                     }
                 )
             self.items[path.parent.name] = room
