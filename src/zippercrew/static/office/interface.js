@@ -32,6 +32,22 @@ export class OfficeInterface {
     document.addEventListener('pointerdown',event=>{
       if(!event.target.closest('.studio-drawer,#menu-toggle'))this.closePopovers();
     });
+    window.addEventListener('keydown',event=>{
+      // Run after Phaser's window listener has consumed the key, then prevent
+      // browser scrolling. Canceling it on the game element hides it from Phaser.
+      // Pointer use of the chrome and initial page load can leave focus on a
+      // button or the body. A fresh movement key returns control to the room,
+      // without stealing arrows/WASD from an open panel or editable field.
+      if(!event.defaultPrevented&&!event.isComposing&&!event.altKey&&!event.ctrlKey&&!event.metaKey&&
+        ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(event.key.length===1?event.key.toLowerCase():event.key)&&this.canWalk()){
+        const target=event.target;
+        if(target instanceof Element&&!target.closest('input,textarea,select,[contenteditable]:not([contenteditable=false])')&&
+          (target===document.body||target===document.documentElement||target.closest('#game,.controls-bar,.zoom-controls'))){
+          if(event.repeat&&document.activeElement!==$('game'))return;
+          $('game').focus({preventScroll:true});event.preventDefault();
+        }
+      }
+    });
     document.addEventListener('keydown',event=>{
       if(event.key!=='Escape'||$('detail-dialog').open)return;
       const open=[['studio-menu','menu-toggle']].find(([id])=>!$(id).hidden);
@@ -39,6 +55,11 @@ export class OfficeInterface {
       else if(this.panel)this.dismiss();
     });
     for(const p of scene.people.values())if(p.bubble)this.record(p.name,p.bubbleText);
+  }
+
+  canWalk(){
+    return !this.scene.session?.busy&&!$('detail-dialog').open&&
+      ['studio-menu','person-card','task-card','stop-confirmation'].every(id=>$(id).hidden);
   }
 
   explored(){document.body.classList.add('has-explored');}
@@ -53,7 +74,7 @@ export class OfficeInterface {
   }
   onSelect(id){
     if(!id){if(this.panel==='person-card'){this.panel=null;this.anchor=null;}return;}
-    if(id==='human'&&this.scene.session?.decisions.pending){this.scene.session.decisions.open();return;}
+    if(id==='human'&&this.scene.session?.decisions.request){this.scene.session.decisions.open();return;}
     this.closePopovers();$('task-card').hidden=true;this.explored();
     const p=this.scene.people.get(id);
     const neighbors=[...this.scene.people.values()].filter(other=>Math.hypot(other.x-p.x,other.y-p.y)<40);
@@ -67,7 +88,7 @@ export class OfficeInterface {
   }
   updatePerson(){
     const p=this.scene.people.get(this.scene.selected);if(!p)return;
-    $('person-activity').textContent=p.exchangeStatus||this.scene.activity?.currentText(p)||p.ambientStatus||p.liveStatus||'Ready';
+    $('person-activity').textContent=(this.scene.session.configuration.editable&&p.id!=='human'&&this.scene.session.configuration.setupStatus(p.id))||p.exchangeStatus||this.scene.activity?.currentText(p)||p.ambientStatus||p.liveStatus||'Ready';
     this.scene.activity?.renderRecent($('person-recent'),p.id,3);
     $('person-task-title').textContent=this.scene.session?.room?.brief||'Define the task on the whiteboard';
     this.scene.session?.configuration.agentCard(p);

@@ -18,12 +18,21 @@ from zippergen.assistant_backends import assistant_backend_spec, assistant_setti
 from zippergen.human_tasks import human_task_result_from_value
 from zippergen.workspace import Workspace
 
+from zippercrew.models import model_choices, validate_effort
 from zippercrew.state import TERMINAL, apply_event, initial_state
 from zippercrew.workflows import agent_roles, workflow_id
 
 
 class Conflict(ValueError):
     """An operation no longer applies to the current room state."""
+
+
+class AgentConfigurationError(ValueError):
+    """A correctable model setting, with its room role for contextual UI."""
+
+    def __init__(self, role: str, message: str) -> None:
+        super().__init__(message)
+        self.role = role
 
 
 def directory(value: Any) -> Path:
@@ -54,6 +63,7 @@ def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, An
     if type(rounds) is not int or not 1 <= rounds <= 100:
         raise ValueError("Maximum rounds must be an integer between 1 and 100.")
     agents = {}
+    choices = [] if demo else model_choices()
     for role in agent_roles(data):
         binding = data.get("agents", {}).get(role, {})
         name = binding.get("profile")
@@ -80,7 +90,12 @@ def validate_config(data: dict[str, Any], *, demo: bool = False) -> dict[str, An
                 raise ValueError(f"Unsupported settings for {backend}.")
             # Empty values inherit the named profile; native CLIs validate IDs.
             selection.update({key: value for key, value in overrides.items() if value})
-            agents[role].update(assistant_settings(selection))
+            try:
+                settings = assistant_settings(selection)
+                validate_effort(settings, choices)
+            except ValueError as exc:
+                raise AgentConfigurationError(role, str(exc)) from exc
+            agents[role].update(settings)
     return {
         "workflow": workflow_id(data),
         "workspace": str(workspace),

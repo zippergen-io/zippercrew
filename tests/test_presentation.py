@@ -55,7 +55,8 @@ def test_pending_messages_survive_bounded_consumed_history(config):
         event(state, seq * 2 + 1, "send", **envelope, seq=seq, bindings={"task": "x" * 1000})
         if seq:
             event(state, seq * 2 + 2, "recv", **envelope, seq=seq, bindings={"task": "x" * 1000})
-    assert len(state["messages"]) == 81
+    assert len(state["messages"]) == 100
+    assert sum(bool(m["preview"]) for m in state["messages"]) == 81
     assert state["messages"][0]["receive_id"] is None
     assert len(state["messages"][0]["preview"]) <= 800
 

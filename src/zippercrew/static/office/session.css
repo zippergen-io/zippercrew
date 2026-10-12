@@ -186,3 +186,7 @@ details[open]>.decision-nested-summary>.disclosure-icon{transform:rotate(90deg)}
 .room-object-access:focus-within{position:fixed;z-index:50;left:16px;bottom:16px;max-width:calc(100vw - 32px);display:flex;flex-wrap:wrap;gap:8px;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
 .room-object-access button{padding:8px;font-size:13px;line-height:1.5;border-radius:6px}
 :root[data-mood=night] .autosave-status[data-error=true]{color:#c3938c}
+
+:root:not([data-mood=night]) .formation{color:#506f7e}
+.decision-worker,.decision-verification{font-size:13.2px;line-height:1.6;margin:8.8px 0;color:var(--muted)}
+.decision-verification{color:var(--ink);border-left:2px solid var(--accent);padding-left:11px}

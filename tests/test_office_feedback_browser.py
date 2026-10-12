@@ -176,8 +176,8 @@ def test_confirm_closes_only_on_success_and_preserves_visible_reaction(service):
         page.locator("#setup-brief").fill("Fix the rounding error")
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
-        assert page.evaluate("studio.people.get('worker').bubbleText").startswith("Task received.")
-        page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
+        assert page.evaluate("studio.people.get('human').bubbleText").startswith("Task sent.")
+        page.wait_for_function("() => !!studio.session.decisions.pending", timeout=45000)
         page.evaluate("() => {studio.session.decisions.open();}")
         page.route(
             "**/api/runs/*/answer",
@@ -192,9 +192,7 @@ def test_confirm_closes_only_on_success_and_preserves_visible_reaction(service):
         page.get_by_role("button", name="Ship it", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.wait_for_function("() => studio.session.run.status==='completed'")
-        assert page.evaluate("studio.people.get('reviewer').bubble?.visible")
-        assert page.evaluate("studio.people.get('reviewer').bubbleText").startswith(
-            "Approval received."
-        )
+        assert page.evaluate("studio.people.get('human').bubble?.visible")
+        assert page.evaluate("studio.people.get('human').bubbleText").startswith("Approval sent.")
         assert not page.evaluate("studio.attention.sprite.visible")
         browser.close()

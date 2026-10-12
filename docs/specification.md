@@ -9,6 +9,15 @@ Full and brief modes ask Human for Ship it, Another round, or Abandon. If
 another round can run, Human may add a note. Automatic mode uses the review
 header. Every continuing round passes the full review and optional note to the
 same Implementer session. The independent Reviewer session also persists.
+Human notes amend the task sent to every role on each following round. Amendments accumulate, with later human
+changes taking precedence over conflicting earlier requirements. Empty notes
+leave the task unchanged.
+
+Double review follows the same rule for both reviewers and their final
+assessments. Initial reviews stay independent. Neither reviewer sees the other's
+current findings until the explicit exchange. Sharing the human's task amendments
+does not share private reviewer reports.
+
 The process returns the final outcome after shipping, abandonment, or the round
 limit. Abandon leaves edits in the working tree. Ship it ends the process; it
 does not commit, push, deploy, or merge.

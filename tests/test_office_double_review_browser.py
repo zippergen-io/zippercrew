@@ -59,11 +59,11 @@ def test_double_review_room_decision_and_workflow_switch(service, config, monkey
         capture(page, "double-review-workflow-help")
         page.locator("#close-detail").click()
         page.locator("#room-action").click()
-        page.wait_for_function("() => !!studio.session.run?.pending")
+        page.wait_for_function("() => !!studio.session.decisions.pending")
         run_id = page.evaluate("() => studio.session.run.id")
         assert page.evaluate("""() => [studio.handoffs.active,...studio.handoffs.queue]
           .filter(Boolean).every(m=>m.recipient==='human'&&['reviewer','planner'].includes(m.sender))""")
-        assert page.evaluate("""() => !studio.handoffs.completed.some(
+        assert page.evaluate("""() => studio.handoffs.completed.some(
           m=>m.from==='worker' && m.to==='human')""")
         assert (
             page.evaluate("""async () => {
@@ -98,11 +98,11 @@ def test_double_review_room_decision_and_workflow_switch(service, config, monkey
         page.get_by_role("button", name="Run next round", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.wait_for_function(
-            "() => studio.session.run?.round===2 && !!studio.session.run.pending"
+            "() => studio.session.run?.round===2 && !!studio.session.decisions.pending"
         )
         page.evaluate("() => {studio.select('human');}")
         expect(page.locator(".decision-recommendation")).to_have_text(
-            "Both reviewers recommend ship it"
+            "Both reviewers recommend shipping"
         )
         page.get_by_role("button", name="Ship it", exact=True).click()
         wait_state(base, run_id, lambda s: s["status"] == "completed")

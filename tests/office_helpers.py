@@ -21,7 +21,7 @@ def prepare_room(page, project, brief, name="My room", *, real=False):
     ]:
         page.evaluate("(id) => {studio.select(id);}", actor)
         if real:
-            page.get_by_label("Model", exact=True).select_option(label="Codex default")
+            page.get_by_label("Model", exact=True).select_option(label="Codex built-in default")
         page.locator(".agent-instructions summary").click()
         page.locator(f"#instructions-{role}").fill(prompt)
         page.get_by_role("button", name="Save agent", exact=True).click()

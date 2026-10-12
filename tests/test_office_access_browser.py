@@ -149,3 +149,79 @@ def test_theme_choice_survives_opening_the_plain_office_address(service):
         expect(page.locator("html")).to_have_attribute("data-mood", "day")
         assert app.preferences.get()["appearance"] == "night"
         browser.close()
+
+
+def test_walking_recovers_focus_after_office_controls(service, config):
+    _, base, project = service
+    config.update(project=str(project), workspace=str(project))
+    _, room = request(base, "/api/rooms", {"name": "Walking", "brief": "Task", "config": config})
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(base + "/office/#room=" + room["id"])
+        page.wait_for_function(
+            "() => studio.ready && studio.session.initialized && !studio.session.busy"
+        )
+        page.evaluate(
+            "() => {const p=studio.people.get('human');p.x=320;p.y=220;studio.ambient.cancel();}"
+        )
+
+        def walk(key, axis, sign):
+            before = page.evaluate(
+                "() => {const p=studio.people.get('human');return {x:p.x,y:p.y};}"
+            )
+            page.keyboard.down(key)
+            page.wait_for_timeout(250)
+            debug = page.evaluate("""() => ({focus:document.activeElement.outerHTML.slice(0,150),
+              canWalk:studio.ui.canWalk(),right:studio.keys.RIGHT.isDown,
+              overlays:['studio-menu','person-card','task-card','stop-confirmation'].map(id=>[id,document.getElementById(id).hidden])})""")
+            page.keyboard.up(key)
+            after = page.evaluate(
+                "() => {const p=studio.people.get('human');return {x:p.x,y:p.y};}"
+            )
+            assert (after[axis] - before[axis]) * sign > 5, (key, before, after, debug)
+            expect(page.locator("#game")).to_be_focused()
+
+        # A loaded room should be walkable before any click on the floor.
+        walk("ArrowRight", "x", 1)
+        page.get_by_role("button", name="Night mode", exact=True).click()
+        walk("ArrowLeft", "x", -1)
+        page.locator("#fit").click()
+        walk("ArrowUp", "y", -1)
+        page.locator("#zoom-out").click()
+        walk("ArrowDown", "y", 1)
+        page.locator("#menu-toggle").click()
+        page.locator("#close-menu").click()
+        walk("d", "x", 1)
+        page.locator("#menu-toggle").click()
+        page.keyboard.press("Escape")
+        walk("a", "x", -1)
+        page.evaluate("() => studio.select('human')")
+        page.locator("#close-person").click()
+        walk("w", "y", -1)
+        page.locator("#room-header").click()
+        page.locator("#close-detail").click()
+        walk("s", "y", 1)
+        # Movement keys still belong to fields and panels while they are open.
+        page.evaluate("() => studio.session.configuration.editTask()")
+        task = page.get_by_label("Task", exact=True)
+        task.fill("Edit this")
+        before = page.evaluate("[studio.people.get('human').x,studio.people.get('human').y]")
+        page.keyboard.type("wasd")
+        page.keyboard.down("ArrowLeft")
+        page.wait_for_timeout(200)
+        page.keyboard.up("ArrowLeft")
+        expect(task).to_be_focused()
+        expect(task).to_have_value("Edit thiswasd")
+        assert before == page.evaluate(
+            "[studio.people.get('human').x,studio.people.get('human').y]"
+        )
+        page.keyboard.press("Escape")
+        page.locator("#menu-toggle").click()
+        page.keyboard.down("ArrowRight")
+        page.wait_for_timeout(200)
+        page.keyboard.up("ArrowRight")
+        assert before == page.evaluate(
+            "[studio.people.get('human').x,studio.people.get('human').y]"
+        )
+        browser.close()

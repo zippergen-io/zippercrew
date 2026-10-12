@@ -72,3 +72,20 @@ def claude_choices(help_text: str) -> list[dict[str, Any]]:
         }
         for alias in dict.fromkeys(aliases)
     ]
+
+
+def validate_effort(selection: dict[str, Any], choices: list[dict[str, Any]]) -> None:
+    """Reject known mismatches, without guessing support for an unknown model."""
+    model, effort = selection.get("model"), selection.get("reasoning_effort")
+    if not model or not effort:
+        return
+    for choice in choices:
+        if choice["backend"] != selection["backend"] or choice["model"] != model:
+            continue
+        levels = choice.get("efforts", [])
+        if levels and effort not in levels:
+            raise ValueError(
+                f"{model} does not list reasoning effort '{effort}' in local CLI metadata. "
+                f"Choose {', '.join(levels)}, or Default, in the agent settings."
+            )
+        return

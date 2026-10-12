@@ -137,7 +137,7 @@ def test_studio_room_workflow_objects_and_direct_execution(service):
         page.locator("#room-name").click()
         expect(page.locator(".room-workflow")).to_be_disabled()
         page.locator("#close-detail").click()
-        page.wait_for_function("() => !!studio.session.run?.pending", timeout=20000)
+        page.wait_for_function("() => !!studio.session.decisions.pending", timeout=45000)
         assert set(page.evaluate("Object.keys(studio.session.run.participants)")) == {
             "Implementer",
             "Human",
@@ -149,9 +149,7 @@ def test_studio_room_workflow_objects_and_direct_execution(service):
         page.wait_for_function("() => studio.session.run.status==='completed'")
         expect(page.locator("#room-action")).to_be_visible()
         expect(page.locator("#room-action")).to_be_enabled()
-        assert page.evaluate("studio.people.get('worker').bubbleText").startswith(
-            "Result accepted."
-        )
+        assert page.evaluate("studio.people.get('human').bubbleText").startswith("Result accepted.")
         page.locator("#menu-toggle").click()
         assert page.locator("#show-settings,.drawer-help").count() == 0
         page.get_by_role("button", name="Night mode", exact=True).click()

@@ -52,3 +52,19 @@ def test_claude_picker_uses_installed_help_aliases_and_efforts():
         for model in ["fable", "opus", "sonnet"]
     ]
     assert claude_choices("CLI help is unavailable") == []
+
+
+def test_known_effort_mismatch_is_rejected_but_unknown_metadata_is_not_guessed():
+    import pytest
+
+    from zippercrew.models import validate_effort
+
+    choices = [{"backend": "codex", "model": "small", "efforts": ["low", "high"]}]
+    selection = {"backend": "codex", "model": "small", "reasoning_effort": "ultra"}
+    with pytest.raises(ValueError, match="small does not list reasoning effort 'ultra'"):
+        validate_effort(selection, choices)
+    validate_effort({**selection, "reasoning_effort": "high"}, choices)
+    validate_effort({**selection, "reasoning_effort": ""}, choices)
+    validate_effort({**selection, "model": ""}, choices)
+    validate_effort({**selection, "model": "unknown"}, choices)
+    validate_effort(selection, [])

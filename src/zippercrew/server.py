@@ -22,7 +22,14 @@ from zippercrew.adapter import source_root
 from zippercrew.catalog import Catalog
 from zippercrew.models import model_choices
 from zippercrew.preferences import Preferences
-from zippercrew.rooms import Conflict, Runs, directory, text_field, validate_config
+from zippercrew.rooms import (
+    AgentConfigurationError,
+    Conflict,
+    Runs,
+    directory,
+    text_field,
+    validate_config,
+)
 from zippercrew.state import TERMINAL
 from zippercrew.workflows import WORKFLOWS
 
@@ -341,6 +348,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, room.snapshot())
             else:
                 self.reply(404, {"error": "Not found."})
+        except AgentConfigurationError as exc:
+            self.reply(400, {"error": str(exc), "agent": exc.role})
         except Conflict as exc:
             self.reply(409, {"error": str(exc)})
         except KeyError as exc:

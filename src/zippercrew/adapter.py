@@ -60,15 +60,23 @@ def assistant_backend(
     emit: Callable[[dict[str, Any]], None] | None = None,
     call_scope: Callable[[str, str], AbstractContextManager[None]] | None = None,
 ) -> Callable[..., dict[str, object]]:
+    invocations: dict[str, str] = {}
+    statuses: dict[str, set[str]] = {}
+
     def observe(role: str, event: dict[str, Any]) -> None:
         if emit is None:
             return
         identity = {"role": role, "invocation_id": event["invocation_id"]}
         if event.get("kind") == "invocation.started":
+            invocations[role] = event["invocation_id"]
+            statuses[role] = set()
             emit({"type": "assistant.invocation", **identity})
         elif event.get("kind") == "ui_status":
             text = event.get("text")
             if isinstance(text, str) and 0 < len(text) <= 240:
+                if text in statuses.setdefault(role, set()):
+                    return
+                statuses[role].add(text)
                 emit({"type": "assistant.ui_status", **identity, "text": text})
         else:
             if event.get("kind") == "command" and isinstance(event.get("output"), str):
@@ -84,6 +92,22 @@ def assistant_backend(
             activity = summarize(event)
             if activity:
                 emit({"type": "assistant.progress", **identity, "activity": activity})
+
+    def clean_result(role: str, result: dict[str, object]) -> dict[str, object]:
+        # Claude can include commentary in its final answer. Strip it before
+        # protocol parsing, forwarding to peers, and journaled action outputs.
+        def remove(match: re.Match[str]) -> str:
+            if role in invocations and hasattr(assistant_progress, "ui_status"):
+                for status in assistant_progress.ui_status(match[0]):
+                    observe(role, {**status, "invocation_id": invocations[role]})
+            return ""
+
+        return {
+            key: re.sub(r"<ui-status>.*?</ui-status>", remove, value, flags=re.S).strip()
+            if isinstance(value, str)
+            else value
+            for key, value in result.items()
+        }
 
     # One native backend per role, constructed once per Room. The runtime's role
     # thread names supply participant identity to these upstream callables.
@@ -127,8 +151,19 @@ def assistant_backend(
                 "statement on the proposal and evidence you inspected. Do not infer that "
                 "no files changed merely because the task was vague. Keep both sentences "
                 "under 240 characters. This summary supplements, never replaces, your full "
-                "findings; those will still reach the Worker automatically."
+                "findings; those will still reach the Worker automatically. "
+                "Also include verification: null if no verification gap was reported, or an "
+                "object with status (not_run, partial, failed, or unknown) and reason (a short "
+                "sentence naming the checks not completed and why). Account for both the "
+                "Worker's checks and your own. Static inspection is not test execution. "
+                "Never equate a requested, refused, or planned tool call with a passed test."
             )
+        instructions += (
+            "\n\n## Verification evidence\n"
+            "In your final report, state which checks actually ran and their results. "
+            "Explicitly name tests that were blocked, skipped, or not run and explain why. "
+            "Do not describe a refused tool call as a completed check."
+        )
         if emit and supports_progress and hasattr(assistant_progress, "UI_STATUS_VERSION"):
             instructions += (
                 "\n\n## Public office status\n"
@@ -168,7 +203,7 @@ def assistant_backend(
             action, workspace=config["workspace"], instructions=instructions, shell=shell
         )
         with call_scope(role, action.name) if call_scope else nullcontext():
-            result = backends[role](effective, inputs)
+            result = clean_result(role, backends[role](effective, inputs))
         output = action.outputs[0][0]
         report = result.get(output)
         if (
@@ -200,7 +235,9 @@ def assistant_backend(
                 ),
             )
             with call_scope(role, f"{action.name}:format") if call_scope else nullcontext():
-                clarification = backends[role](repair, {"review_to_format": report})
+                clarification = clean_result(
+                    role, backends[role](repair, {"review_to_format": report})
+                )
             raw = clarification.get(output, "")
             try:
                 formatted = raw.strip() if isinstance(raw, str) else raw

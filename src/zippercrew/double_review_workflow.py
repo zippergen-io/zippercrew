@@ -167,6 +167,17 @@ def no_guidance() -> str:
 
 
 @pure
+def amend_task(task: str, note: str) -> str:
+    """Keep human scope changes visible to every participant on later rounds."""
+    if not note.strip():
+        return task
+    return (
+        f"{task}\n\nHuman amendment (takes precedence over earlier requirements "
+        f"where they conflict):\n{note.strip()}"
+    )
+
+
+@pure
 def no_note() -> str:
     return ""
 
@@ -204,6 +215,9 @@ def outcome(verdict: str, proposal: str, critique: str, rounds: int) -> str:
         if verdict == "Abandon"
         else "Round limit reached"
     )
+    # This combined count is deliberately unknown because findings may overlap.
+    # Keep that protocol header in the trace, not in the human-facing outcome.
+    critique = critique.replace("\nFINDINGS: ?\n", "\n", 1)
     return (
         f"{ending} after {rounds} round(s). Files remain in the "
         f"repository.\n\n{proposal}\n\n{critique}"
@@ -261,7 +275,10 @@ def double_review(task: str @ Human, max_rounds: int @ Human, detail: str @ Huma
     while again @ Human:
         with Human:
             rounds = next_round(rounds)
-        Human(guidance) >> Implementer(guidance)
+            task = amend_task(task, note)
+        Human(task, guidance) >> Implementer(task, guidance)
+        Human(task) >> Reviewer(task)
+        Human(task) >> Critic(task)
         with Implementer:
             proposal = implement(task, guidance)
         Implementer(proposal) >> Reviewer(proposal)

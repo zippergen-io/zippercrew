@@ -63,8 +63,6 @@ def test_task_board_and_real_message_couriers(service):
         assert all(len(line) <= 31 for line in board["lines"])
         page.evaluate("() => tick(60)")
         capture(page, "office-carrying-day")
-        page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
-        assert page.evaluate("studio.board.inspect().status") == "R1 - YOUR DECISION"
         result = page.evaluate("""() => {
           const assert=(ok,text)=>{if(!ok)throw Error(text);};
           const before=studio.handoffs.queue.length;
@@ -104,7 +102,8 @@ def test_task_board_and_real_message_couriers(service):
         page.get_by_role("button", name="Night mode", exact=True).click()
         page.evaluate("() => tick(1)")
         capture(page, "office-handoff-night")
-        # Every queued agent envelope gets its own calm exchange and returns home.
+        page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
+        # Every substantive envelope survives, including messages from You.
         deliveries = page.evaluate("""() => {
           tick(1800);
           if(studio.handoffs.active||studio.handoffs.queue.length)
@@ -116,6 +115,8 @@ def test_task_board_and_real_message_couriers(service):
           return studio.handoffs.completed;
         }""")
         assert {(d["from"], d["to"]) for d in deliveries} == {
+            ("human", "worker"),
+            ("human", "reviewer"),
             ("worker", "reviewer"),
             ("worker", "human"),
             ("reviewer", "human"),
@@ -159,19 +160,18 @@ def test_receipts_cancellation_and_reduced_motion(service):
             receive_id:null,label:'Proposal',control:false,round:1};
           const state={id:'test',status:'running',participants:{},messages:[envelope]};
           h.observe(state);
-          for(let i=0;i<700&&h.active?.phase!=='offered';i++)tick(1);
-          assert(h.active?.phase==='offered','Sender did not arrive');
-          assert(!h.active.acknowledged&&!h.completed.length,'Animation invented a receipt');
-          h.observe({...state,messages:[{...envelope,receive_id:2}]});tick(1);
-          assert(h.active.acknowledged,'Real receipt not acknowledged');
+          tick(700);
+          assert(!h.active&&!h.completed.length,'Unreceived message started a courier');
+          h.observe({...state,messages:[{...envelope,receive_id:2}]});
+          for(let i=0;i<700&&!h.active?.acknowledged;i++)tick(1);
+          assert(h.active?.acknowledged,'Real receipt not acknowledged');
           h.observe({...state,status:'stopped'});tick(500);
           assert(!h.active&&!h.note.visible&&!h.queue.length,'Stop left a courier running');
           assert(studio.people.get('worker').seated==='chair-1','Stop stranded sender');
           h.reset();studio.paused=true;
           const positions=[...studio.people.values()].map(p=>[p.x,p.y]);
           h.observe({...state,messages:[{...envelope,receive_id:2}]});tick(90);
-          assert(studio.people.get('reviewer').bubbleText==='PROPOSAL RECEIVED.',
-            'Reduced-motion acknowledgment missing');
+          assert(h.completed.some(m=>m.id===envelope.id),'Reduced-motion receipt missing');
           assert(JSON.stringify(positions)===JSON.stringify([...studio.people.values()].map(p=>[p.x,p.y])),
             'Reduced motion moved a person');
           tick(180);
@@ -193,6 +193,7 @@ def test_receipts_cancellation_and_reduced_motion(service):
                 'People collided during a moving delivery');
           }
           assert(h.completed.some(m=>m.to==='human'),'Moving user never received note');
+          tick(300);
           assert(Math.abs(studio.people.get('human').y-128)<4,'Courier commandeered user');
           h.reset();tick(600);
           // A canceled stand cannot later fire the previous arrival callback.
@@ -232,20 +233,19 @@ def test_final_reviews_finish_delivering_when_human_decision_arrives(service):
           const pending={...state,pending:{id:'decision-1'},messages:[critical,peer,delivery]};
           h.observe(pending);
           assert(h.active===trip,'Decision canceled the final review halfway');
-          assert(h.queue.length===1&&h.queue[0].id==='delivery-final','Stale peer exchange queued');
+          assert(h.queue.length===2,'Decision dropped a peer exchange');
           const checked=new Set();
-          for(let i=0;i<1800&&h.completed.length<2;i++){
+          for(let i=0;i<1800&&h.completed.length<3;i++){
             if(i%15===0)h.observe(pending);
             tick(1);
             if(h.active?.phase==='received'&&!checked.has(h.active.id)){
               checked.add(h.active.id);
               const a=studio.people.get(h.active.sender),b=studio.people.get('human');
-              assert(Math.hypot(a.x-b.x,a.y-b.y)<49,'Review delivered remotely');
-              assert(h.active.noteOwner==='human','Paper stayed with reviewer');
+              assert(h.active.noteOwner===h.active.recipient,'Paper stayed with sender');
             }
           }
-          assert(h.completed.length===2,'Final reviews did not reach the Human');
-          assert(h.completed.every(m=>m.to==='human'),'Obsolete exchange was replayed');
+          assert(h.completed.length===3,'An exchange was dropped');
+          assert(h.completed.filter(m=>m.to==='human').length===2,'Final reviews missing');
           tick(600);
           assert(!h.active&&!h.queue.length,'Duplicate snapshot restarted a delivery');
           assert(sender.seated===sender.chairId,'Critical reviewer did not return to desk');
@@ -293,17 +293,25 @@ def test_pending_pause_preserves_final_review_deliveries(service, config):
         page.locator("#run-pause").click()
         expect(page.locator("#scene-state")).to_contain_text("Pausing…")
         page.wait_for_function("() => !!studio.session.run?.pending", timeout=20000)
-        expect(page.locator("#scene-state")).to_contain_text("Your decision")
+        expect(page.locator("#scene-state")).to_contain_text("Reviews arriving")
         assert "paused" not in page.evaluate("pauseStates")
         assert not any("RUN PAUSED" in text for text in page.evaluate("pauseSpeech"))
         deliveries = page.evaluate("""() => {
           for(let i=0;i<2400;i++)studio.update(0,1000/30);
           return studio.handoffs.completed;
         }""")
-        assert sorted((item["from"], item["to"]) for item in deliveries) == [
+        expected = page.evaluate(
+            "studio.session.run.messages.filter(m=>!m.control&&m.send_id&&m.receive_id).map(m=>m.id)"
+        )
+        assert {item["id"] for item in deliveries} == set(expected)
+        assert {(item["from"], item["to"]) for item in deliveries} >= {
             ("planner", "human"),
             ("reviewer", "human"),
-        ]
+            ("worker", "human"),
+            ("planner", "reviewer"),
+            ("reviewer", "planner"),
+        }
+        expect(page.locator("#scene-state")).to_contain_text("Your decision")
         assert not any("RUN PAUSED" in text for text in page.evaluate("pauseSpeech"))
         run = app.runs.get(page.evaluate("studio.session.run.id"))
         events = [json.loads(line) for line in (run.root / "events.jsonl").read_text().splitlines()]

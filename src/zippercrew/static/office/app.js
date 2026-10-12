@@ -87,7 +87,7 @@ class Studio extends Phaser.Scene {
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,LEFT,DOWN,RIGHT,ESC',false);
     $('game').addEventListener('keydown',event=>{
       if(event.target!==$('game'))return;
-      if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Enter'].includes(event.key))event.preventDefault();
+      if([' ','Enter'].includes(event.key))event.preventDefault();
       if(!event.repeat&&['Enter',' '].includes(event.key)&&!this.session?.busy){
         const human=this.people.get('human');
         const objects=[{id:'task-board',x:this.board.sprite.x+this.board.sprite.width/2,y:this.board.sprite.y+this.board.sprite.height},...[...this.people.values()].filter(p=>p.id!=='human'||this.session?.decisions.pending)];
@@ -289,12 +289,13 @@ class Studio extends Phaser.Scene {
       if(p.bubble){this.placeBubble(p);if(this.worldTime>=p.bubbleUntil){p.bubble.destroy();p.bubble=null;}}
     }
     this.handoffs?.update(dt);
+    this.session?.decisions.checkDelivery();
     this.ambient?.update(dt);this.activity?.update(dt);this.surfaces.update();this.attention.update();this.session?.configuration.updateAttention();
     this.mascot?.update(dt);
     if(this.selected){const p=this.people.get(this.selected);this.selection.setPosition(Math.round(p.x),Math.round(p.y)+1);}
     const c=this.conversation;if(c){const a=this.people.get(c.a),b=this.people.get(c.b);this.talkDots.setPosition(Math.round((a.x+b.x)/2),Math.round(Math.min(a.y,b.y))-36).setVisible(!a.bubble&&!b.bubble);}
   }
-  walkHuman(dt){if(document.activeElement!==$('game'))return;const k=this.keys,dx=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),dy=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown);if(!dx&&!dy)return;const p=this.people.get('human');this.seating.cancelApproach(p);this.updateSeatUI();if(p.seated){this.seating.stand(p);return;}p.route=[];p.onArrival=null;this.destination.setVisible(false);const speed=WALK_SPEED.human*dt/Math.hypot(dx,dy),nx=p.x+dx*speed,ny=p.y+dy*speed;const can=(x,y)=>this.nav.free(x,y)&&!this.collisionBodies(p).some(other=>Math.hypot(x-other.x,y-other.y)<11);if(can(nx,p.y))p.x=nx;if(can(p.x,ny))p.y=ny;p.keyboardIntent=true;}
+  walkHuman(dt){if(document.activeElement!==$('game')||!this.ui.canWalk())return;const k=this.keys,dx=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),dy=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown);if(!dx&&!dy)return;const p=this.people.get('human');this.seating.cancelApproach(p);this.updateSeatUI();if(p.seated){this.seating.stand(p);return;}p.route=[];p.onArrival=null;this.destination.setVisible(false);const speed=WALK_SPEED.human*dt/Math.hypot(dx,dy),nx=p.x+dx*speed,ny=p.y+dy*speed;const can=(x,y)=>this.nav.free(x,y)&&!this.collisionBodies(p).some(other=>Math.hypot(x-other.x,y-other.y)<11);if(can(nx,p.y))p.x=nx;if(can(p.x,ny))p.y=ny;p.keyboardIntent=true;}
   inspect(){return {ready:this.ready,mood:this.mood,paused:this.paused,time:this.elapsed,selected:this.selected,conversation:this.conversation,physicalScale:this.physicalScale,people:[...this.people.values()].map(p=>({id:p.id,x:p.x,y:p.y,direction:p.direction,walking:p.route.length>0,status:p.status,seating:this.seating.inspect(p)})),furniture:WORLD.furniture.length,tileLayers:this.map.layers.length,board:this.board?.inspect(),handoffs:this.handoffs?.inspect(),ambient:this.ambient?.inspect(),clock:this.surfaces?.clockTime};}
 }
 

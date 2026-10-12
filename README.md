@@ -126,7 +126,25 @@ result in your usual editor and Git tools.
 
 **Run next round** sends the review feedback back to the Worker automatically.
 Use **Add a note for the Worker** if you want to add guidance. The note is optional.
+The note also reaches every reviewer as an amendment to the task on subsequent
+rounds, so requested additions are reviewed against your updated instructions.
 **Abandon** ends the run and leaves existing file changes in place.
+
+### Model defaults
+
+**Codex built-in default** uses the CLI's built-in model and effort. ZipperGen
+isolates Codex from user configuration, so this does not use the model or effort
+in `~/.codex/config.toml`. **Claude configured default** uses Claude's settings.
+Choosing an explicit model and effort pins them for every call, including resumed
+sessions and review-format repairs.
+
+Named models show the effort levels advertised by local CLI metadata. Claude's default
+choice shows the CLI's advertised levels, which can vary by model. For Codex's
+built-in default, choose a named model to set effort. Previously saved overrides
+remain visible and can be reset to Default. Known mismatches in externally
+configured profiles are rejected before a run starts. Missing or outdated metadata
+cannot prove what a provider supports, and an accepted CLI argument alone does not
+prove the provider applied that effort.
 
 ## Finding your way around
 
@@ -142,7 +160,19 @@ Move your character with WASD or the arrow keys. Press Enter or Space to open th
 nearest room object. Tab also reaches the whiteboard and every character directly.
 The bottom controls adjust zoom.
 The top bar switches between day and night. Walking and message handovers make
-coordination visible, but the workflow never waits for an animation to finish.
+coordination visible. The backend never waits for an animation to finish.
+Messages and work states follow dependencies derived from each role's trace.
+Control messages affect ordering but stay invisible. One courier moves at a time.
+Papers from You travel without moving your avatar. Reduced motion shows static
+papers and receipt bubbles in the same order. Pause preserves exchanges
+already sent. Stop and failure settle the recorded exchanges and return to rest.
+
+When the room falls behind, it uses brief paper transfers in causal order. A human
+decision waits at most two seconds for this catch-up. Clicking You or the room
+header opens it immediately. Reduced motion makes decisions available immediately
+while static receipts continue. Returning from a background tab or reconnecting
+jumps to the current state without replaying old walks. These shortcuts
+never invent a receipt or change the run. Full exchanges remain in History.
 
 A **room** keeps its team, repository, and task. A **run** is one execution of that
 task. A **round** is one pass through the Worker and any reviewers.
@@ -188,6 +218,7 @@ repeat up to the round limit:
     decision, optional_note = You(result, review)
     if decision is Ship it or Abandon:
         finish
+    task = task amended by optional_note
     guidance = full review + optional_note
 ```
 
@@ -222,6 +253,7 @@ repeat up to the round limit:
     decision, optional_note = You(result, delivery_final, critical_final)
     if decision is Ship it or Abandon:
         finish
+    task = task amended by optional_note
     guidance = both initial reviews + both final assessments + optional_note
 ```
 
@@ -276,15 +308,29 @@ agents, rounds, and reasoning can increase usage. ZipperCrew does not currently
 show a cost estimate or enforce a spending cap. Creating rooms and configuring
 agents do not launch model calls.
 
-The Worker can edit the selected repository and run local commands. Reviewers
-have read-only access. Claude reviewers use file-reading and search tools without
-Bash. Codex reviewers can run checks within the CLI's read-only sandbox. A review
-may therefore report checks it could not perform.
+For private testing, choose a **Codex Worker** when the task requires tests or
+other commands. It can edit the selected repository and run local commands within
+the CLI's workspace sandbox.
+
+A **Claude Worker is edits-only for now**. It can read and edit files, but commands
+that require approval are refused in unattended runs. Real testing confirmed this
+with test commands. A task that asks Claude to run tests does not grant that
+permission. Run the checks yourself or use a Codex Worker.
+
+Reviewers have read-only access. Claude reviewers use file-reading and search
+tools without Bash, so they cannot execute tests. Codex reviewers can run checks
+within the CLI's read-only sandbox, but tests that write files may be blocked.
+The decision panel surfaces reported verification gaps and observed blocked or
+failed test commands. An approval recommendation is not proof that the full suite
+ran. Check the verification evidence before shipping.
+
+A passing suite command does not prove it collected an earlier failing test.
+Until the same command succeeds, the decision keeps the earlier failure visible
+and notes any later successful test command. Full attempts remain in History.
 
 Read-only access restricts writes. It does not mean all reads are confined to the
 repository. In particular, the current Claude configuration does not enforce that
-file-read boundary. Claude Worker shell use without interactive approval is still
-unverified in a real run. Treat Claude support as experimental for private testing.
+file-read boundary. Treat Claude support as experimental for private testing.
 Instructions against committing, pushing, and deploying are not a universal
 operating-system restriction.
 

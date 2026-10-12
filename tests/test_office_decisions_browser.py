@@ -37,7 +37,7 @@ def capture(page, name):
 
 def enter(page, base):
     page.goto(base + "/office/")
-    page.wait_for_function("() => studio.session?.connected && !!studio.session.run?.pending")
+    page.wait_for_function("() => studio.session?.connected && !!studio.session.decisions.pending")
 
 
 @pytest.mark.parametrize("legacy", [False, True])
@@ -85,10 +85,12 @@ def test_human_opens_single_decision_panel_and_recommended_action_finishes(servi
         card.get_by_role("button", name="Run next round", exact=True).click()
         expect(page.locator("#person-card")).not_to_be_visible()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
-        page.wait_for_function("() => studio.session.run.round===2 && !!studio.session.run.pending")
+        page.wait_for_function(
+            "() => studio.session.run.round===2 && !!studio.session.decisions.pending"
+        )
         assert page.evaluate("studio.session.run.pending.action") == "judge_turn"
         page.evaluate("() => {studio.select('human');}")
-        expect(card).to_contain_text("Reviewer recommends ship it")
+        expect(card).to_contain_text("Reviewer recommends shipping")
         card.get_by_role("button", name="Ship it", exact=True).click()
         expect(page.locator("#person-card")).not_to_be_visible()
         page.wait_for_function("() => studio.session.run.status==='completed'")
@@ -163,7 +165,9 @@ def test_single_decision_sheet_has_optional_note_collapsed_evidence_and_retry(se
         expect(page.get_by_label("Optional note")).to_have_value("Keep the current office layout.")
         page.get_by_role("button", name="Run next round", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
-        page.wait_for_function("() => studio.session.run.round===2 && !!studio.session.run.pending")
+        page.wait_for_function(
+            "() => studio.session.run.round===2 && !!studio.session.decisions.pending"
+        )
         guidance = next(
             e
             for e in app.runs.get(first["id"]).snapshot()["transcript"]
@@ -266,7 +270,7 @@ def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(
         expect(pause).to_be_disabled()
         expect(page.get_by_role("button", name="Resume run", exact=True)).to_be_enabled()
         assert transport_positions() == positions
-        assert page.evaluate("studio.activity.isWorking(studio.people.get('worker'))") is True
+        page.wait_for_function("() => studio.activity.isWorking(studio.people.get('worker'))")
         capture(page, "run-pausing")
         expect(page.locator("#scene-state")).to_contain_text("Paused")
         assert transport_positions() == positions
@@ -298,7 +302,7 @@ def test_transport_icons_follow_real_run_state_and_stop_requires_confirmation(
         page.get_by_role("button", name="Resume run", exact=True).click()
         expect(pause).to_be_visible()
         assert app.runs.get(run_id).process.pid == pid
-        page.wait_for_function("() => !!studio.session.run.pending", timeout=20000)
+        page.wait_for_function("() => !!studio.session.decisions.pending", timeout=45000)
         expect(pause).to_be_visible()
         expect(pause).to_be_disabled()
         expect(page.locator("#scene-state")).to_have_attribute("data-state", "attention")
@@ -354,4 +358,84 @@ def test_last_round_offers_visible_terminal_choices(service, config, workflow):
         page.get_by_role("button", name="Abandon", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         wait_state(base, state["id"], lambda s: s["status"] == "completed")
+        browser.close()
+
+
+def test_verification_gaps_are_visible_without_opening_details(service, config):
+    app, base, _, state = pending_room(service, config)
+    pending = state["pending"]
+    pending["summary"].update(
+        recommendation="Ship it",
+        reason="The new guard fixes the reported bug.",
+        worker="Added test_negative in test_calc.py.",
+        verification=["Worker: Test command was blocked. Approval was required."],
+    )
+    app.runs.get(state["id"]).record({"type": "human.required", "request": pending})
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 390, "height": 844})
+        enter(page, base)
+        page.locator("#scene-state").click()
+        expect(page.locator(".decision-recommendation")).to_have_text(
+            "Reviewer recommends shipping"
+        )
+        expect(page.locator(".decision-worker")).to_have_text(
+            "Worker: Added test_negative in test_calc.py."
+        )
+        expect(page.locator(".decision-verification")).to_have_text(
+            pending["summary"]["verification"][0]
+        )
+        expect(page.locator(".decision-verification")).to_be_visible()
+        expect(page.locator(".decision-detail-panel:visible")).to_have_count(0)
+        expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_enabled()
+        browser.close()
+
+
+def test_model_picker_explains_cli_verification_limits(service, config):
+    _, base, project = service
+    config.update(project=str(project), workspace=str(project))
+    request(base, "/api/rooms", {"name": "Capabilities", "brief": "Add tests.", "config": config})
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(base + "/office/")
+        page.wait_for_function("() => studio.session?.connected")
+        # Show real CLI choices without running a model or saving a binding.
+        page.evaluate("""() => {
+          studio.session.bootstrap.demo=false;
+          studio.select('worker');
+        }""")
+        model = page.get_by_label("Model", exact=True)
+        model.select_option('["claude",""]')
+        expect(page.locator(".agent-access")).to_contain_text("Edits only")
+        expect(page.locator(".agent-access")).to_contain_text("cannot run tests")
+        model.select_option('["codex",""]')
+        expect(page.locator(".agent-access")).not_to_be_visible()
+        page.locator("#close-person").click()
+        page.evaluate("studio.select('reviewer')")
+        model.select_option('["claude",""]')
+        expect(page.locator(".agent-access")).to_contain_text("File review only")
+        model.select_option('["codex",""]')
+        expect(page.locator(".agent-access")).to_contain_text(
+            "Checks that need to write files may be blocked"
+        )
+        browser.close()
+
+
+def test_legacy_decision_formats_separate_emphasis_without_damaging_code_names(service, config):
+    _, base, _, _ = pending_room(service, config)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        enter(page, base)
+        page.evaluate("""() => {
+          studio.session.stream?.close();
+          const run=studio.session.taskRun;
+          delete run.pending.summary;
+          run.review.headline='Use _x_ and _y_ in `test_negative` and __init__.';
+          studio.session.decisions.open();
+        }""")
+        expect(page.locator(".decision-reason")).to_have_text(
+            "Use x and y in test_negative and __init__."
+        )
         browser.close()

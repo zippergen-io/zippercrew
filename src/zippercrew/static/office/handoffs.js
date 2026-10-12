@@ -1,5 +1,6 @@
 import { labelTexture } from './art.js';
 import { PALETTES } from './palettes.js';
+import { activityCopy } from './activity.js';
 
 const actors={Implementer:'worker',Reviewer:'reviewer',Human:'human',Planner:'planner',Critic:'planner'};
 const terminal=run=>['completed','failed','stopped'].includes(run.status);
@@ -9,14 +10,23 @@ const face=(person,target)=>{
   person.motion.face(person.direction);
 };
 
-// A read-only presentation of actual protocol envelopes. Walking never sends,
-// receives, approves or delays a backend message. One courier at a time keeps
-// the office calm; receipt is acknowledged only when the backend reports it.
+// A causal projection, not a workflow implementation. The server supplies every
+// prerequisite. One courier presents any ready envelope in stable trace order.
+// Controls participate in ordering but never appear as paper or speech.
+// Catch-up acknowledges recorded receipts without pretending a walk happened.
 export class OfficeHandoffs {
   constructor(scene){
-    this.scene=scene;this.seen=new Set();this.queue=[];this.active=null;
-    this.runId=null;this.decisionId=null;this.clock=0;this.cooldown=0;this.lastSpeech=new Map();
+    this.scene=scene;this.queue=[];this.active=null;
+    this.runId=null;this.clock=0;this.cooldown=0;this.lastSpeech=new Map();
     this.receipts=new Map();this.completed=[];
+    this.steps=new Map();this.done=new Set();this.presented=[];this.roleStates=new Map();
+    this.catchup=false;this.catchupTimer=null;this.run=null;this.settled=false;
+    document.addEventListener('visibilitychange',()=>{
+      // Browser timers and Phaser may both be suspended in the background.
+      // Settle on either side of that transition, before another visual frame.
+      this.settle('visibility');
+      this.scene.session?.decisions.checkDelivery();
+    });
     this.note=scene.add.image(0,0,this.noteKey('worker')).setOrigin(0).setDepth(780).setVisible(false);
     this.caption=scene.add.image(0,0,labelTexture(scene,'NOTE',{color:'bubbleInk',background:'bubble'})).setOrigin(0).setDepth(781).setVisible(false);
   }
@@ -39,70 +49,172 @@ export class OfficeHandoffs {
     for(const p of this.scene.people.values())if(p.id!==id){p.bubble?.destroy();p.bubble=null;}
     this.lastSpeech.set(id,this.clock);this.scene.say(id,text,duration,'conversation');
   }
-  reset(){
-    this.cancel();this.seen.clear();this.receipts.clear();this.runId=null;this.decisionId=null;this.completed=[];
+  reset() {
+    this.cancel();
+    this.receipts.clear();
+    this.steps.clear();
+    this.done.clear();
+    this.runId = null;
+    this.run = null;
+    this.completed = [];
+    this.presented = [];
+    this.settled = false;
+    this.roleStates.clear();
     this.lastSpeech.clear();
   }
-  cancel(){
-    const trip=this.active;this.queue=[];this.active=null;this.reducedReceipt=null;this.note.setVisible(false);this.caption.setVisible(false);
-    this.scene.conversation=null;this.scene.talkDots?.setVisible(false);
-    if(trip){this.home(trip.sender);if(trip.recipientChair)this.home(trip.recipient);}
-    for(const person of this.scene.people.values()){
-      person.exchangeStatus=null;if(!(person.reactionUntil>this.scene.worldTime)){person.bubble?.destroy();person.bubble=null;}
-    }
+
+  // Used for room changes/disconnection, never for Pause or an arriving decision.
+  // Known steps survive a disconnect and are reconciled against the next snapshot.
+  cancel() {
+    this.clearTrip();
+    this.queue = [];
+    clearTimeout(this.catchupTimer);
+    this.catchupTimer = null;
+    this.catchup = false;
   }
-  observe(run,{replay=false}={}){
-    if(this.runId!==run.id){this.reset();this.runId=run.id;}
-    if(replay){this.cancel();for(const m of run.messages||[])this.seen.add(m.id);return;}
-    for(const m of run.messages||[]){
-      this.receipts.set(m.id,m);
-      if(!m.send_id||this.seen.has(m.id))continue;
-      this.seen.add(m.id);
-      const sender=actors[m.from],recipient=actors[m.to];
-      if(m.control||!sender||!recipient||sender===recipient||!this.scene.people.has(sender)||!this.scene.people.has(recipient))continue;
-      // The Worker report is available as evidence, not an approval request.
-      if(run.config?.workflow==='double_review'&&sender==='worker'&&recipient==='human')continue;
-      if(sender==='human'){
-        this.speak('human',`${m.label==='Guidance'?'GUIDANCE':'NOTE'} SENT.`);
-        continue; // User movement always belongs to the user.
-      }
-      const label=['Proposal','Review','Guidance','Task'].includes(m.label)?m.label:/^(Delivery|Critical) (review|response)$/.test(m.label)?'Review':'Note';
-      this.queue.push({...m,label,sender,recipient,queued:this.clock});
+
+  clearTrip() {
+    const trip = this.active;
+    this.active = null;
+    this.note.setVisible(false);
+    this.caption.setVisible(false);
+    this.scene.conversation = null;
+    this.scene.talkDots?.setVisible(false);
+    if (trip) {
+      if (!trip.remote) this.home(trip.sender);
+      if (trip.recipientChair) this.home(trip.recipient);
     }
-    // The decision is ready independently of animation. Drop obsolete peer
-    // exchanges, but let the final reviews reach the Human without turning a
-    // courier around halfway there. Repeated snapshots must preserve the trip.
-    if(run.config?.workflow==='double_review'&&run.pending){
-      const finalReview=trip=>trip?.recipient==='human'&&['reviewer','planner'].includes(trip.sender)&&trip.round===run.round;
-      const deliveries=this.queue.filter(finalReview);
-      if((this.active&&!finalReview(this.active))||(this.reducedReceipt&&!finalReview(this.reducedReceipt)))this.cancel();
-      this.queue=deliveries;
-      if(this.decisionId!==run.pending.id){
-        this.decisionId=run.pending.id;
-        this.speak('human','BOTH REVIEWS READY.\nYOUR DECISION.',{force:true});
-      }
+    for (const person of this.scene.people.values()) person.exchangeStatus = null;
+  }
+
+  satisfied(after = []) {
+    return after.every(id => this.done.has(id));
+  }
+
+  refreshQueue() {
+    this.queue = [...this.steps.values()]
+      .filter(step => !this.settled && step.kind === 'message' && !step.control &&
+        !this.done.has(step.id) && step.id !== this.active?.id)
+      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  }
+
+  observe(run, {replay = false} = {}) {
+    if (this.runId !== run.id) {
+      this.reset();
+      this.runId = run.id;
+    }
+    this.run = run;
+    for (const message of run.messages || []) {
+      this.receipts.set(message.id, message);
+      // A receive may precede its send in the trace. Wait for the send's
+      // dependencies instead of treating an unresolved placeholder as a root.
+      if (!message.send_id) continue;
+      this.steps.set(message.id, {
+        ...message,
+        kind: 'message',
+        order: message.send_id,
+        sender: actors[message.from],
+        recipient: actors[message.to],
+        after: message.after || [],
+        queued: this.steps.get(message.id)?.queued ?? this.clock,
+      });
+    }
+    for (const step of run.presentation || []) {
+      this.steps.set(step.id, {...step, kind: 'role'});
+    }
+    this.refreshQueue();
+    if (replay || document.hidden) {
+      this.settle(replay ? 'snapshot' : 'visibility');
       return;
     }
-    // A stopped or failed task must not keep acting busy. Completion allows the
-    // current, already-observed handoff to finish, but drops any backlog.
-    if(['stopped','failed','paused'].includes(run.status)){this.cancel();return;}
-    if(terminal(run)){
-      this.queue=[];
-      if(!this.active)for(const p of this.scene.people.values())if(!(p.reactionUntil>this.scene.worldTime)){p.bubble?.destroy();p.bubble=null;}
-      return;
-    }
-    this.queue=this.queue.slice(-4);
-  }
-  status(run,previous){
-    if(this.active||this.queue.length)return;
-    if(run.pending&&run.pending.id!==previous?.pending?.id){this.speak('human','YOUR DECISION.');return;}
-    for(const [role,id]of Object.entries(actors)){
-      const state=run.participants[role];
-      if(state===previous?.participants[role])continue;
-      if(state==='working')this.speak(id,'WORKING ON THE TASK.');
-      else if(state==='reviewing')this.speak(id,'CHECKING THE CHANGES.');
+    // Messages already sent remain admitted during Pause, even if several events
+    // arrived together in this snapshot. Only the backend gates new agent calls.
+    if (!this.settled && (terminal(run) || !this.scene.paused && (run.pending || this.queue.length > 4))) {
+      this.compress();
     }
   }
+
+  compress() {
+    if (this.catchup) return;
+    this.catchup = true;
+    this.catchupUntil = this.clock + 1.8;
+    this.catchupTimer = setTimeout(() => {
+      if (this.scene.paused && !terminal(this.run)) {
+        this.catchup = false;
+        this.catchupTimer = null;
+        return;
+      }
+      this.settle('catch-up');
+      this.scene.session?.decisions.checkDelivery();
+    }, 1800);
+  }
+
+  readySteps() {
+    return [...this.steps.values()]
+      .filter(step => !this.done.has(step.id) && this.satisfied(step.after))
+      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  }
+
+  complete(step, mode = 'animated') {
+    if (this.done.has(step.id)) return;
+    this.done.add(step.id);
+    this.presented.push({id: step.id, kind: step.kind, after: step.after, mode});
+    if (step.kind === 'role') {
+      this.roleStates.set(step.role, step);
+      const person = this.scene.people.get(actors[step.role]);
+      if (person) {
+        const decision = person.id === 'human' && this.scene.session?.decisions;
+        person.liveStatus = terminal(this.run) ? this.run.status :
+          decision?.request ? (decision.arriving ? decision.arrivalLabel : 'Your decision') :
+          this.run.status === 'paused' ? 'Paused' : step.state;
+        if (step.state === 'waiting' && person.bubbleKind === 'work') {
+          person.bubble?.destroy();
+          person.bubble = null;
+        }
+        const text = step.activity && activityCopy(step.activity);
+        const showSpeech = text && mode === 'animated' && !this.catchup &&
+          !terminal(this.run) && this.run.status !== 'paused';
+        const upcoming = this.scene.activity.pending.get(person.id);
+        // A merged snapshot can already contain a later, informative status.
+        // Replaying an earlier start must not overwrite that waiting status.
+        const replace = !upcoming || this.satisfied(upcoming.after) && !upcoming.after?.includes(step.id);
+        if (showSpeech && replace) {
+          this.scene.activity.pending.set(person.id, {
+            text, at: this.scene.worldTime, after: [step.id],
+          });
+        }
+      }
+    } else if (!step.control) {
+      this.completed.push({
+        id: step.id, from: step.sender, to: step.recipient, received: true, mode,
+      });
+    }
+    this.refreshQueue();
+  }
+
+  settle(reason = 'catch-up') {
+    this.clearTrip();
+    clearTimeout(this.catchupTimer);
+    this.catchupTimer = null;
+    this.catchup = false;
+    // Topological catch-up uses exactly the same prerequisites as walking.
+    // Missing sends/receipts are never invented, even at a timeout or on Stop.
+    let advanced = true;
+    while (advanced) {
+      advanced = false;
+      for (const step of this.readySteps()) {
+        if (step.kind === 'message' && !this.receipts.get(step.id)?.receive_id) continue;
+        this.complete(step, reason);
+        advanced = true;
+      }
+    }
+    this.scene.activity?.pending.clear();
+    // Unreceived sends stay in the trace, but a terminal run must not keep
+    // trying to deliver them or imply that the recipient acknowledged them.
+    this.settled = !!this.run && terminal(this.run);
+    this.refreshQueue();
+  }
+
   target(sender,recipient){
     const occupied=[...this.scene.people.values()].filter(p=>p!==sender);
     const sideEntry=recipient.seated&&this.scene.seating.chairs.get(recipient.seated).seat.approaches;
@@ -119,10 +231,12 @@ export class OfficeHandoffs {
   start(message){
     this.scene.ambient?.cancel();
     const sender=this.scene.people.get(message.sender),recipient=this.scene.people.get(message.recipient);
+    if(!sender||!recipient||sender===recipient)return false;
     const target=this.target(sender,recipient);
     if(!target)return false;
     const trip={...message,phase:'walking',started:this.clock,lastRoute:this.clock,target};
     this.active=trip;
+    this.refreshQueue();
     sender.exchangeStatus=`Bringing ${message.label.toLowerCase()} to ${recipient.name}`;
     this.scene.moveTo(sender.id,target,{status:sender.exchangeStatus,onArrival:()=>this.arrive(trip)});
     this.speak(sender.id,`${message.label.toUpperCase()} FOR ${recipient.name.toUpperCase()}.`,{force:true});
@@ -159,13 +273,12 @@ export class OfficeHandoffs {
     // Leave the document in the recipient's hand while the empty-handed sender
     // returns to work. Clearing the shared pose preserves the receipt bubble.
     this.scene.conversation=null;this.scene.talkDots.setVisible(false);
-    this.home(trip.sender);
+    if(!trip.remote)this.home(trip.sender);
     this.scene.people.get(trip.sender).exchangeStatus='Handover complete';
     const recipient=this.scene.people.get(trip.recipient);
     recipient.exchangeStatus=`Received ${trip.label.toLowerCase()} from ${this.scene.people.get(trip.sender).name}`;
     this.speak(trip.recipient,`${trip.label.toUpperCase()} RECEIVED.`,{force:true,duration:3});
-    this.completed.push({id:trip.id,from:trip.sender,to:trip.recipient,received:true});
-    this.completed=this.completed.slice(-20);this.scene.ui.updatePerson();
+    this.complete(trip);this.scene.ui.updatePerson();
   }
   home(id){
     const p=this.scene.people.get(id);if(!p||id==='human')return;
@@ -178,23 +291,48 @@ export class OfficeHandoffs {
     else go();
   }
   finish(){
-    const trip=this.active;if(!trip)return;
-    this.active=null;this.cooldown=1.5;this.note.setVisible(false);this.caption.setVisible(false);
-    this.scene.conversation=null;this.scene.talkDots.setVisible(false);
-    for(const id of [trip.sender,trip.recipient])this.scene.people.get(id).exchangeStatus=null;
-    this.home(trip.sender);
-    if(trip.recipientChair)this.home(trip.recipient);
+    const remote=this.active?.remote;
+    this.clearTrip();this.cooldown=this.catchup?0:remote?0.1:0.5;this.refreshQueue();
     this.scene.ui.updatePerson();
-    const run=this.scene.session?.run;
-    if(run?.participants.Implementer==='waiting'&&[run.participants.Reviewer,run.participants.Critic].includes('reviewing'))
-      this.speak('worker','WAITING FOR REVIEW.');
   }
+
+  sendPaper(message){
+    const sender=this.scene.people.get(message.sender),recipient=this.scene.people.get(message.recipient);
+    if(!sender||!recipient)return false;
+    this.clearTrip();
+    const trip={...message,remote:true,phase:'transferring',transferStarted:this.clock,
+      transferDuration:this.catchup?0.12:0.25,
+      noteOwner:message.sender,acknowledged:true};
+    this.active=trip;
+    this.refreshQueue();
+    sender.exchangeStatus=`Sending ${message.label.toLowerCase()} to ${recipient.name}`;
+    this.paint(trip);
+    return true;
+  }
+
+  showStaticPaper(message) {
+    const sender = this.scene.people.get(message.sender);
+    const recipient = this.scene.people.get(message.recipient);
+    if (!sender || !recipient) return false;
+    this.clearTrip();
+    this.active = {...message, remote: true, static: true, phase: 'received',
+      acknowledged: true, noteOwner: message.recipient, receiptTime: this.clock};
+    recipient.exchangeStatus = `${message.label} from ${sender.name}`;
+    // Reduced motion removes travel, not communication. A single static receipt
+    // states both the message and its sender, in the same causal order as walks.
+    this.scene.say(recipient.id, `${message.label.toUpperCase()} FROM ${sender.name.toUpperCase()}.`, 0.9, 'conversation');
+    this.paint(this.active);
+    this.complete(message, 'static');
+    this.scene.ui.updatePerson();
+    return true;
+  }
+
   paint(trip){
     const hand=id=>{const p=this.scene.people.get(id);return {x:Math.round(p.x)+(p.direction==='left'?-17:9),y:Math.round(p.y)-24};};
     const sender=this.scene.people.get(trip.sender),from=hand(trip.sender),to=hand(trip.recipient);
     let position=trip.noteOwner===trip.recipient?to:from;
     if(trip.phase==='transferring'){
-      const t=Math.min(1,(this.clock-trip.transferStarted)/.45);
+      const t=Math.min(1,(this.clock-trip.transferStarted)/(trip.transferDuration??0.45));
       position={x:Math.round(from.x+(to.x-from.x)*t),y:Math.round(from.y+(to.y-from.y)*t-Math.sin(t*Math.PI)*3)};
     }
     this.note.setTexture(this.noteKey(trip.sender)).setPosition(position.x,position.y).setVisible(true);
@@ -204,42 +342,93 @@ export class OfficeHandoffs {
     this.caption.setPosition(Math.round(p.x-this.caption.width/2),Math.round(p.y)+17)
       .setVisible(trip.phase==='walking'&&!p.bubble);
   }
-  update(dt){
-    this.clock+=dt;this.cooldown=Math.max(0,this.cooldown-dt);
-    if(this.scene.worldTime<(this.scene.reactionUntil||0))return;
-    if(this.scene.paused){
-      if(this.active)this.finish();
-      // Reduced motion uses the same envelopes without moving anybody.
-      if(this.queue.length&&!this.cooldown){
-        const message=this.queue.shift(),recipient=this.scene.people.get(message.recipient);
-        this.speak(message.sender,`${message.label.toUpperCase()} TO ${recipient.name.toUpperCase()}.`,{force:true});
-        this.reducedReceipt={...message,at:this.clock+2};this.cooldown=5;
-      }
-    }else if(!this.active&&!this.cooldown&&this.queue.length){
-      const message=this.queue.shift();
-      if(this.clock-message.queued<30&&!this.start(message))this.cooldown=1;
+  update(dt) {
+    this.clock += dt;
+    this.cooldown = Math.max(0, this.cooldown - dt);
+    if (document.hidden) {
+      this.settle('visibility');
+      return;
     }
-    if(this.reducedReceipt&&this.clock>=this.reducedReceipt.at){
-      const message=this.reducedReceipt;this.reducedReceipt=null;
-      if(this.receipts.get(message.id)?.receive_id)this.speak(message.recipient,`${message.label.toUpperCase()} RECEIVED.`,{force:true});
+    if (!this.run || this.settled) return;
+    if (this.scene.paused && this.catchup && !terminal(this.run)) {
+      clearTimeout(this.catchupTimer);
+      this.catchupTimer = null;
+      this.catchup = false;
     }
-    const trip=this.active;if(!trip)return;
-    const sender=this.scene.people.get(trip.sender),recipient=this.scene.people.get(trip.recipient);
-    if(trip.phase==='walking'){
-      if(this.clock-trip.started>18){this.finish();return;}
-      if(this.clock-trip.lastRoute>1.5&&(!sender.route.length&&!sender.transition||Math.hypot(trip.target.x-recipient.x,trip.target.y-recipient.y)>44)){
-        const target=this.target(sender,recipient);trip.lastRoute=this.clock;
-        if(target){trip.target=target;this.scene.moveTo(sender.id,target,{onArrival:()=>this.arrive(trip)});}
+    if (this.scene.paused && this.active && !this.active.static) {
+      this.showStaticPaper(this.steps.get(this.active.id));
+    }
+    if (this.scene.paused && !this.active && this.scene.worldTime < (this.scene.reactionUntil || 0)) return;
+    if (this.catchup && this.clock >= this.catchupUntil) {
+      this.settle('catch-up');
+      return;
+    }
+    if (this.active && this.catchup && !this.active.remote &&
+        this.receipts.get(this.active.id)?.receive_id) {
+      this.sendPaper(this.steps.get(this.active.id));
+    }
+    if (!this.active && !this.cooldown) this.presentNext();
+    const trip = this.active;
+    if (!trip) return;
+    const sender = this.scene.people.get(trip.sender);
+    const recipient = this.scene.people.get(trip.recipient);
+    if (trip.phase === 'walking') {
+      if (this.clock - trip.started > 12) {
+        if (this.receipts.get(trip.id)?.receive_id) this.sendPaper(this.steps.get(trip.id));
+        else this.finish();
+        return;
       }
-    }else if(trip.phase==='greeting'){
-      if(this.clock-trip.arrived>4){this.finish();return;}
-    }else if(trip.phase==='transferring'){
-      if(this.clock-trip.transferStarted>=.45)this.receive(trip);
-    }else{
+      const stopped = !sender.route.length && !sender.transition;
+      const movedAway = Math.hypot(trip.target.x - recipient.x, trip.target.y - recipient.y) > 44;
+      if (this.clock - trip.lastRoute > 1.5 && (stopped || movedAway)) {
+        const target = this.target(sender, recipient);
+        trip.lastRoute = this.clock;
+        if (target) {
+          trip.target = target;
+          this.scene.moveTo(sender.id, target, {onArrival: () => this.arrive(trip)});
+        }
+      }
+    } else if (trip.phase === 'greeting') {
+      if (this.clock - trip.arrived > 4) { this.finish(); return; }
+    } else if (trip.phase === 'transferring') {
+      if (this.clock - trip.transferStarted >= (trip.transferDuration ?? 0.45)) this.receive(trip);
+    } else {
       this.acknowledge(trip);
-      if(this.clock-(trip.receiptTime??trip.arrived)>3){this.finish();return;}
+      const hold = this.catchup ? 0.03 : trip.static ? 0.9 : trip.remote ? 0.15 : 1.5;
+      if (this.clock - (trip.receiptTime ?? trip.arrived) > hold) { this.finish(); return; }
     }
     this.paint(trip);
   }
-  inspect(){return {active:this.active?{id:this.active.id,from:this.active.sender,to:this.active.recipient,phase:this.active.phase,acknowledged:!!this.active.acknowledged,noteOwner:this.active.noteOwner||this.active.sender}:null,queued:this.queue.length,completed:this.completed,noteVisible:this.note.visible};}
+
+  presentNext() {
+    for (const step of this.readySteps()) {
+      if (step.kind === 'role') {
+        this.complete(step);
+        continue;
+      }
+      const receipt = this.receipts.get(step.id)?.receive_id;
+      // A sent message may sit in the recipient's inbox while they finish work.
+      // Wait for the real receipt rather than walking over and repeatedly leaving.
+      if (!receipt) continue;
+      if (step.control) {
+        if (receipt) this.complete(step);
+        continue;
+      }
+      if (!this.scene.people.has(step.sender) || !this.scene.people.has(step.recipient)) {
+        if (receipt) this.complete(step, 'unrepresented');
+        continue;
+      }
+      if (this.scene.paused) {
+        if (this.showStaticPaper(step)) break;
+        continue;
+      }
+      // A human's paper travels, their avatar always stays under user control.
+      const remote = step.sender === 'human' || this.catchup || this.clock - step.queued > 12;
+      if (remote && !receipt) continue;
+      if (remote ? this.sendPaper(step) : this.start(step)) break;
+      if (receipt) this.sendPaper(step); // A blocked path still gets a visible paper.
+      if (this.active) break;
+    }
+  }
+  inspect(){return {active:this.active?{id:this.active.id,from:this.active.sender,to:this.active.recipient,phase:this.active.phase,acknowledged:!!this.active.acknowledged,noteOwner:this.active.noteOwner||this.active.sender}:null,queued:this.queue.length,completed:this.completed,presented:this.presented,noteVisible:this.note.visible};}
 }

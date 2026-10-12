@@ -1,0 +1,45 @@
+{"type": "fixture.provenance", "id": 0, "workflow": "direct", "source": "Private-testing audit, real server with fake codex CLI, October 2026", "run": "a2a588a1195044d49ddfe7850b83e85e", "sanitized": "Paths, times, payload values, CLI invocation details omitted. Runtime event order, ids, roles, actions, channel sequences and binding names retained."}
+{"id": 1, "type": "room.started"}
+{"id": 2, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": false, "seq": 0, "bindings": {"task": "recorded payload"}}}
+{"id": 3, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "no_guidance", "action_kind": "pure", "seq": 0, "inputs": {}}}
+{"id": 4, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "no_guidance", "action_kind": "pure", "seq": 0, "inputs": {}, "outputs": {"guidance": "recorded payload"}}}
+{"id": 5, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "first_round", "action_kind": "pure", "seq": 1, "inputs": {}}}
+{"id": 6, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "first_round", "action_kind": "pure", "seq": 1, "inputs": {}, "outputs": {"rounds": "recorded payload"}}}
+{"id": 7, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": false, "seq": 1, "bindings": {"guidance": "recorded payload"}}}
+{"id": 8, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 0, "bindings": {"task": "recorded payload"}}}
+{"id": 9, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 1, "bindings": {"guidance": "recorded payload"}}}
+{"id": 10, "type": "runtime", "event": {"type": "act_start", "lifeline": "Implementer", "action": "implement", "action_kind": "assistant", "seq": 2, "inputs": {"task": "recorded payload", "guidance": "recorded payload"}}}
+{"id": 15, "type": "runtime", "event": {"type": "act", "lifeline": "Implementer", "action": "implement", "action_kind": "assistant", "seq": 2, "inputs": {"task": "recorded payload", "guidance": "recorded payload"}, "outputs": {"proposal": "recorded payload"}}}
+{"id": 16, "type": "runtime", "event": {"type": "send", "from": "Implementer", "to": "Human", "channel": "main", "control": false, "seq": 0, "bindings": {"proposal": "recorded payload"}}}
+{"id": 17, "type": "runtime", "event": {"type": "recv", "to": "Human", "from": "Implementer", "channel": "main", "seq": 0, "bindings": {"proposal": "recorded payload"}}}
+{"id": 18, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "judge_turn", "action_kind": "human", "seq": 3, "inputs": {"proposal": "recorded payload"}}}
+{"id": 19, "type": "human.required", "request": {"id": "f7cd52b933b04f709c12b386f5bfd875", "action": "judge_turn", "spec": {"kind": "select", "rendered": {"prefill": "Another round\nShip it\nAbandon"}}}}
+{"id": 20, "type": "human.responded", "value": "Another round"}
+{"id": 21, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "judge_turn", "action_kind": "human", "seq": 3, "inputs": {"proposal": "recorded payload"}, "outputs": {"verdict": "recorded payload"}}}
+{"id": 22, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "keep_going", "action_kind": "pure", "seq": 4, "inputs": {"verdict": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}}}
+{"id": 23, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "keep_going", "action_kind": "pure", "seq": 4, "inputs": {"verdict": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}, "outputs": {"again": "recorded payload"}}}
+{"id": 24, "type": "runtime", "event": {"type": "decision", "lifeline": "Human"}}
+{"id": 25, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": true, "seq": 2, "bindings": {"_0": "recorded payload"}}}
+{"id": 26, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "ask_note", "action_kind": "human", "seq": 5, "inputs": {}}}
+{"id": 28, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "ask_note", "action_kind": "human", "seq": 5, "inputs": {}, "outputs": {"guidance": "recorded payload"}}}
+{"id": 29, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "next_round", "action_kind": "pure", "seq": 6, "inputs": {"rounds": "recorded payload"}}}
+{"id": 30, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "next_round", "action_kind": "pure", "seq": 6, "inputs": {"rounds": "recorded payload"}, "outputs": {"rounds": "recorded payload"}}}
+{"id": 31, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": false, "seq": 3, "bindings": {"guidance": "recorded payload"}}}
+{"id": 32, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 2, "ctrl": true, "bindings": {"loop": "recorded payload"}}}
+{"id": 33, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 3, "bindings": {"guidance": "recorded payload"}}}
+{"id": 34, "type": "runtime", "event": {"type": "act_start", "lifeline": "Implementer", "action": "implement", "action_kind": "assistant", "seq": 7, "inputs": {"task": "recorded payload", "guidance": "recorded payload"}}}
+{"id": 39, "type": "runtime", "event": {"type": "act", "lifeline": "Implementer", "action": "implement", "action_kind": "assistant", "seq": 7, "inputs": {"task": "recorded payload", "guidance": "recorded payload"}, "outputs": {"proposal": "recorded payload"}}}
+{"id": 40, "type": "runtime", "event": {"type": "send", "from": "Implementer", "to": "Human", "channel": "main", "control": false, "seq": 1, "bindings": {"proposal": "recorded payload"}}}
+{"id": 41, "type": "runtime", "event": {"type": "recv", "to": "Human", "from": "Implementer", "channel": "main", "seq": 1, "bindings": {"proposal": "recorded payload"}}}
+{"id": 42, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "judge_turn", "action_kind": "human", "seq": 8, "inputs": {"proposal": "recorded payload"}}}
+{"id": 43, "type": "human.required", "request": {"id": "86d0e086d67f45f6a003773f24db75e6", "action": "judge_turn", "spec": {"kind": "select", "rendered": {"prefill": "Another round\nShip it\nAbandon"}}}}
+{"id": 44, "type": "human.responded", "value": "Done"}
+{"id": 45, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "judge_turn", "action_kind": "human", "seq": 8, "inputs": {"proposal": "recorded payload"}, "outputs": {"verdict": "recorded payload"}}}
+{"id": 46, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "keep_going", "action_kind": "pure", "seq": 9, "inputs": {"verdict": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}}}
+{"id": 47, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "keep_going", "action_kind": "pure", "seq": 9, "inputs": {"verdict": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}, "outputs": {"again": "recorded payload"}}}
+{"id": 48, "type": "runtime", "event": {"type": "decision", "lifeline": "Human"}}
+{"id": 49, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": true, "seq": 4, "bindings": {"_0": "recorded payload"}}}
+{"id": 50, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "outcome", "action_kind": "pure", "seq": 10, "inputs": {"verdict": "recorded payload", "proposal": "recorded payload", "rounds": "recorded payload"}}}
+{"id": 51, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "outcome", "action_kind": "pure", "seq": 10, "inputs": {"verdict": "recorded payload", "proposal": "recorded payload", "rounds": "recorded payload"}, "outputs": {"result": "recorded payload"}}}
+{"id": 52, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 4, "ctrl": true, "bindings": {"loop": "recorded payload"}}}
+{"id": 53, "type": "room.completed"}

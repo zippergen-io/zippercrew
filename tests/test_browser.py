@@ -97,7 +97,7 @@ def test_continuous_room_through_two_rounds_and_history(service):
         page.locator("#actor-Implementer").click()
         previous_round = page.locator('#transcript .conversation-round[data-round="1"]')
         previous_round.locator("summary").first.click()
-        previous_round.get_by_text("View full guidance", exact=True).click()
+        previous_round.get_by_text("View full task · guidance", exact=True).click()
         expect(page.locator("#transcript")).to_contain_text("Check zero as well.")
         expect(page.locator("#role-access")).to_have_text("Write access")
         screenshot(page, "inspector")

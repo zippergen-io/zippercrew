@@ -238,7 +238,13 @@ def test_inline_agent_models_hide_profiles_and_preserve_effective_settings(servi
             "model": "local-model",
             "label": "Local Model",
             "efforts": ["low", "high", "ultra"],
-        }
+        },
+        {
+            "backend": "claude",
+            "model": "sonnet",
+            "label": "Claude Sonnet",
+            "efforts": ["low", "medium", "high", "max"],
+        },
     ]
     for name in ["careful-implementer", "another-nickname"]:
         assert (
@@ -265,9 +271,10 @@ def test_inline_agent_models_hide_profiles_and_preserve_effective_settings(servi
         expect(page.get_by_label("Model", exact=True).locator("option")).to_have_text(
             [
                 "Select a model",
-                "Codex default",
-                "Claude default",
+                "Codex built-in default",
+                "Claude configured default",
                 "Local Model",
+                "Claude Sonnet",
             ]
         )
         expect(page.get_by_label("Reasoning effort")).to_have_value("high")
@@ -279,6 +286,18 @@ def test_inline_agent_models_hide_profiles_and_preserve_effective_settings(servi
                 "Ultra",
             ]
         )
+        # Codex built-in defaults must not suggest another model's effort levels.
+        page.get_by_label("Model", exact=True).select_option(label="Codex built-in default")
+        expect(page.locator(".model-default-help")).to_contain_text("not your Codex config")
+        expect(page.get_by_label("Reasoning effort").locator("option")).to_have_text(["Default"])
+        expect(page.get_by_label("Reasoning effort")).to_be_disabled()
+        page.get_by_label("Model", exact=True).select_option(label="Claude configured default")
+        expect(page.locator(".model-default-help")).to_contain_text("Uses your Claude settings")
+        expect(page.get_by_label("Reasoning effort")).to_be_enabled()
+        expect(page.get_by_label("Reasoning effort").locator("option")).to_have_text(
+            ["Default", "Low", "Medium", "High", "Max"]
+        )
+        page.get_by_label("Model", exact=True).select_option(label="Local Model")
         assert "careful-implementer" not in page.locator("#person-card").inner_text()
         assert page.get_by_role("button", name="Choose model", exact=True).count() == 0
         page.get_by_role("button", name="Mira avatar", exact=True).click()
@@ -317,4 +336,108 @@ def test_fine_zoom_keeps_unfiltered_sprites_and_fit(service, dpr):
         assert page.evaluate("""() => !studio.game.canvas.getContext('2d').imageSmoothingEnabled
           && [...studio.people.values()].every(p=>Number.isInteger(p.sprite.x)
           && Number.isInteger(p.sprite.y))""")
+        browser.close()
+
+
+def test_unsupported_effort_guides_setup_before_run_and_after_stale_catalog(service, monkeypatch):
+    app, base, project = service
+    app.demo = False
+    known = [
+        {"backend": "codex", "model": "small", "label": "Small model", "efforts": ["low", "high"]}
+    ]
+    app.models = known
+    monkeypatch.setattr("zippercrew.rooms.model_choices", lambda: known)
+    assert (
+        request(
+            base,
+            "/api/profiles",
+            {
+                "project": str(project),
+                "name": "external",
+                "backend": "codex",
+                "model": "small",
+                "reasoning_effort": "ultra",
+            },
+        )[0]
+        == 201
+    )
+    room = create_room(base, project, profile="external")
+    request(base, f"/api/rooms/{room['id']}/save", {"brief": "Add a docstring."})
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(base + "/office/")
+        page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
+        expect(page.locator("#scene-state")).to_contain_text("Setup needed")
+        expect(page.locator("#room-action")).to_be_disabled()
+        page.evaluate("() => studio.select('worker')")
+        expect(page.locator("#person-activity")).to_have_text("Check reasoning effort")
+        expect(page.get_by_label("Reasoning effort").locator("option:checked")).to_have_text(
+            "Ultra (not listed for this model)"
+        )
+        assert not page.get_by_label("Reasoning effort").evaluate("el => el.checkValidity()")
+        # Starting programmatically also takes the user straight to the affected agent.
+        page.evaluate("() => studio.session.configuration.start()")
+        expect(page.locator("#detail-title")).to_have_text("Worker settings need attention")
+        page.get_by_role("button", name="Configure Worker", exact=True).click()
+        expect(page.get_by_label("Reasoning effort")).to_be_visible()
+        # A stale browser catalog cannot turn the server's validation into a Connection error.
+        page.evaluate("() => {studio.session.bootstrap.models=[];studio.session.refreshChrome();}")
+        page.evaluate("() => studio.session.configuration.start()")
+        expect(page.locator("#detail-kind")).to_have_text("Room / Team")
+        expect(page.locator("#detail-description")).to_contain_text(
+            "does not list reasoning effort"
+        )
+        page.get_by_role("button", name="Configure Worker", exact=True).click()
+        page.get_by_label("Reasoning effort").select_option("high")
+        page.get_by_role("button", name="Save agent", exact=True).click()
+        expect(page.locator("#scene-state")).to_contain_text("Ready to start")
+        expect(page.locator("#room-action")).to_be_enabled()
+        assert not app.runs.items
+        assert not errors
+        browser.close()
+
+
+def test_codex_default_preserves_saved_effort_until_explicitly_reset(service):
+    app, base, project = service
+    app.demo = False
+    assert (
+        request(
+            base,
+            "/api/profiles",
+            {
+                "project": str(project),
+                "name": "external-default",
+                "backend": "codex",
+                "reasoning_effort": "high",
+            },
+        )[0]
+        == 201
+    )
+    room = create_room(base, project, profile="external-default")
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(base + "/office/")
+        page.wait_for_function("() => studio.session?.initialized && !studio.session.busy")
+        page.evaluate("() => studio.select('worker')")
+        expect(page.get_by_label("Reasoning effort")).to_have_value("high")
+        expect(page.get_by_label("Reasoning effort").locator("option")).to_have_text(
+            ["Default", "High (saved override)"]
+        )
+        page.get_by_role("button", name="Save agent", exact=True).click()
+        expect(page.locator("#person-card")).not_to_be_visible()
+        saved = app.rooms.get(room["id"])["config"]["agents"]["Implementer"]
+        assert saved["settings"]["reasoning_effort"] == "high"
+        page.evaluate("() => studio.select('worker')")
+        page.get_by_label("Reasoning effort").select_option("")
+        expect(page.get_by_label("Reasoning effort")).to_be_disabled()
+        page.get_by_role("button", name="Save agent", exact=True).click()
+        expect(page.locator("#person-card")).not_to_be_visible()
+        saved = app.rooms.get(room["id"])["config"]["agents"]["Implementer"]
+        assert "reasoning_effort" not in saved["settings"]
+        assert "reasoning_effort" not in page.evaluate("studio.session.profiles")[saved["profile"]]
+        assert not app.runs.items
         browser.close()

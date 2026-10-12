@@ -207,3 +207,34 @@ def test_restart_marks_interrupted_room_stopped(tmp_path, config):
     (room / "events.jsonl").write_text(json.dumps({"id": 1, "type": "room.started"}) + "\n")
     state = Runs(root).get("test").snapshot()
     assert state["status"] == "stopped" and "interrupted" in state["error"]
+
+
+def test_external_profile_effort_is_checked_before_launch(service, config, monkeypatch):
+    _, base, project = service
+    monkeypatch.setattr(
+        "zippercrew.rooms.model_choices",
+        lambda: [{"backend": "codex", "model": "small", "efforts": ["low", "high"]}],
+    )
+    for role in ["Implementer", "Reviewer"]:
+        assert (
+            request(
+                base,
+                "/api/profiles",
+                {
+                    "project": str(project),
+                    "name": role,
+                    "backend": "codex",
+                    "model": "small",
+                    "reasoning_effort": "ultra",
+                },
+            )[0]
+            == 201
+        )
+        config["agents"][role] = {"profile": role}
+    config["project"] = str(project)
+    with pytest.raises(ValueError, match="Choose low, high, or Default"):
+        validate_config(config)
+    for binding in config["agents"].values():
+        binding["settings"] = {"reasoning_effort": " High "}
+    checked = validate_config(config)
+    assert all(b["reasoning_effort"] == "high" for b in checked["agents"].values())

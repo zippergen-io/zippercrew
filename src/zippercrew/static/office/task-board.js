@@ -66,6 +66,7 @@ export class TaskBoard {
   update(room,run,connected){
     this.copy=boardCopy(room?.brief);
     this.status=boardStatus(run,connected,!!room);
+    if(connected&&this.scene.session?.decisions.arriving)this.status={text:this.scene.session.decisions.arrivalLabel.toUpperCase(),accent:'blue'};
     if(room&&!run&&this.scene.session?.configuration.missing().length)this.status={text:'SETUP NEEDED',accent:'blue'};
     const saveState=terminal(run)?this.scene.session?.configuration.saveState:null;
     if(saveState)this.status={text:saveState.label.replace('…','...').toUpperCase(),accent:saveState.error?'coral':'amber'};

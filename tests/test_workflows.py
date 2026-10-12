@@ -79,3 +79,46 @@ def test_preferences_are_global_and_persist_without_editing_rooms(service):
     assert Preferences(app.preferences.path).get() == prefs
     assert request(base, "/api/bootstrap")[1]["preferences"] == prefs
     assert request(base, f"/api/rooms/{room['id']}/context")[1] == room
+
+
+@pytest.mark.parametrize("workflow", ["review", "double_review"])
+def test_human_scope_amendments_reach_every_role_and_survive_empty_notes(config, workflow):
+    config.update(workflow=workflow, max_rounds=4)
+    config["task"] = "Keep the change minimal."
+    calls, events = [], []
+    notes = iter(["Also add a one-line docstring.", "", "Use plain language in the docstring."])
+    round_number = 0
+
+    def backend(action, inputs):
+        nonlocal round_number
+        if action.name == "implement":
+            round_number += 1
+        calls.append((round_number, action.name, dict(inputs)))
+        return {
+            action.outputs[0][0]: "Updated the function."
+            if action.name == "implement"
+            else "APPROVE\nFINDINGS: 0\nThe change meets the amended task."
+        }
+
+    def human(request):
+        return {"value": "Another round", "note": next(notes)} if round_number < 4 else "Ship it"
+
+    execute(config, events.append, human, backend)
+    for number, _, inputs in calls:
+        task = inputs["task"]
+        assert task.startswith("Keep the change minimal.")
+        assert task.count("Also add a one-line docstring.") == (1 if number >= 2 else 0)
+        assert task.count("Use plain language in the docstring.") == (1 if number == 4 else 0)
+        if number >= 2:
+            assert "takes precedence" in task
+    # Every role receives precisely the same task, including final assessments.
+    for number in range(1, 5):
+        assert len({inputs["task"] for n, _, inputs in calls if n == number}) == 1
+    assert len(calls) == 4 * (5 if workflow == "double_review" else 2)
+    # The amendment crosses the protocol boundary, not a hidden adapter side channel.
+    sends = [e["event"] for e in events if e["type"] == "runtime" and e["event"]["type"] == "send"]
+    for role in ["Reviewer", "Critic"] if workflow == "double_review" else ["Reviewer"]:
+        assert any(
+            m["from"] == "Human" and m["to"] == role and "Also add a one-line docstring." in str(m)
+            for m in sends
+        )

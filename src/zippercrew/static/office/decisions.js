@@ -1,9 +1,9 @@
-import {api,node,button,field,input,terminal} from './session.js';
+import {api,node,button,field,input,terminal,displayReport} from './session.js';
 
 const $=id=>document.getElementById(id);
-const withoutSummary=text=>String(text||'').replace(/<decision-summary>[\s\S]*?<\/decision-summary>/g,'').trim();
+const withoutSummary=text=>displayReport(text);
 const report=(run,role)=>Object.values((run.transcript||[]).findLast(entry=>entry.role===role&&entry.round===run.round)?.outputs||{}).join('\n\n');
-const concise=text=>String(text||'').replace(/[*_`#]/g,'').replace(/\s+/g,' ').trim().slice(0,280);
+const concise=text=>String(text||'').replace(/(?<![\w_`])_([^_\s](?:.*?[^_\s])??)_(?![\w_`])/g,'$1').replace(/[*`#]/g,'').replace(/\s+/g,' ').trim().slice(0,280);
 const icon=id=>{
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.classList.add('icon','disclosure-icon');svg.setAttribute('aria-hidden','true');
@@ -24,11 +24,54 @@ const disclosure=(label,className,onOpen=()=>{})=>{
 };
 
 export class OfficeDecisions {
-  constructor(session){this.session=session;}
-  get pending(){
+  constructor(session){this.session=session;this.delivery=null;this.deliveryTimer=null;}
+  // The backend request is always actionable. The room gets at most two seconds
+  // to catch up, and explicitly opening a decision settles presentation at once.
+  get request(){
     const run=this.session.taskRun,bridge=this.session.decisionContinuation;
     if(bridge&&run&&bridge.id===run.id&&bridge.round===run.round&&run.pending?.action==='ask_note')return null;
     return run&&!terminal(run)?run.pending:null;
+  }
+  get arriving(){return !!(this.request&&this.delivery?.key===`${this.session.run.id}:${this.request.id}`&&!this.delivery.ready);}
+  get pending(){return this.arriving?null:this.request;}
+  get arrivalLabel(){return this.session.run?.config.workflow==='direct'?'Result arriving':this.session.run?.config.workflow==='double_review'?'Reviews arriving':'Review arriving';}
+  observe({replay=false}={}){
+    const request=this.request,run=this.session.run;
+    if(!request){clearTimeout(this.deliveryTimer);this.delivery=null;return;}
+    const key=`${run.id}:${request.id}`;
+    if(this.delivery?.key!==key){
+      clearTimeout(this.deliveryTimer);
+      // Server-projected dependencies include hidden controls and role events.
+      // Older servers still work without a presentation graph.
+      this.delivery={key,after:request.after||[],ready:false,announced:false};
+      this.deliveryTimer=setTimeout(()=>{
+        if(this.delivery?.key===key)this.releaseDelivery(true);
+      },2000);
+    }
+    if(replay){this.delivery.ready=true;this.delivery.announced=true;clearTimeout(this.deliveryTimer);}
+    this.checkDelivery(false);
+  }
+  checkDelivery(refresh=true){
+    if(!this.arriving)return;
+    if(this.session.scene.paused||this.session.scene.handoffs.satisfied(this.delivery.after))this.releaseDelivery(false,refresh);
+  }
+  releaseDelivery(fallback=false,refresh=true){
+    if(!this.arriving)return;
+    this.delivery.ready=true;clearTimeout(this.deliveryTimer);
+    const s=this.session;
+    // This changes presentation only. A broken/missing trace cannot prevent
+    // access to a real backend decision.
+    if(fallback&&!s.scene.paused)s.scene.handoffs.settle('decision');
+    if(s.connected&&!this.delivery.announced){
+      this.delivery.announced=true;
+      if(!s.scene.paused||!s.scene.handoffs.queue.length)s.scene.handoffs.speak('human',s.run.config.workflow==='double_review'?'BOTH REVIEWS READY.\nYOUR DECISION.':'YOUR DECISION.',{force:true});
+    }
+    if(refresh){
+      s.refreshChrome();s.updateRunWindow();
+      if(s.connected&&s.scene.selected==='human'&&s.scene.ui.panel==='person-card'&&!$('person-card').hidden&&!$('detail-dialog').open){
+        s.scene.ui.dismiss(false);this.open();
+      }
+    }
   }
   summary(){
     const run=this.session.taskRun,pending=this.pending;
@@ -39,6 +82,7 @@ export class OfficeDecisions {
       reason:concise(run.review?.headline||worker),worker:concise(worker),findings:run.review?.findings,task_issue:false};
   }
   open(){
+    if(this.arriving){this.releaseDelivery(true,false);this.session.refreshChrome();}
     if(!this.pending){this.session.showTask();return;}
     const s=this.session;s.window('decision',`Round ${s.taskRun.round||1}`,'Your decision');
     const host=node('div','','decision');$('detail-body').append(host);this.render(host);
@@ -56,9 +100,12 @@ export class OfficeDecisions {
     const select=pending.spec.kind==='select',choices=(pending.spec.rendered?.prefill||'').split('\n').filter(Boolean);
     const recommended=choices.includes(summary.recommendation)?summary.recommendation:null;
     const paired=run.config.workflow==='double_review';
-    const title=paired?(summary.disagreement?'The reviewers disagree':recommended?`Both reviewers recommend ${recommended.toLowerCase()}`:'Reviews need your decision'):recommended?`Reviewer recommends ${recommended.toLowerCase()}`:run.config.workflow==='direct'?'The Worker’s result is ready':'Review needs your decision';
+    const recommendation= recommended==='Ship it'?'shipping':recommended?.toLowerCase();
+    const title=paired?(summary.disagreement?'The reviewers disagree':recommended?`Both reviewers recommend ${recommendation}`:'Reviews need your decision'):recommended?`Reviewer recommends ${recommendation}`:run.config.workflow==='direct'?'The Worker’s result is ready':'Review needs your decision';
     host.append(node('h3',select?title:'Add any final guidance','decision-recommendation'));
     if(summary.reason)host.append(node('p',paired&&summary.disagreement?summary.reason.replace(/^The reviewers disagree\. /,''):summary.reason,'decision-reason'));
+    if(summary.worker&&summary.worker!==summary.reason)host.append(node('p',`Worker: ${summary.worker}`,'decision-worker'));
+    for(const gap of summary.verification||[])host.append(node('p',gap,'decision-verification'));
     if(paired){const opinions=node('div','','reviewer-opinions');for(const review of summary.reviewers||[]){const item=node('p','','field-help');item.append(node('strong',review.name+' · '),node('span',review.recommendation||'Needs clarification'));opinions.append(item);}host.append(opinions);}
     if(!s.connected)host.append(node('p','Reconnecting. Your decision will be available when the room is connected.','field-help'));
     const actions=node('div','','decision-actions');
@@ -86,7 +133,7 @@ export class OfficeDecisions {
       const note=input('decision-note',savedNote,true);note.rows=3;note.maxLength=30000;note.disabled=!s.connected;
       note.placeholder='What would you like the Worker to focus on?';
       note.oninput=()=>s.guidanceDrafts.set(noteKey,note.value);
-      details.append(field('Optional note',note),node('p',run.config.workflow==='direct'?'Optional. Add emphasis, corrections, or extra instructions.':paired?'Optional. Both full reviews and their exchange are passed to the Worker automatically.':'Optional. The reviewer feedback will already be passed to the Worker automatically.','field-help'));
+      details.append(field('Optional note',note),node('p',run.config.workflow==='direct'?'Optional. Add emphasis, corrections, or extra instructions.':paired?'Optional. Both full reviews and their exchange are passed to the Worker automatically. Your note also updates the task for both reviewers.':'Optional. The reviewer feedback will already be passed to the Worker automatically. Your note also updates the task for the Reviewer.','field-help'));
       host.append(details);
       // Compatibility for a pre-upgrade run already waiting at ask_note.
       if(!select){const go=button('Run next round',()=>s.answer(pending.id,note.value,{noteKey}),true);go.disabled=!s.connected;host.append(go);}

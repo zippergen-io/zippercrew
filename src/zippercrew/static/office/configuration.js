@@ -1,4 +1,4 @@
-import {api,node,button,field,input,select,terminal,roles} from './session.js';
+import {api,node,button,field,input,select,terminal,roles,displayReport} from './session.js';
 import {BOARD} from './task-board.js';
 import {labelTexture} from './art.js';
 import {repositoryField} from './repository-picker.js';
@@ -17,7 +17,7 @@ export class OfficeConfiguration {
   constructor(session){
     this.session=session;this.scene=session.scene;this.section='rooms';this.drawerRequest=0;this.markers=new Map();this.drafts=new TaskDrafts(session);this.options=new RoomOptions(session);
     for(const section of ['rooms','history'])$(`show-${section}`).onclick=()=>this.showDrawer(section);
-    $('room-header').onclick=()=>session.decisions.pending?session.decisions.open():this.saveState?.kind==='task'?this.editTask():this.roomPanel();
+    $('room-header').onclick=()=>session.decisions.request?session.decisions.open():this.saveState?.kind==='task'?this.editTask():this.roomPanel();
   }
   get editable(){return !!this.session.room&&terminal(this.session.run);}
   get workflow(){return this.session.room?.config.workflow||'review';}
@@ -25,8 +25,24 @@ export class OfficeConfiguration {
   get workflows(){return this.session.bootstrap?.workflows||{};}
   binding(id){return this.session.room?.config.agents?.[roles[id]]||{};}
   hasModel(id){const b=this.binding(id);return !!(b.profile&&(this.session.bootstrap?.demo||this.session.profiles[b.profile]));}
-  isReady(id){return this.hasModel(id);}
-  model(id){const b=this.binding(id),p=this.session.profiles[b.profile];return b.settings?.model||p?.model||(this.session.bootstrap?.demo&&b.profile?'Scripted demo':p?`${p.backend==='claude'?'Claude':'Codex'} default`:'Choose model');}
+  modelIssue(id){
+    if(this.session.bootstrap?.demo)return null;
+    const binding=this.binding(id),profile=this.session.profiles[binding.profile];
+    if(!profile)return null;
+    const model=(binding.settings?.model||profile.model||'').trim();
+    const effort=(binding.settings?.reasoning_effort||profile.reasoning_effort||'').trim().toLowerCase();
+    const levels=this.session.bootstrap?.models?.find(m=>m.backend===profile.backend&&m.model===model)?.efforts;
+    if(model&&effort&&levels?.length&&!levels.includes(effort))return `Choose a supported reasoning effort for ${model}. “${effort}” is not listed for this model.`;
+    return null;
+  }
+  isReady(id){return this.hasModel(id)&&!this.modelIssue(id);}
+  setupStatus(id){return !this.hasModel(id)?'Choose model':this.modelIssue(id)?'Check reasoning effort':null;}
+  setupProblem(id,message){
+    const s=this.session,name=this.team.find(([actor])=>actor===id)?.[1]||'Agent';
+    s.window('agent-setup','Room / Team',`${name} settings need attention`,message);
+    $('detail-body').append(button(`Configure ${name}`,()=>{$('detail-dialog').close();this.scene.select(id);},true));
+  }
+  model(id){const b=this.binding(id),p=this.session.profiles[b.profile];return b.settings?.model||p?.model||(this.session.bootstrap?.demo&&b.profile?'Scripted demo':p?(p.backend==='claude'?'Claude configured default':'Codex built-in default'):'Choose model');}
   get saveState(){
     const id=this.session.room?.id,task=this.drafts.rooms.get(id),options=this.options.rooms.get(id);
     if(task?.error)return {kind:'task',error:true,label:'Task not saved'};
@@ -40,7 +56,7 @@ export class OfficeConfiguration {
     if(!s.room?.config.workspace)missing.push('Choose a repository in the room panel');
     if(!s.room?.brief?.trim())missing.push('Add a task on the whiteboard');
     if(this.saveState?.error)missing.push(this.saveState.label+' · open it to retry');
-    for(const [id,name]of this.team){if(!this.hasModel(id))missing.push(`Choose ${name.toLowerCase()} model`);}
+    for(const [id,name]of this.team){if(!this.hasModel(id))missing.push(`Choose ${name.toLowerCase()} model`);else if(this.modelIssue(id))missing.push(`${name}: check reasoning effort`);}
     return missing;
   }
   sync(){
@@ -101,13 +117,13 @@ export class OfficeConfiguration {
       const info=node('div'),role=button(name,()=>{$('detail-dialog').close();this.scene.select(id);});role.className='role-link';
       const model=button(this.model(id),()=>{$('detail-dialog').close();this.scene.select(id);});model.className='model-link';model.disabled=!this.editable;model.setAttribute('aria-label',`${name} model`);info.append(role,model);
       const ready=this.isReady(id);
-      const status=node('span',!this.hasModel(id)?'Choose model':'✓ Ready','readiness');status.dataset.ready=ready;
+      const status=node('span',this.setupStatus(id)||'✓ Ready','readiness');status.dataset.ready=ready;
       row.append(avatar,info,status);host.append(row);
     }
   }
   agentCard(person){
     const host=$('agent-controls');
-    if(person.id==='human'){host.dataset.key='';host.replaceChildren(node('p','Walk with the arrow keys or WASD.','field-help'));return;}
+    if(person.id==='human'){host.dataset.key='';host.replaceChildren(node('p',this.session.decisions.arriving?'The handover is on its way. Your decision will open when it arrives.':'Walk with the arrow keys or WASD.','field-help'));return;}
     const key=`${this.session.room?.id}:${person.id}:${this.editable}`;if(host.dataset.key===key)return;host.dataset.key=key;host.replaceChildren();
     if(!this.session.room){host.append(button('+ New room',()=>this.newRoom(),true));return;}
     const s=this.session,id=person.id,b=this.binding(id),profile=s.profiles[b.profile];
@@ -123,21 +139,40 @@ export class OfficeConfiguration {
     }
     const options=this.modelOptions(id),current=JSON.stringify([profile?.backend||'demo',b.settings?.model||profile?.model||'']);
     const model=select('agent-model',[['','Select a model'],...options.map(o=>[o.key,o.label])],this.hasModel(id)?current:'');
-    const currentEffort=b.settings?.reasoning_effort||profile?.reasoning_effort||'';
-    const effort=select('agent-effort',[],'');
+    const currentEffort=(b.settings?.reasoning_effort||profile?.reasoning_effort||'').trim().toLowerCase();
+    const effort=select('agent-effort',[],''),defaults=node('p','','field-help model-default-help');
     const updateEfforts=value=>{
-      const supported=options.find(o=>o.key===model.value)?.efforts,efforts=['',...(supported?.length?supported:['low','medium','high'])];
+      const choice=options.find(o=>o.key===model.value),supported=choice?.efforts,builtin=choice?.backend==='codex'&&!choice.model,efforts=['',...(builtin?[]:supported?.length?supported:['low','medium','high'])];
       if(value&&!efforts.includes(value))efforts.push(value);
       const choices=select('',efforts.map(v=>[v,v?v==='xhigh'?'Extra high':v.charAt(0).toUpperCase()+v.slice(1):'Default']),value);
       effort.replaceChildren(...choices.children);effort.value=value||'';
+      const invalid=!!(choice?.model&&supported?.length&&value&&!supported.includes(value));
+      effort.setCustomValidity(invalid?'Choose an effort listed for this model, or Default.':'');
+      if(invalid)effort.selectedOptions[0].textContent+=' (not listed for this model)';
+      else if(builtin&&value)effort.selectedOptions[0].textContent+=' (saved override)';
+      effort.disabled=!this.editable||(builtin&&!value);
+      defaults.textContent=choice?.model||!choice||choice.backend==='demo'?'':choice.backend==='codex'
+        ?'Uses Codex’s built-in model, not your Codex config. Choose a named model to set a supported reasoning effort. An existing saved override is kept until you change it.'
+        :'Uses your Claude settings unless you choose an effort here. Effort options come from the installed CLI and may vary by model.';
+      defaults.hidden=!defaults.textContent;
     };
-    updateEfforts(currentEffort);model.onchange=()=>updateEfforts('');
-    model.disabled=effort.disabled=!this.editable;
+    const access=node('p','','field-help agent-access');access.id='agent-access';model.setAttribute('aria-describedby',access.id);
+    const updateAccess=()=>{
+      const backend=options.find(o=>o.key===model.value)?.backend;
+      access.textContent=backend==='claude'?(id==='worker'
+        ?'Edits only. Claude cannot run tests or commands that need approval in this app. Use a Codex Worker when command execution is required.'
+        :'File review only. Claude reviewers can read and search files, but cannot run tests or shell commands.')
+        :backend==='codex'&&id!=='worker'?'Read-only review. Checks that need to write files may be blocked.':'';
+      access.hidden=!access.textContent;
+    };
+    effort.onchange=()=>updateEfforts(effort.value);
+    updateEfforts(currentEffort);updateAccess();model.onchange=()=>{updateEfforts('');updateAccess();};
+    model.disabled=!this.editable;
     const instructions=node('details','','agent-instructions');instructions.append(node('summary','Custom instructions · optional'));
     const prompt=input(`instructions-${roles[id]}`,b.instructions||'',true);prompt.rows=3;prompt.maxLength=30000;prompt.disabled=!this.editable;prompt.placeholder='Add guidance specific to this room.';
     instructions.append(field('Instructions',prompt));
     const save=button('Save agent',null,true);save.type='submit';save.disabled=!this.editable;
-    form.append(node('span','Avatar','field-label'),choices,field('Model',model),field('Reasoning effort',effort),instructions,save);
+    form.append(node('span','Avatar','field-label'),choices,field('Model',model),access,field('Reasoning effort',effort),defaults,instructions,save);
     form.onsubmit=e=>{e.preventDefault();s.perform(async()=>{
       const chosen=options.find(option=>option.key===model.value);if(!chosen)throw Error('Select a model for this role.');
       const selected=chosen.backend==='demo'?'demo':await s.defaultProfile(s.room.config.project,chosen.backend),settings={};
@@ -152,9 +187,14 @@ export class OfficeConfiguration {
     const s=this.session,options=new Map();
     const add=(backend,model='',label=null,efforts=[])=>{
       const key=JSON.stringify([backend,model]),provider=backend==='claude'?'Claude':'Codex';
-      if(!options.has(key))options.set(key,{key,backend,model,efforts,label:label||(backend==='demo'?'Scripted demo':model?`${model} · ${provider}`:`${provider} default`)});
+      if(!options.has(key))options.set(key,{key,backend,model,efforts,label:label||(backend==='demo'?'Scripted demo':model?`${model} · ${provider}`:(backend==='codex'?'Codex built-in default':'Claude configured default'))});
     };
-    if(s.bootstrap.demo)add('demo');else{add('codex');add('claude');}
+    if(s.bootstrap.demo)add('demo');else{
+      for(const backend of ['codex','claude']){
+        const efforts=backend==='codex'?[]:[...new Set((s.bootstrap.models||[]).filter(m=>m.backend===backend).flatMap(m=>m.efforts||[]))];
+        add(backend,'',null,efforts);
+      }
+    }
     for(const m of s.bootstrap.models||[])add(m.backend,m.model,m.label,m.efforts);
     for(const p of Object.values(s.profiles))if(p.model)add(p.backend,p.model);
     for(const [role]of this.team){const b=this.binding(role),p=s.profiles[b.profile];if(p)add(p.backend,b.settings?.model||p.model||'');}
@@ -249,8 +289,12 @@ export class OfficeConfiguration {
     form.append(editor,saveLine,start);
     form.onsubmit=e=>{e.preventDefault();this.start();};$('detail-body').append(form);brief.focus();
   }
-  start(){return this.session.perform(()=>this.launch());}
-  async launch(){const id=this.session.room.id;await this.drafts.flush(id);await this.options.flush(id);const missing=this.missing();if(missing.length)throw Error(missing.join('\n'));const run=await api(`/api/rooms/${id}/runs`,{});this.session.attach(run,{replay:false});this.session.confirmInOffice('worker','Task received.\nGetting ready to begin.');}
+  start(){return this.session.perform(async()=>{
+    const invalid=this.team.find(([id])=>this.modelIssue(id));
+    if(invalid){this.setupProblem(invalid[0],this.modelIssue(invalid[0]));return;}
+    await this.launch();
+  },{errorKind:'Room / Run'});}
+  async launch(){const id=this.session.room.id;await this.drafts.flush(id);await this.options.flush(id);const missing=this.missing();if(missing.length)throw Error(missing.join('\n'));const run=await api(`/api/rooms/${id}/runs`,{});this.session.attach(run,{replay:false});this.session.confirmInOffice('human','Task sent.\nThe team can begin.');}
   async rooms(host){
     const rooms=await api('/api/rooms');
     const list=node('ul','','room-list');list.setAttribute('aria-label','Rooms');host.append(list);
@@ -307,7 +351,7 @@ export class OfficeConfiguration {
     const histories=await Promise.all(rooms.map(room=>api(`/api/rooms/${room.id}/runs`)));
     for(const [index,room]of rooms.entries()){
       host.append(node('h3',room.name,'history-room'));const runs=histories[index];
-      for(const run of runs){const link=button('',()=>this.session.perform(async()=>{const state=await api(`/api/runs/${run.id}`);this.session.window('history-run',`${room.name} / History`,`Run ${run.number}`,state.config.task);const progress=node('div'),reports=node('div'),tools=node('div');this.scene.activity.renderRecent(progress,null,12,state);this.session.renderReports(reports,state);this.session.renderToolLog(tools,state);$('detail-body').append(node('p',String(state.error||state.outcome||state.status).replace(/zg run trace --tail (20|40) --json/g,'History or Download full trace'),'run-summary'),progress,reports,tools);}));link.className='history-entry';link.setAttribute('aria-label',`Run ${run.number} · ${run.status}`);link.append(node('strong',`Run ${run.number} · ${run.status}`),node('small',run.task.split('\n')[0]));host.append(link);}
+      for(const run of runs){const link=button('',()=>this.session.perform(async()=>{const state=await api(`/api/runs/${run.id}`);this.session.window('history-run',`${room.name} / History`,`Run ${run.number}`,state.config.task);const progress=node('div'),reports=node('div'),tools=node('div');this.scene.activity.renderRecent(progress,null,12,state);this.session.renderReports(reports,state);this.session.renderToolLog(tools,state);$('detail-body').append(node('p',displayReport(state.error||state.outcome||state.status).replace(/zg run trace --tail (20|40) --json/g,'History or Download full trace'),'run-summary'),progress,reports,tools);}));link.className='history-entry';link.setAttribute('aria-label',`Run ${run.number} · ${run.status}`);link.append(node('strong',`Run ${run.number} · ${run.status}`),node('small',run.task.split('\n')[0]));host.append(link);}
     }
     if(!rooms.length)host.append(node('p','Completed work will appear here.','empty-state'));
   }
@@ -316,13 +360,13 @@ export class OfficeConfiguration {
     for(const marker of this.markers.values()){marker.ring.setVisible(false);marker.label.setVisible(false);}
     for(const id of ['board',...this.team.map(([id])=>id)]){
       let marker=this.markers.get(id);if(!marker){marker={ring:this.scene.add.image(0,0,'day:decision-ring:0').setVisible(false),label:this.scene.add.image(0,0,'day:decision-ring:0').setVisible(false)};this.markers.set(id,marker);}
-      const b=this.binding(id),missing=id==='board'?!s.room?.brief?.trim():!this.hasModel(id),person=this.scene.people.get(id),visible=active&&missing&&(!person||!person.bubble&&!person.route.length)&&!this.scene.handoffs.active;
+      const b=this.binding(id),missing=id==='board'?!s.room?.brief?.trim():!this.isReady(id),person=this.scene.people.get(id),visible=active&&missing&&(!person||!person.bubble&&!person.route.length)&&!this.scene.handoffs.active;
       marker.ring.setVisible(visible);marker.label.setVisible(visible&&id!=='board');if(!visible)continue;
       if(id==='board'){
         const key=`${this.scene.mood}:board-setup:${frame}`;if(!this.scene.textures.exists(key)){const c=document.createElement('canvas');c.width=BOARD.width+4;c.height=54;const x=c.getContext('2d');x.fillStyle=this.scene.mood==='night'?'#8194a160':'#7898aa90';const perimeter=[];for(let px=0;px<c.width;px++)perimeter.push([px,0]);for(let py=1;py<c.height;py++)perimeter.push([c.width-1,py]);for(let px=c.width-2;px>=0;px--)perimeter.push([px,c.height-1]);for(let py=c.height-2;py>0;py--)perimeter.push([0,py]);const start=Math.floor(frame/24*perimeter.length);for(let i=0;i<28;i++){const [px,py]=perimeter[(start+i)%perimeter.length];x.fillRect(px,py,1,1);}this.scene.textures.addCanvas(key,c);}marker.ring.setTexture(key).setOrigin(0).setPosition(BOARD.x-2,BOARD.y-2).setDepth(BOARD.y+BOARD.height+1);
       }else{
         marker.ring.setTexture(`${this.scene.mood}:decision-ring:${frame}`).setOrigin(.5).setPosition(Math.round(person.x),Math.round(person.y)-15).setDepth(Math.round(person.y)+2);
-        const text='CHOOSE MODEL';const key=labelTexture(this.scene,text,{background:'idleBubble',color:'bubbleInk'});marker.label.setTexture(key).setOrigin(Math.floor(marker.label.width/2)/marker.label.width,1).setPosition(Math.round(person.x),Math.round(person.y)-40).setDepth(710);
+        const text=this.modelIssue(id)?'CHECK EFFORT':'CHOOSE MODEL';const key=labelTexture(this.scene,text,{background:'idleBubble',color:'bubbleInk'});marker.label.setTexture(key).setOrigin(Math.floor(marker.label.width/2)/marker.label.width,1).setPosition(Math.round(person.x),Math.round(person.y)-40).setDepth(710);
       }
     }
   }

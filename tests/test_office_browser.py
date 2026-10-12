@@ -63,7 +63,7 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("() => {studio.session.showTask();}")
-        page.wait_for_function("() => !!studio.session.run.pending", timeout=45000)
+        page.wait_for_function("() => !!studio.session.decisions.pending", timeout=45000)
         expect(page.locator("#detail-kind")).to_have_text("Current task")
         page.locator("#close-detail").click()
         page.locator("#scene-state").click()
@@ -90,7 +90,9 @@ def test_office_real_api_save_reload_two_rounds_history_and_stop(service):
         expect(guidance).to_have_value("Also test very small fractions.")
         page.get_by_role("button", name="Run next round", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
-        page.wait_for_function("() => studio.session.run.round===2 && !!studio.session.run.pending")
+        page.wait_for_function(
+            "() => studio.session.run.round===2 && !!studio.session.decisions.pending"
+        )
         page.evaluate("() => {studio.session.decisions.open();}")
         expect(page.get_by_role("button", name="Ship it", exact=True)).to_be_visible(timeout=45000)
         assert page.evaluate("window.studio.session.run.round") == 2
@@ -203,7 +205,7 @@ def test_office_reconnect_restores_pending_decision_and_room_switch(service):
         page.get_by_role("button", name="Run task", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()
         page.evaluate("() => {studio.session.showTask();}")
-        page.wait_for_function("() => !!studio.session.run.pending", timeout=45000)
+        page.wait_for_function("() => !!studio.session.decisions.pending", timeout=45000)
         expect(page.locator("#detail-kind")).to_have_text("Current task")
         page.locator("#close-detail").click()
         page.locator("#scene-state").click()

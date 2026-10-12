@@ -2,6 +2,7 @@ import { OfficeConfiguration } from './configuration.js';
 import { OfficeDecisions } from './decisions.js';
 // The office is a client of the existing Room API, not a second orchestrator.
 // The visual spike stays in spikes/pixel-office; this scene has no simulated work.
+export const displayReport=text=>String(text||'').replace(/<ui-status>[\s\S]*?<\/ui-status>/g,'').replace(/<decision-summary>[\s\S]*?<\/decision-summary>/g,'').replace(/^FINDINGS: \?\s*$/gm,'').trim();
 const $ = id => document.getElementById(id);
 const terminal = state => !state || ['completed', 'failed', 'stopped'].includes(state.status);
 const roles = {worker: 'Implementer', reviewer: 'Reviewer', planner: 'Critic', human: 'Human'};
@@ -53,7 +54,11 @@ async function api(path, data) {
     body: JSON.stringify(data),
   });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+  if (!response.ok) {
+    const error=new Error(body.error || `Request failed (${response.status})`);
+    error.agent=body.agent;
+    throw error;
+  }
   return body;
 }
 
@@ -114,17 +119,20 @@ export class OfficeSession {
     this.refreshChrome();
   }
 
-  async perform(action,{errorHost=null}={}) {
+  async perform(action,{errorHost=null,errorKind='Connection'}={}) {
     if (this.busy) return;
     this.setBusy(true);
     $('session-error').hidden = true;
     errorHost?.querySelector('.decision-error')?.remove();
     try { await action(); }
     catch (error) {
-      if(errorHost?.isConnected&&!$('detail-dialog').open){
+      if(error.agent&&Object.values(roles).includes(error.agent)){
+        const id=Object.keys(roles).find(id=>roles[id]===error.agent);
+        this.configuration.setupProblem(id,error.message);
+      }else if(errorHost?.isConnected&&!$('detail-dialog').open){
         const message=node('p',error.message,'decision-error session-error');message.setAttribute('role','alert');errorHost.append(message);
       }else{
-        if (!$('detail-dialog').open) this.window('error', 'Connection', 'Something needs attention', 'Your files and saved rooms are unchanged.');
+        if (!$('detail-dialog').open) this.window('error', errorKind, 'Something needs attention', 'Your files and saved rooms are unchanged.');
         $('session-error').textContent = error.message;
         $('session-error').hidden = false;
       }
@@ -186,6 +194,7 @@ export class OfficeSession {
     this.scene.handoffs.reset();
     this.room = room;this.profiles=profiles;
     this.run = null;
+    this.decisions.observe();
     this.configuration.sync();
     this.connected = true;
     history.replaceState(null, '', `${location.pathname}${location.search}#room=${room.id}`);
@@ -232,16 +241,17 @@ export class OfficeSession {
     this.run = state;
     for (const [id, role] of Object.entries(roles)) {
       const person = this.scene.people.get(id);if(!person)continue;
-      const status = state.participants[role];
-      person.liveStatus = state.status==='paused'?'Paused':status === 'needs human' ? 'Your decision' : status;
+      const status = this.scene.handoffs.roleStates.get(role)?.state ||
+        (!state.presentation ? state.participants[role] : 'waiting');
+      person.liveStatus = terminal(state)?state.status:state.status==='paused'?'Paused':status === 'needs human' ? 'Your decision' : status;
     }
     this.scene.handoffs.observe(state,{replay});
+    this.decisions.observe({replay});
     this.scene.activity.observe(state,{replay});
     if(!replay&&state.status==='paused'&&previous?.status!=='paused'){
-      this.scene.handoffs.cancel();this.scene.ambient.cancel();
+      this.scene.ambient.cancel();
       this.scene.say('human','RUN PAUSED.\nRESUME WHEN READY.',3,'conversation');
     }
-    if(!replay&&state.pending&&state.pending.id!==previous?.pending?.id)this.scene.handoffs.status(state,previous);
     this.refreshChrome();
     this.updateRunWindow();
   }
@@ -253,7 +263,8 @@ export class OfficeSession {
     this.scene.attention?.update();
     $('room-name').textContent = this.room?.name || 'The studio';
     const missing=this.room?this.configuration.missing():[],active=!terminal(this.run);
-    const pending=!!this.decisions.pending,paused=['pausing','paused'].includes(this.run?.status);
+    const pending=!!this.decisions.pending,arriving=this.decisions.arriving,paused=['pausing','paused'].includes(this.run?.status);
+    if(this.decisions.request)this.scene.people.get('human').liveStatus=arriving?this.decisions.arrivalLabel:'Your decision';
     $('room-action').disabled=this.busy||!this.initialized||!this.room||(active?!(paused&&this.connected&&this.bootstrap?.run_pause):!!missing.length);
     $('room-action').setAttribute('aria-label',paused?'Resume run':'Run');
     $('room-action').dataset.state='ready';
@@ -263,18 +274,18 @@ export class OfficeSession {
     $('room-header').title=pending?'Your decision':this.configuration.saveState?.kind==='task'?'Open unsaved task':'Room options';
     if(!pending&&this.configuration.saveState?.kind==='task')$('room-header').setAttribute('aria-label','Open unsaved task');
     const saveState=!active?this.configuration.saveState:null;
-    $('scene-state').dataset.state=!this.initialized||!this.connected?'neutral':pending?'attention':saveState?.error||missing.length?'setup':saveState?'neutral':'ready';
+    $('scene-state').dataset.state=!this.initialized||!this.connected||arriving?'neutral':pending?'attention':saveState?.error||missing.length?'setup':saveState?'neutral':'ready';
     const prefix=(this.bootstrap?.demo?'Demo · ':'')+(this.room?`${this.configuration.workflows[this.configuration.workflow].name} · `:'');
-    let status=!this.bootstrap?'Connecting…':!this.room?'Ready for your first room':!run?missing.length?'Setup needed':'Ready to start':pending?'Your decision':run.status==='pausing'?'Pausing…':run.status;
+    let status=!this.bootstrap?'Connecting…':!this.room?'Ready for your first room':!run?missing.length?'Setup needed':'Ready to start':arriving?this.decisions.arrivalLabel:pending?'Your decision':run.status==='pausing'?'Pausing…':run.status;
     if(saveState)status=saveState.label;
     if(run&&!terminal(run)&&!this.connected)status='Reconnecting…';
     const displayStatus=status.charAt(0).toUpperCase()+status.slice(1);
     if($('scene-state').textContent!==prefix+displayStatus)$('scene-state').replaceChildren(document.createTextNode(prefix),node('span',displayStatus,pending?'attention-state':''));
     // Reserve the longest normal state in the same font, without showing it or
     // announcing it. Room names can grow; run state changes never resize the bar.
-    $('room-status-reserve').replaceChildren(document.createTextNode(prefix),node('span','Your decision','attention-state'));
+    $('room-status-reserve').replaceChildren(document.createTextNode(prefix),node('span','Reviews arriving','attention-state'));
     $('run-pause').title=this.bootstrap?.cooperative_pause?'Pause after current agent calls':'Pause run';
-    $('run-pause').disabled=this.busy||!this.connected||!active||paused||pending||!this.bootstrap?.run_pause;
+    $('run-pause').disabled=this.busy||!this.connected||!active||paused||!!this.decisions.request||!this.bootstrap?.run_pause;
     for(const id of ['run-stop','confirm-stop','cancel-stop'])$(id).disabled=this.busy||!this.connected||!active;
     if(!active||this.stopTarget&&this.stopTarget!==this.run?.id)this.cancelStop();
 
@@ -334,7 +345,7 @@ export class OfficeSession {
     return this.perform(async()=>{
       const state=await api(`/api/runs/${id}/${action}`,{});this.apply(state);
       if(action==='pause'&&state.status==='pausing')this.scene.say('human','PAUSE REQUESTED.\nFINISHING CURRENT CALLS.',4,'conversation');
-      if(action==='resume')this.scene.activity.react('worker','Resuming the task.');
+      if(action==='resume')this.scene.activity.react('human','Run resumed.');
     });
   }
 
@@ -365,6 +376,7 @@ export class OfficeSession {
   }
 
   answer(requestId, value, {note='',noteKey=requestId,errorHost=null}={}) {
+    if(this.decisions.arriving)this.decisions.releaseDelivery(true,false);
     return this.perform(async () => {
       const id=this.run.id,round=this.run.round,legacy=value==='Another round'&&!this.bootstrap.decision_notes;
       if(legacy)this.decisionContinuation={id,round};
@@ -375,13 +387,12 @@ export class OfficeSession {
         this.guidanceDrafts.delete(noteKey);
       }finally{this.decisionContinuation=null;}
       const reactions={
-        'Done':['worker','Result accepted.\nFinishing this run.'],
-        'Ship it':[this.configuration.workflow==='direct'?'worker':'reviewer','Approval received.\nFinishing this run.'],
-        'Abandon':[this.configuration.workflow==='direct'?'worker':'reviewer','Decision recorded.\nEnding this run.'],
-        'Another round':['worker',this.configuration.workflow==='direct'?'Another round requested.\nReturning to the task.':'Review received.\nStarting the next round.'],
+        'Done':'Result accepted.\nFinishing this run.',
+        'Ship it':'Approval sent.\nFinishing this run.',
+        'Abandon':'Decision recorded.\nEnding this run.',
+        'Another round':'Another round requested.\nSending guidance to the team.',
       };
-      const [actor,text]=reactions[value]||['worker','Guidance received.\nReturning to the task.'];
-      this.confirmInOffice(actor,text);
+      this.confirmInOffice('human',reactions[value]||'Guidance sent.');
     },{errorHost});
   }
 
@@ -440,7 +451,7 @@ export class OfficeSession {
       const details = node('details', '', 'run-message');
       details.append(node('summary', `${run.config.workflow==='double_review'&&entry.role==='Reviewer'?'Delivery reviewer':names[entry.role] || entry.role} · Round ${entry.round || 1}${entry.action?.startsWith('respond_')?' · After exchange':entry.action?.startsWith('review_')?' · Independent review':''}`));
       for (const [key, value] of Object.entries(entry.outputs || {})) {
-        details.append(node('h4', key.replaceAll('_', ' ')), node('pre', typeof value === 'string' ? value : JSON.stringify(value, null, 2), 'message-text'));
+        details.append(node('h4', key.replaceAll('_', ' ')), node('pre', typeof value === 'string' ? (entry.role==='Human'?value:displayReport(value)) : JSON.stringify(value, null, 2), 'message-text'));
       }
       container.append(details);
     }

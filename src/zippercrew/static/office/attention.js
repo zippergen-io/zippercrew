@@ -17,7 +17,7 @@ export class DecisionAttention {
   }
   update(){
     const s=this.scene,p=s.people.get('human'),run=s.session?.taskRun;
-    const visible=!!(p&&s.session?.connected&&run?.pending&&!['completed','stopped','failed'].includes(run.status));
+    const visible=!!(p&&s.session?.connected&&s.session.decisions.pending&&run);
     this.sprite.setVisible(visible);if(!visible)return;
     const frame=s.paused?0:Math.floor(s.elapsed*4)%24;
     this.sprite.setTexture(`${s.mood}:decision-ring:${frame}`)

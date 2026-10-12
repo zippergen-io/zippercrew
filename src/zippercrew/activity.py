@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import shlex
 from pathlib import PurePosixPath
@@ -9,23 +10,45 @@ from typing import Any
 
 
 def command_words(command: object) -> list[str]:
-    """Parse only a single observed command, never infer a pipeline's execution."""
-    if not isinstance(command, str):
+    """Recognize one command, optionally preceded by a literal ``cd dir &&``.
+
+    This identifies a test *attempt*, not proof that the directory change or
+    tests ran. Pipelines, extra operations and shell expansions stay opaque.
+    """
+    if not isinstance(command, str) or "\n" in command:
         return []
     try:
-        words = shlex.split(command)
+        outer = shlex.split(command)
         if (
-            len(words) == 3
-            and PurePosixPath(words[0]).name in {"bash", "zsh", "sh"}
-            and words[1] in {"-c", "-lc"}
+            len(outer) == 3
+            and PurePosixPath(outer[0]).name in {"bash", "zsh", "sh"}
+            and outer[1] in {"-c", "-lc"}
         ):
-            words = shlex.split(words[2])
+            command = outer[2]
+        if "\n" in command:
+            return []
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        words = list(lexer)
     except ValueError:
         return []
+    if words[:1] == ["cd"]:
+        directory_index = 2 if words[1:2] == ["--"] else 1
+        separator_index = directory_index + 1
+        if len(words) <= separator_index + 1 or words[separator_index] != "&&":
+            return []
+        directory = words[directory_index]
+        if (
+            not directory
+            or directory.startswith("-")
+            or any(c in directory for c in ";&|`$<>()\n*?[]{}~")
+        ):
+            return []
+        words = words[separator_index + 1 :]
     if any(any(c in word for c in ";&|`$<>()\n") for word in words):
         return []
     if len(words) > 2 and words[:2] in (["uv", "run"], ["poetry", "run"]):
-        # Known transparent launchers; flags/options remain deliberately unsupported.
         words = words[2:]
     return words
 
@@ -95,7 +118,30 @@ def summarize(event: dict[str, Any]) -> dict[str, Any] | None:
     if event.get("kind") == "command":
         category = command_kind(event.get("command"))
         detail["category"] = category
+        # A stable, non-disclosing key lets a successful retry replace the same
+        # failed check without erasing unrelated verification gaps.
+        if isinstance(event.get("command"), str):
+            detail["check_id"] = hashlib.sha256(event["command"].strip().encode()).hexdigest()[:16]
         exit_code = event.get("exit_code")
+        failed = event.get("status") == "failed" or event.get("is_error") is True
+        blocked = failed and bool(
+            re.search(
+                r"requires approval|needs approval|permission denied|not permitted|"
+                r"permission.*denied",
+                str(event.get("output", "")),
+                re.I,
+            )
+        )
+        if phase == "completed":
+            detail["result"] = (
+                "blocked"
+                if blocked
+                else "failed"
+                if failed or type(exit_code) is int and exit_code != 0
+                else "succeeded"
+                if type(exit_code) is int and exit_code == 0
+                else "unknown"
+            )
         if isinstance(exit_code, int) and not isinstance(exit_code, bool):
             detail["exit_code"] = exit_code
         if phase == "started":
@@ -109,7 +155,9 @@ def summarize(event: dict[str, Any]) -> dict[str, Any] | None:
                 "build": "Building the project…",
                 "shell": "Running a shell command…",
             }[category]
-        elif "exit_code" in detail and exit_code != 0:
+        elif blocked:
+            text = "Test command was blocked." if category == "tests" else "Command was blocked."
+        elif failed or "exit_code" in detail and exit_code != 0:
             text = {
                 "tests": "Test command failed.",
                 "format": "Formatting check failed.",
@@ -131,7 +179,7 @@ def summarize(event: dict[str, Any]) -> dict[str, Any] | None:
                 "build": "Build finished.",
             }[category]
         reading = command_read(event.get("command"))
-        if reading and (phase == "started" or exit_code == 0):
+        if reading and (phase == "started" or exit_code == 0 and not failed):
             text = f"Reading {reading[0]}…" if phase == "started" else f"Read {reading[0]}."
     elif event.get("kind") == "file":
         operation = event.get("operation")
@@ -169,6 +217,10 @@ def summarize(event: dict[str, Any]) -> dict[str, Any] | None:
 
 def result_detail(event: dict[str, Any]) -> str | None:
     """Only grammar-checked metrics enter bubbles, never an arbitrary output line."""
+    if event.get("status") == "failed" or event.get("is_error") is True:
+        if re.search(r"requires approval|needs approval", str(event.get("output", "")), re.I):
+            return "Approval was required"
+        return "Tool reported an error"
     if event.get("kind") == "file" and event.get("operation") == "read":
         offset, limit = event.get("offset"), event.get("limit")
         if type(offset) is int and offset > 0:

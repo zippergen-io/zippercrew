@@ -23,7 +23,9 @@ def review_metadata(report: str) -> dict[str, Any]:
 
 def plain_summary(text: str, limit: int = 280) -> str:
     text = re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", text)
-    text = re.sub(r"[*_`#]", "", text)
+    # Keep underscores inside code identifiers, only unwrap Markdown emphasis.
+    text = re.sub(r"(?<![\w_`])_([^_\s](?:.*?[^_\s])??)_(?![\w_`])", r"\1", text)
+    text = re.sub(r"[*`#]", "", text)
     text = " ".join(text.split())
     return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + "…"
 
@@ -40,6 +42,18 @@ def first_sentence(report: str) -> str:
     return ""
 
 
+def verification_gaps(report: str) -> list[str]:
+    verification = review_metadata(report).get("verification")
+    if (
+        isinstance(verification, dict)
+        and verification.get("status") in {"not_run", "partial", "failed", "unknown"}
+        and isinstance(verification.get("reason"), str)
+        and verification["reason"].strip()
+    ):
+        return [plain_summary(verification["reason"])]
+    return []
+
+
 def decision_summary(proposal: str, critique: str, header: str | None) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "recommendation": None,
@@ -47,6 +61,7 @@ def decision_summary(proposal: str, critique: str, header: str | None) -> dict[s
         "worker": first_sentence(proposal),
         "task_issue": False,
         "findings": None,
+        "verification": verification_gaps(critique),
     }
     if header is None:
         return summary
@@ -155,4 +170,7 @@ def double_review_summary(proposal: str, delivery: str, critical: str) -> dict[s
         "findings": None,  # Counts may overlap; don't invent a deduplicated total.
         "reviewers": reviews,
         "disagreement": disagreement,
+        "verification": list(
+            dict.fromkeys(gap for review in reviews for gap in review["verification"])
+        ),
     }

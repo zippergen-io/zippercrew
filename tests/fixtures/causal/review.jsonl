@@ -1,0 +1,48 @@
+{"type": "fixture.provenance", "id": 0, "workflow": "review", "source": "Private-testing audit, real server with fake codex CLI, October 2026", "run": "ac56b5d746134be68b19f6d07a0eec26", "sanitized": "Paths, times, payload values, CLI invocation details omitted. Runtime event order, ids, roles, actions, channel sequences and binding names retained."}
+{"id": 1, "type": "room.started"}
+{"id": 2, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": false, "seq": 0, "bindings": {"task": "recorded payload"}}}
+{"id": 3, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 0, "bindings": {"task": "recorded payload"}}}
+{"id": 4, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Reviewer", "channel": "main", "control": false, "seq": 0, "bindings": {"task": "recorded payload"}}}
+{"id": 5, "type": "runtime", "event": {"type": "recv", "to": "Reviewer", "from": "Human", "channel": "main", "seq": 0, "bindings": {"task": "recorded payload"}}}
+{"id": 6, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "no_guidance", "action_kind": "pure", "seq": 0, "inputs": {}}}
+{"id": 7, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "no_guidance", "action_kind": "pure", "seq": 0, "inputs": {}, "outputs": {"guidance": "recorded payload"}}}
+{"id": 8, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "first_round", "action_kind": "pure", "seq": 1, "inputs": {}}}
+{"id": 9, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "first_round", "action_kind": "pure", "seq": 1, "inputs": {}, "outputs": {"rounds": "recorded payload"}}}
+{"id": 10, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "asks_the_human", "action_kind": "pure", "seq": 2, "inputs": {"detail": "recorded payload"}}}
+{"id": 11, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "asks_the_human", "action_kind": "pure", "seq": 2, "inputs": {"detail": "recorded payload"}, "outputs": {"ask": "recorded payload"}}}
+{"id": 12, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": false, "seq": 1, "bindings": {"guidance": "recorded payload"}}}
+{"id": 13, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 1, "bindings": {"guidance": "recorded payload"}}}
+{"id": 14, "type": "runtime", "event": {"type": "act_start", "lifeline": "Implementer", "action": "implement", "action_kind": "assistant", "seq": 3, "inputs": {"task": "recorded payload", "guidance": "recorded payload"}}}
+{"id": 19, "type": "runtime", "event": {"type": "act", "lifeline": "Implementer", "action": "implement", "action_kind": "assistant", "seq": 3, "inputs": {"task": "recorded payload", "guidance": "recorded payload"}, "outputs": {"proposal": "recorded payload"}}}
+{"id": 20, "type": "runtime", "event": {"type": "send", "from": "Implementer", "to": "Reviewer", "channel": "main", "control": false, "seq": 0, "bindings": {"proposal": "recorded payload"}}}
+{"id": 21, "type": "runtime", "event": {"type": "send", "from": "Implementer", "to": "Human", "channel": "main", "control": false, "seq": 0, "bindings": {"proposal": "recorded payload"}}}
+{"id": 22, "type": "runtime", "event": {"type": "recv", "to": "Human", "from": "Implementer", "channel": "main", "seq": 0, "bindings": {"proposal": "recorded payload"}}}
+{"id": 23, "type": "runtime", "event": {"type": "recv", "to": "Reviewer", "from": "Implementer", "channel": "main", "seq": 0, "bindings": {"proposal": "recorded payload"}}}
+{"id": 24, "type": "runtime", "event": {"type": "act_start", "lifeline": "Reviewer", "action": "review", "action_kind": "assistant", "seq": 4, "inputs": {"task": "recorded payload", "proposal": "recorded payload"}}}
+{"id": 29, "type": "runtime", "event": {"type": "act", "lifeline": "Reviewer", "action": "review", "action_kind": "assistant", "seq": 4, "inputs": {"task": "recorded payload", "proposal": "recorded payload"}, "outputs": {"critique": "recorded payload"}}}
+{"id": 31, "type": "runtime", "event": {"type": "send", "from": "Reviewer", "to": "Human", "channel": "main", "control": false, "seq": 0, "bindings": {"critique": "recorded payload"}}}
+{"id": 32, "type": "runtime", "event": {"type": "recv", "to": "Human", "from": "Reviewer", "channel": "main", "seq": 0, "bindings": {"critique": "recorded payload"}}}
+{"id": 33, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "review_header", "action_kind": "pure", "seq": 5, "inputs": {"critique": "recorded payload"}}}
+{"id": 34, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "review_header", "action_kind": "pure", "seq": 5, "inputs": {"critique": "recorded payload"}, "outputs": {"header": "recorded payload"}}}
+{"id": 35, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "briefing", "action_kind": "pure", "seq": 6, "inputs": {"proposal": "recorded payload", "critique": "recorded payload", "header": "recorded payload", "detail": "recorded payload"}}}
+{"id": 36, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "briefing", "action_kind": "pure", "seq": 6, "inputs": {"proposal": "recorded payload", "critique": "recorded payload", "header": "recorded payload", "detail": "recorded payload"}, "outputs": {"brief": "recorded payload"}}}
+{"id": 37, "type": "runtime", "event": {"type": "decision", "lifeline": "Human"}}
+{"id": 38, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "judge_turn", "action_kind": "human", "seq": 7, "inputs": {"brief": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}}}
+{"id": 39, "type": "human.required", "request": {"id": "5d5587a321ab45019e8adcb8ce780d1d", "action": "judge_turn", "spec": {"kind": "select", "rendered": {"prefill": "Another round\nShip it\nAbandon"}}}}
+{"id": 40, "type": "human.responded", "value": "Another round"}
+{"id": 41, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "judge_turn", "action_kind": "human", "seq": 7, "inputs": {"brief": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}, "outputs": {"verdict": "recorded payload"}}}
+{"id": 42, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "keep_going", "action_kind": "pure", "seq": 8, "inputs": {"verdict": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}}}
+{"id": 43, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "keep_going", "action_kind": "pure", "seq": 8, "inputs": {"verdict": "recorded payload", "rounds": "recorded payload", "max_rounds": "recorded payload"}, "outputs": {"again": "recorded payload"}}}
+{"id": 44, "type": "runtime", "event": {"type": "decision", "lifeline": "Human"}}
+{"id": 45, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "no_note", "action_kind": "pure", "seq": 9, "inputs": {}}}
+{"id": 46, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "no_note", "action_kind": "pure", "seq": 9, "inputs": {}, "outputs": {"note": "recorded payload"}}}
+{"id": 47, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "guidance_from_review", "action_kind": "pure", "seq": 10, "inputs": {"critique": "recorded payload", "note": "recorded payload"}}}
+{"id": 48, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "guidance_from_review", "action_kind": "pure", "seq": 10, "inputs": {"critique": "recorded payload", "note": "recorded payload"}, "outputs": {"guidance": "recorded payload"}}}
+{"id": 49, "type": "runtime", "event": {"type": "decision", "lifeline": "Human"}}
+{"id": 50, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Implementer", "channel": "main", "control": true, "seq": 2, "bindings": {"_0": "recorded payload"}}}
+{"id": 51, "type": "runtime", "event": {"type": "send", "from": "Human", "to": "Reviewer", "channel": "main", "control": true, "seq": 1, "bindings": {"_0": "recorded payload"}}}
+{"id": 52, "type": "runtime", "event": {"type": "act_start", "lifeline": "Human", "action": "outcome", "action_kind": "pure", "seq": 11, "inputs": {"verdict": "recorded payload", "task": "recorded payload", "proposal": "recorded payload", "critique": "recorded payload", "rounds": "recorded payload"}}}
+{"id": 53, "type": "runtime", "event": {"type": "act", "lifeline": "Human", "action": "outcome", "action_kind": "pure", "seq": 11, "inputs": {"verdict": "recorded payload", "task": "recorded payload", "proposal": "recorded payload", "critique": "recorded payload", "rounds": "recorded payload"}, "outputs": {"result": "recorded payload"}}}
+{"id": 54, "type": "runtime", "event": {"type": "recv", "to": "Reviewer", "from": "Human", "channel": "main", "seq": 1, "ctrl": true, "bindings": {"loop": "recorded payload"}}}
+{"id": 55, "type": "runtime", "event": {"type": "recv", "to": "Implementer", "from": "Human", "channel": "main", "seq": 2, "ctrl": true, "bindings": {"loop": "recorded payload"}}}
+{"id": 56, "type": "room.completed"}

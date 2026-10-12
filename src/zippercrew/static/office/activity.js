@@ -25,14 +25,18 @@ export class OfficeActivity {
   isWorking(p){
     const session=this.scene.session;
     const run=session?.taskRun;
-    return !!(session?.connected&&active(run)&&['working','reviewing'].includes(run.participants[ROLES[p.id]])&&
+    return !!(session?.connected&&active(run)&&['working','reviewing'].includes(this.scene.handoffs.roleStates.get(ROLES[p.id])?.state||(!run.presentation?run.participants[ROLES[p.id]]:'waiting'))&&
       (run.status!=='pausing'||Object.values(run.active_calls||{}).some(call=>call.role===ROLES[p.id])));
   }
-  current(p){return this.isWorking(p)?this.scene.session.taskRun.local_activity?.[ROLES[p.id]]:null;}
+  current(p){
+    if(!this.isWorking(p))return null;
+    const h=this.scene.handoffs,role=ROLES[p.id],event=this.scene.session.taskRun.local_activity?.[role];
+    return event&&h.satisfied(event.after)?event:h.roleStates.get(role)?.activity;
+  }
   currentText(p){
     if(!this.scene.session?.connected&&active(this.scene.session?.taskRun))return 'Reconnecting…';
     const event=this.isWorking(p)?this.scene.session.taskRun.room_status?.[ROLES[p.id]]||this.current(p):null;
-    return event?[event.text,event.detail].filter(Boolean).join(' · '):null;
+    return event&&this.scene.handoffs.satisfied(event.after)?[event.text,event.detail].filter(Boolean).join(' · '):null;
   }
   observe(run,{replay=false}={}){
     if(this.runId!==run.id){this.reset();this.runId=run.id;}
@@ -44,7 +48,7 @@ export class OfficeActivity {
       if(this.seen.get(id)===key)continue;
       this.seen.set(id,key);
       const text=activityCopy(event);
-      if(!replay&&text&&text!==this.spoken.get(id))this.pending.set(id,{text,at:this.scene.worldTime});
+      if(!replay&&text&&text!==this.spoken.get(id))this.pending.set(id,{text,at:this.scene.worldTime,after:event.after||[]});
     }
     if(replay||!active(run))this.pending.clear();
     // Real work immediately takes precedence over all ambient choreography.
@@ -52,12 +56,16 @@ export class OfficeActivity {
   }
   update(){
     const scene=this.scene;
-    for(const [id,item]of this.pending)if(scene.worldTime-item.at>15||!this.isWorking(scene.people.get(id)))this.pending.delete(id);
-    if(scene.handoffs.active||scene.handoffs.queue.length||scene.worldTime<this.nextSpeech||scene.worldTime<(scene.reactionUntil||0))return;
+    for(const [id,item]of this.pending){
+      const ready=scene.handoffs.satisfied(item.after);
+      if(ready)item.readyAt??=scene.worldTime;
+      if(ready&&(scene.worldTime-item.readyAt>15||!this.isWorking(scene.people.get(id))))this.pending.delete(id);
+    }
+    if(scene.handoffs.active||scene.worldTime<this.nextSpeech||scene.worldTime<(scene.reactionUntil||0))return;
     // A new useful status can replace an older work bubble after four seconds;
     // conversations and action acknowledgments retain their own display time.
     if([...scene.people.values()].some(p=>p.bubble&&p.bubbleKind!=='work'))return;
-    const next=this.pending.entries().next().value;if(!next)return;
+    const next=[...this.pending].find(([,item])=>scene.handoffs.satisfied(item.after));if(!next)return;
     const [id,{text}]=next;this.pending.delete(id);this.spoken.set(id,text);
     for(const p of scene.people.values())if(p.bubbleKind==='work'){p.bubble?.destroy();p.bubble=null;}
     const readingTime=Math.max(6,Math.min(12,3+text.length/22));
@@ -66,7 +74,7 @@ export class OfficeActivity {
 
   react(id,text){
     const s=this.scene,p=s.people.get(id);if(!p)return;
-    s.ambient.cancel();s.handoffs.cancel();
+    s.ambient.cancel();
     for(const person of s.people.values()){person.bubble?.destroy();person.bubble=null;}
     s.reactionUntil=s.worldTime+3.5;p.reactionUntil=s.reactionUntil;
     s.say(id,text,3.5,'conversation');
