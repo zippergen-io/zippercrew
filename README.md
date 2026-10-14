@@ -13,7 +13,7 @@ these interactions.
 
 *Double review in the pixel office. This screenshot uses the scripted demo and sample task data.*
 
-ZipperCrew is an early local app for private testing. You need a terminal for
+ZipperCrew is an early preview that runs locally. You need a terminal for
 installation. After that, you work in the browser.
 
 [Install](#install) · [First task](#your-first-task) · [Workflows](#workflows) · [Troubleshooting](#troubleshooting)
@@ -24,7 +24,7 @@ installation. After that, you work in the browser.
 
 - macOS or Linux. Native Windows is not supported yet.
 - Git, Python 3.11 or newer, and [uv](https://docs.astral.sh/uv/getting-started/installation/).
-- GitHub access to both the ZipperCrew and ZipperGen repositories.
+- Access to GitHub to download the two public repositories.
 - For real tasks, a working installation of Codex CLI or Claude Code, signed in
   with an account that can use your chosen model. You can use either CLI or both.
   The demo does not need either one.
@@ -308,7 +308,7 @@ agents, rounds, and reasoning can increase usage. ZipperCrew does not currently
 show a cost estimate or enforce a spending cap. Creating rooms and configuring
 agents do not launch model calls.
 
-For private testing, choose a **Codex Worker** when the task requires tests or
+Choose a **Codex Worker** when the task requires tests or
 other commands. It can edit the selected repository and run local commands within
 the CLI's workspace sandbox.
 
@@ -330,7 +330,7 @@ and notes any later successful test command. Full attempts remain in History.
 
 Read-only access restricts writes. It does not mean all reads are confined to the
 repository. In particular, the current Claude configuration does not enforce that
-file-read boundary. Treat Claude support as experimental for private testing.
+file-read boundary. Treat Claude support as experimental.
 Instructions against committing, pushing, and deploying are not a universal
 operating-system restriction.
 
@@ -347,7 +347,7 @@ Only one active run can use a given repository or an overlapping folder at a tim
 
 | Problem | What to check |
 | --- | --- |
-| Git reports “Repository not found” | Confirm that your GitHub account has access to both repositories and that Git is authenticated |
+| Git reports “Repository not found” | Check the clone URLs above and your connection to GitHub. Both repositories are public, so cloning over HTTPS does not require signing in |
 | Installation cannot find ZipperGen | Keep `zippergen` and `zippercrew` as sibling directories, then run `uv sync --locked` from `zippercrew` |
 | A CLI is missing or unsupported | Install or update it, check that `codex` or `claude` runs in the terminal, then restart ZipperCrew |
 | A run fails to sign in or rejects a model | Sign in through the CLI and choose a model your account can use. CLI compatibility checks do not verify authentication |
@@ -359,7 +359,7 @@ Only one active run can use a given repository or an overlapping folder at a tim
 
 ## Give feedback
 
-Open an issue in this repository, or send your notes to the person who invited you.
+Open an issue in this repository.
 Include what you tried, what you expected, what happened, and whether it was a
 real run or the demo. For execution problems, include the workflow, models, OS,
 CLI versions, and relevant error text. A screenshot is often enough for a UI issue.
