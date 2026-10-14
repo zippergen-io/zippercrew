@@ -3,8 +3,8 @@
   "status": "Concept layout exploration, not production renderer screenshots",
   "cast": "Approved B · The Spark with small C-inspired looping curl accents. Existing robot identities retained as references.",
   "references": [
-    "/Users/bollig/zippergen-io/zippercrew/docs/art/human-lookdev-2026-10-06/b-cast.png",
-    "/Users/bollig/zippergen-io/zippercrew/docs/art/human-lookdev-2026-10-06/c-listener.png"
+    "docs/art/human-lookdev-2026-10-06/b-cast.png",
+    "docs/art/human-lookdev-2026-10-06/c-listener.png"
   ],
   "outputs": {
     "01-open-triangle.png": "exec-1afc1efe-90d6-4720-b1e1-9f108bfa5c4c.png",

@@ -460,7 +460,7 @@ def test_named_room_rerun_preserves_history_and_safe_delete(service):
         page = browser.new_page(viewport={"width": 1366, "height": 768}, reduced_motion="reduce")
         page.goto(base)
         configure(page, project, "auto")
-        page.get_by_label("Room name", exact=True).fill("GLOVE review")
+        page.get_by_label("Room name", exact=True).fill("Example review")
         page.get_by_label("Room name", exact=True).press("Tab")
         page.locator("#start").click()
         expect(page.locator("#room-status")).to_have_text("Completed", timeout=30000)
@@ -480,7 +480,7 @@ def test_named_room_rerun_preserves_history_and_safe_delete(service):
         expect(page.locator("#room-status")).to_have_text("Completed", timeout=30000)
         assert page.url != first_url
         assert canvas.evaluate("node => node === document.querySelector('#room-art canvas')")
-        page.get_by_label("Room name", exact=True).fill("GLOVE final review")
+        page.get_by_label("Room name", exact=True).fill("Example final review")
         page.get_by_label("Room name", exact=True).press("Tab")
         page.locator("#room-menu summary").click()
         page.get_by_role("button", name="Run history", exact=True).click()
@@ -491,7 +491,7 @@ def test_named_room_rerun_preserves_history_and_safe_delete(service):
         page.locator("#task-control").click()
         expect(page.locator("#task")).to_have_attribute("readonly", "")
         page.reload()
-        expect(page.get_by_label("Room name", exact=True)).to_have_value("GLOVE final review")
+        expect(page.get_by_label("Room name", exact=True)).to_have_value("Example final review")
         expect(page.locator("#task-preview")).to_contain_text("rounding error")
         page.locator("#room-menu summary").click()
         notices = []

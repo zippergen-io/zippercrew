@@ -8,6 +8,8 @@ version = "0.1.0"
 description = "Make the communication process visible."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = ["zippergen>=0.1.0a5"]
 
 [project.scripts]

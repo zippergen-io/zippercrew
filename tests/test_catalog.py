@@ -15,7 +15,7 @@ def test_room_rerun_history_restart_rename_and_safe_delete(service, config):
     source = project / "keep.txt"
     source.write_text("source repository stays intact")
     code, room = request(
-        base, "/api/rooms", {"name": "GLOVE review", "config": config, "brief": config["task"]}
+        base, "/api/rooms", {"name": "Example review", "config": config, "brief": config["task"]}
     )
     assert code == 201 and room["runs"] == []
     path = f"/api/rooms/{room['id']}"
@@ -26,7 +26,7 @@ def test_room_rerun_history_restart_rename_and_safe_delete(service, config):
     first_trace = (app.runs.get(first["id"]).root / "events.jsonl").read_bytes()
     assert (
         request(
-            base, path + "/save", {"name": "GLOVE revisions", "brief": "Review the next change"}
+            base, path + "/save", {"name": "Example revisions", "brief": "Review the next change"}
         )[0]
         == 200
     )
@@ -42,9 +42,9 @@ def test_room_rerun_history_restart_rename_and_safe_delete(service, config):
     assert all(r["started_at"] and r["ended_at"] for r in history)
     restored = Catalog(app.rooms.root, Runs(app.runs.root))
     assert restored.get(room["id"])["runs"] == [first["id"], second["id"]]
-    assert restored.get(room["id"])["name"] == "GLOVE revisions"
+    assert restored.get(room["id"])["name"] == "Example revisions"
     assert request(base, path + "/delete", {"confirmation": "wrong name"})[0] == 400
-    assert request(base, path + "/delete", {"confirmation": "GLOVE revisions"})[0] == 200
+    assert request(base, path + "/delete", {"confirmation": "Example revisions"})[0] == 200
     assert request(base, "/api/runs/" + first["id"])[0] == 404
     assert request(base, path + "/context")[0] == 404
     assert source.read_text() == "source repository stays intact"

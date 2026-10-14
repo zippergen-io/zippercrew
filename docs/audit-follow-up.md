@@ -1,7 +1,11 @@
-# Audit follow-up
+# Audit follow-up (2026-10-10)
+
+> Historical follow-up, not a current readiness assessment. See the
+> [current README](../README.md) for supported behavior and known limitations.
 
 2026-10-10. This records the changes made after the private-testing audit of
-ZipperCrew `510cbf3`. The original `AUDIT.md` is unchanged.
+ZipperCrew `510cbf3`. The [original audit](audits/2026-10-10-pre-testing.md)
+is archived with its original findings.
 
 ## Fixed
 

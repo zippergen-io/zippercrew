@@ -1,5 +1,9 @@
 # Cooperative Pause audit
 
+> Historical audit of the revisions listed below. Findings and readiness statements
+> describe that snapshot, not the current release. See the [current README](../../README.md)
+> for installation, supported behavior and known limitations.
+
 **Verdict: ready for private testing.** Fix CP-01 before testers use it if possible. It is a small server-side change. Otherwise, list CP-01 as a known issue.
 
 The core of the change works as specified, and these held up under real server and worker processes and randomized races:

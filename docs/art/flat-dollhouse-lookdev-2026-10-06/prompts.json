@@ -4,11 +4,11 @@
   "scope": "Concept exploration only; production unchanged",
   "reference_policy": "Photos: hair, clothing and expressive energy only, never likeness. Dollhouse screenshots: ensemble readability and modularity only, not faces, assets, palette, layout or UI.",
   "references": [
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 09.46.59.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 09.47.13.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 09.47.58.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 12.18.44.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 12.21.07.png"
+    "local-references/Screenshot 2026-10-06 at 09.46.59.png",
+    "local-references/Screenshot 2026-10-06 at 09.47.13.png",
+    "local-references/Screenshot 2026-10-06 at 09.47.58.png",
+    "local-references/Screenshot 2026-10-06 at 12.18.44.png",
+    "local-references/Screenshot 2026-10-06 at 12.21.07.png"
   ],
   "prompts": [
     {

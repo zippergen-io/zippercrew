@@ -10,3 +10,9 @@ dist/
 build/
 test-results/
 .DS_Store
+
+# Local audit drafts and generated screenshots need review before publication.
+/ZIPPERCREW_REPORT.md
+/AUDIT.md
+/COOPERATIVE_PAUSE_AUDIT.md
+/spikes/*/captures/

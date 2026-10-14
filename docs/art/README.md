@@ -1,11 +1,21 @@
-# Current production art: inhabited miniature studio
+# Historical art studies
 
-The production Room uses **Phaser, the refined Patchwork Cue cast, and Linked
+These studies document earlier versions of ZipperCrew. The current pixel office
+is shown in the [main README](../../README.md). The descriptions below refer to
+the versions at the time, not the current production interface.
+
+Generation records retain their design and attribution context. Machine-specific
+paths have been replaced with repository-relative paths or `local-references/`
+placeholders. Local reference images are not included.
+
+## Archived inhabited miniature studio
+
+This version of the Room used **Phaser, the refined Patchwork Cue cast, and Linked
 Studio**. The approved red rabbit Implementer and pale green paper Reviewer are
 unchanged. Human keeps the structured auburn fringe, understated face, and
 constructed plum/mint/ochre clothing.
 
-- [Current production app, recording and screenshots](linked-studio-production-2026-10-06/index.html)
+- [Archived app, recording and screenshots](linked-studio-production-2026-10-06/index.html)
 - [Approved art and implementation handoff](linked-studio-human-integration-2026-10-06/index.html)
 - [Runtime behavior and layering](../room-experience.md)
 

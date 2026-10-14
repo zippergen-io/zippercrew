@@ -1,5 +1,9 @@
 # ZipperCrew pre-testing audit
 
+> Historical audit of the revisions listed below. Findings and readiness statements
+> describe that snapshot, not the current release. See the [current README](../../README.md)
+> for installation, supported behavior and known limitations.
+
 | | |
 | --- | --- |
 | Audited commit | `zippercrew` 510cbf3 (main, matches origin) · `zippergen` 53a9074 (main, matches origin) |

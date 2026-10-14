@@ -396,3 +396,11 @@ choose another location. Model profiles live in
 `~/.config/zippercrew/zippergen.toml`, or under `$XDG_CONFIG_HOME` when set.
 `--project PATH` selects an existing profile directory. It does not select the
 repository an agent works on. Choose that in the room.
+
+## License
+
+ZipperCrew is released under the Apache License 2.0, the same license as
+ZipperGen. See [LICENSE](LICENSE) for the full terms.
+
+Bundled third-party libraries retain their own licenses. Their license notices
+are included in [static/vendor](src/zippercrew/static/vendor).

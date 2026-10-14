@@ -15,7 +15,7 @@ preferred-5
 
 preferred-8
 8-PARTICIPANT VERSION: THREE same-size full-width room-view strips STACKED vertically, NOT one huge panorama and not smaller characters. Top caption "HUB · 3": exactly Human, rabbit I1, paper R1. Middle caption "MAKER WING · 3": exactly rabbits I2 and I3, paper R2, asymmetrically positioned around one short communal making table and one reading ledge, not a desk row. Bottom caption "QUIET WING · 2": exactly rabbit I4 and paper R3, one reading ledge left and small standing planning table right, simple window, no coffee cabinet. Tags outside top link to Maker, middle link to Hub and Quiet, lower link to Maker. Exactly EIGHT figures total, FOUR red rabbits, THREE green paper Reviewers, ONE auburn Human. Keep all inhabitants equally readable across rooms. Three rooms share window/wall/flat floor/connector pieces. Tall three-strip board, each room viewport full width. Do not reduce character scale to squeeze board into landscape.
-For all concepts: Input image 2 is /Users/bollig/Desktop/cast/office.png, a room-language reference ONLY for front-facing dollhouse readability and spatial simplicity. Do not copy its characters, furniture, chairs, sunset backdrop, palette, UI, floor pattern, carpet or aligned desks.
+For all concepts: Input image 2 is local-references/office.png, a room-language reference ONLY for front-facing dollhouse readability and spatial simplicity. Do not copy its characters, furniture, chairs, sunset backdrop, palette, UI, floor pattern, carpet or aligned desks.
 
 Linked Studio
 Use case: stylized-concept. Asset: ZipperCrew 2D dollhouse studio environment concept, wide full room view, restrained original art direction.

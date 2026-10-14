@@ -18,8 +18,8 @@ def pending_room(service, config):
         base,
         "/api/rooms",
         {
-            "name": "ANR workspace",
-            "brief": "We work on the ANR project.",
+            "name": "Example workspace",
+            "brief": "We work on the example project.",
             "config": config,
         },
     )
@@ -205,13 +205,13 @@ def test_explicit_task_issue_opens_whiteboard_and_preserves_previous_run(service
         expect(page.get_by_label("Task", exact=True)).to_have_value(room["brief"])
         assert run.snapshot()["pending"]["id"] == pending["id"]
         assert len(app.rooms.get(room["id"])["runs"]) == 1
-        page.get_by_label("Task", exact=True).fill("Add an ANR project summary to the README.")
+        page.get_by_label("Task", exact=True).fill("Add an example project summary to the README.")
         page.get_by_role("button", name="Back to decision", exact=True).click()
         expect(page.locator("#detail-title")).to_have_text("Your decision")
         assert run.snapshot()["pending"]["id"] == pending["id"]
         page.get_by_role("button", name="Edit task before rerunning", exact=True).click()
         expect(page.get_by_label("Task", exact=True)).to_have_value(
-            "Add an ANR project summary to the README."
+            "Add an example project summary to the README."
         )
         page.get_by_role("button", name="Save task and start new run", exact=True).click()
         expect(page.locator("#detail-dialog")).not_to_be_visible()

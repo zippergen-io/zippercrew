@@ -2,7 +2,7 @@
 
 > Historical notes: much of this document describes the earlier `/` interface.
 > Start with the [current README](../README.md) for setup and workflows.
-> See the [audit follow-up](audit-follow-up.md) for the latest verification and open issues.
+> See the [audit follow-up](audit-follow-up.md) for the findings addressed on 2026-10-10.
 
 Verified locally on 2026-10-04 with Python 3.12 and the editable sibling ZipperGen
 checkout, including its model and reasoning-effort profile support.
@@ -75,12 +75,12 @@ Run again. Screenshots of setup, working, reviewing, Human attention, completion
 and the desktop layout were inspected. The corrected monitor backs face the viewer;
 the characters use the clear working side of their stations.
 
-The three existing ANR-GLOVE journals were hashed before migration and after
+The three existing project journals were hashed before migration and after
 read-only inspection: all remain identical. The actual two-round Reviewer view
 shows Completed review, Round 2 of 4, Claude/read-only, REVISE with 2 findings,
 proposal/review cards and readable expanded Markdown, with no browser errors.
-This refinement did not launch another paid CLI task against ANR-GLOVE. New-run
-browser validation uses the real ZipperGen process with scripted participants;
+This refinement did not launch another paid CLI task against that project.
+New-run browser validation uses the real ZipperGen process with scripted participants;
 native assistant invocation assertions use controlled subprocess responses.
 
 ## Workstations, surfaces, autosave and observable results (2026-10-05)
@@ -92,7 +92,7 @@ native assistant invocation assertions use controlled subprocess responses.
 - The final affected browser group (autosave, lighting, rerun/history, progress
   detail, profile pins) passed all five tests. The real ZipperGen Pair Programming
   process still runs with deterministic test participants; no paid model execution
-  or changes to the ANR source workspace were needed for this presentation pass.
+  or changes to the existing source workspace were needed for this presentation pass.
 - Upstream assistant progress/session/model tests: 51 passed. Result snippets are
   derived from observed structured tool events. A separate trace-only output event
   retains available command results without making conversation cards.
@@ -168,8 +168,8 @@ the integrated Human decision phase.
   assets (about 2.49 MiB compressed).
 
 The workflow tests use the real ZipperGen process with scripted assistants; this
-pass did not spend model credits or modify ANR-GLOVE. The artwork and expressive
-animation are an original first-pass kit, not final artist polish. The provided
+pass did not spend model credits or modify the existing project. The artwork and
+expressive animation are an original first-pass kit, not final artist polish. The provided
 reference video's thumbnail/description were available, but full playback was not.
 
 

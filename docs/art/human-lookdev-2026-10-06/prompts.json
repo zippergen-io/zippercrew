@@ -2,11 +2,11 @@
   "generator": "Built-in image_gen (not CLI)",
   "purpose": "Human-only concept exploration; no production models changed",
   "references": [
-    "/Users/bollig/zippergen-io/zippercrew/docs/art/babylon-cast.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 09.45.39.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 09.46.29.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 09.47.13.png",
-    "/Users/bollig/Desktop/cast/Screenshot 2026-10-06 at 09.47.58.png"
+    "docs/art/babylon-cast.png",
+    "local-references/Screenshot 2026-10-06 at 09.45.39.png",
+    "local-references/Screenshot 2026-10-06 at 09.46.29.png",
+    "local-references/Screenshot 2026-10-06 at 09.47.13.png",
+    "local-references/Screenshot 2026-10-06 at 09.47.58.png"
   ],
   "outputs": {
     "a-improviser.png": "exec-91924dbf-9ac8-40b7-873f-5b127a1f9801.png",

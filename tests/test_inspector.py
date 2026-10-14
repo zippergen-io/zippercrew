@@ -88,7 +88,7 @@ def test_round_conversation_markdown_and_quiet_activity(service, config):
             lambda route: route.fulfill(
                 json={
                     "id": state["id"],
-                    "name": "ANR review",
+                    "name": "Example review",
                     "config": config,
                     "brief": config["task"],
                     "runs": [state["id"]],

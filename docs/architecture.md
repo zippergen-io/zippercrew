@@ -2,7 +2,7 @@
 
 > Historical notes: much of this document describes the earlier `/` interface.
 > Start with the [current README](../README.md) for setup and workflows.
-> See the [audit follow-up](audit-follow-up.md) for the latest verification and open issues.
+> See the [audit follow-up](audit-follow-up.md) for the findings addressed on 2026-10-10.
 
 ZipperGen defines and executes the communication process.
 ZipperCrew makes that process easy to instantiate, use, observe, and enjoy.
