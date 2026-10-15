@@ -1,6 +1,7 @@
 import {api,node,button,field,input,select,terminal,roles,displayReport} from './session.js';
 import {BOARD} from './task-board.js';
-import {labelTexture} from './art.js';
+import {setupHighlightTexture} from './attention.js';
+import {VIEW} from './world.js';
 import {repositoryField} from './repository-picker.js';
 import {TaskDrafts} from './task-drafts.js';
 import {RoomOptions} from './room-options.js';
@@ -355,19 +356,60 @@ export class OfficeConfiguration {
     }
     if(!rooms.length)host.append(node('p','Completed work will appear here.','empty-state'));
   }
+  setupMarker(id){
+    const scene=this.scene;
+    const label=document.createElement('button');
+    label.className='setup-action';label.type='button';label.hidden=true;
+    label.dataset.setupObject=id;
+    const open=()=>{
+      if($('detail-dialog').open)return;
+      if(id==='board')this.session.openCurrent();else scene.select(id);
+    };
+    label.onclick=event=>{event.stopPropagation();open();};
+    $('game').append(label);
+    const marker={ring:scene.add.image(0,0,'day:decision-ring:0').setVisible(false),label};
+    marker.ring.contextOwner=id==='board'?'task-board':id;
+    marker.ring.on('pointerup',(pointer,_x,_y,event)=>{
+      if(pointer.event?.target!==scene.game.canvas||pointer.getDistance()>6)return;
+      event.stopPropagation();open();
+    });
+    this.markers.set(id,marker);
+    return marker;
+  }
   updateAttention(){
-    const s=this.session,active=!!s.room&&terminal(s.taskRun),frame=this.scene.paused?0:Math.floor(this.scene.elapsed*3)%24;
-    for(const marker of this.markers.values()){marker.ring.setVisible(false);marker.label.setVisible(false);}
-    for(const id of ['board',...this.team.map(([id])=>id)]){
-      let marker=this.markers.get(id);if(!marker){marker={ring:this.scene.add.image(0,0,'day:decision-ring:0').setVisible(false),label:this.scene.add.image(0,0,'day:decision-ring:0').setVisible(false)};this.markers.set(id,marker);}
-      const b=this.binding(id),missing=id==='board'?!s.room?.brief?.trim():!this.isReady(id),person=this.scene.people.get(id),visible=active&&missing&&(!person||!person.bubble&&!person.route.length)&&!this.scene.handoffs.active;
-      marker.ring.setVisible(visible);marker.label.setVisible(visible&&id!=='board');if(!visible)continue;
-      if(id==='board'){
-        const key=`${this.scene.mood}:board-setup:${frame}`;if(!this.scene.textures.exists(key)){const c=document.createElement('canvas');c.width=BOARD.width+4;c.height=54;const x=c.getContext('2d');x.fillStyle=this.scene.mood==='night'?'#8194a160':'#7898aa90';const perimeter=[];for(let px=0;px<c.width;px++)perimeter.push([px,0]);for(let py=1;py<c.height;py++)perimeter.push([c.width-1,py]);for(let px=c.width-2;px>=0;px--)perimeter.push([px,c.height-1]);for(let py=c.height-2;py>0;py--)perimeter.push([0,py]);const start=Math.floor(frame/24*perimeter.length);for(let i=0;i<28;i++){const [px,py]=perimeter[(start+i)%perimeter.length];x.fillRect(px,py,1,1);}this.scene.textures.addCanvas(key,c);}marker.ring.setTexture(key).setOrigin(0).setPosition(BOARD.x-2,BOARD.y-2).setDepth(BOARD.y+BOARD.height+1);
-      }else{
-        marker.ring.setTexture(`${this.scene.mood}:decision-ring:${frame}`).setOrigin(.5).setPosition(Math.round(person.x),Math.round(person.y)-15).setDepth(Math.round(person.y)+2);
-        const text=this.modelIssue(id)?'CHECK EFFORT':'CHOOSE MODEL';const key=labelTexture(this.scene,text,{background:'idleBubble',color:'bubbleInk'});marker.label.setTexture(key).setOrigin(Math.floor(marker.label.width/2)/marker.label.width,1).setPosition(Math.round(person.x),Math.round(person.y)-40).setDepth(710);
-      }
+    const s=this.session,scene=this.scene,active=!!s.room&&terminal(s.taskRun);
+    for(const marker of this.markers.values()){
+      marker.ring.setVisible(false).disableInteractive();
+      marker.needed=false;
     }
+    for(const id of ['board',...this.team.map(([id])=>id)]){
+      const missing=id==='board'?!s.room?.brief?.trim():!this.isReady(id);
+      if(!active||!missing)continue;
+      const person=scene.people.get(id),marker=this.markers.get(id)||this.setupMarker(id);
+      const board=id==='board';
+      marker.needed=true;
+      marker.ring.setTexture(setupHighlightTexture(scene,board));
+      if(board){
+        marker.ring.setOrigin(0).setPosition(BOARD.x-3,BOARD.y-3).setDepth(BOARD.y+BOARD.height+1);
+      }else{
+        // A light veil covers the avatar and chair foreground until setup is complete.
+        marker.ring.setOrigin(.5).setPosition(Math.round(person.x),Math.round(person.y)-15).setDepth(Math.round(person.y)+3);
+      }
+      const text=board?'Click to add a task':this.modelIssue(id)?'Check effort':'Choose model';
+      const label=marker.label;
+      if(label.textContent!==text)label.textContent=text;
+      label.setAttribute('aria-label',board?text:`${person.role}: ${text.toLowerCase()}`);
+      // Application guidance is DOM text so it stays smooth over the pixel world.
+      const x=board?BOARD.x+Math.floor(BOARD.width/2):Math.round(person.x);
+      const y=board?BOARD.y+25:Math.round(person.y)-15;
+      label.style.left=`${(x-VIEW.x)/VIEW.width*100}%`;
+      label.style.top=`${(y-VIEW.y)/VIEW.height*100}%`;
+      label.style.width=`${(board?BOARD.width-20:54)/VIEW.width*100}%`;
+      label.style.fontSize=`${Math.max(12,Math.min(22,7*scene.physicalScale/(window.devicePixelRatio||1)))}px`;
+      label.hidden=false;
+      marker.ring.setVisible(true).setInteractive({useHandCursor:true});
+      marker.ring.input.hitArea.setTo(0,0,marker.ring.width,marker.ring.height);
+    }
+    for(const marker of this.markers.values())if(!marker.needed)marker.label.hidden=true;
   }
 }

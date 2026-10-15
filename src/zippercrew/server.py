@@ -79,6 +79,14 @@ class Handler(BaseHTTPRequestHandler):
     server: Application
     protocol_version = "HTTP/1.1"
 
+    def handle(self) -> None:
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            # Browsers can drop idle or keep-alive connections before dispatch,
+            # or disconnect while a request body or response is in flight.
+            self.close_connection = True
+
     def log_message(self, format: str, *args: Any) -> None:
         # Requests contain local workspace paths; keep them out of routine logs.
         pass
@@ -240,8 +248,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.reply(404, {"error": "Not found."})
             else:
                 self.reply(404, {"error": "Not found."})
-        except (BrokenPipeError, ConnectionResetError):
-            pass
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            raise
         except KeyError as exc:
             self.reply(404, {"error": str(exc)})
         except (ValueError, OSError, WorkspaceError) as exc:
@@ -348,6 +356,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, room.snapshot())
             else:
                 self.reply(404, {"error": "Not found."})
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            # Do not try to send a validation error over a disconnected socket.
+            raise
         except AgentConfigurationError as exc:
             self.reply(400, {"error": str(exc), "agent": exc.role})
         except Conflict as exc:

@@ -19,7 +19,7 @@ function excerpt(text,width){
 }
 export function boardCopy(brief){
   const lines=plain(brief||'').split('\n').map(line=>line.trim()).filter(Boolean);
-  if(!lines.length)return {title:'ADD TASK',lines:['WHAT SHOULD THE TEAM DO?','CLICK TO DEFINE THE TASK']};
+  if(!lines.length)return {title:'YOUR TASK',lines:[]};
   if((lines.join('').match(/\?/g)||[]).length>lines.join('').length/4)
     return {title:'CURRENT TASK',lines:['OPEN THE BOARD','TO READ THE FULL BRIEF']};
   const title=excerpt(lines[0],TITLE_CHARS),rest=lines.slice(1);
